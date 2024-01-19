@@ -1,0 +1,90 @@
+name: ConjurSecretsWorkflow
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  #CONJUR_HOSTNAME: "https://conjur.cybrlab.ca"
+  CONJUR_AUTHENTICATE_URL: "https://${{ vars.CONJUR_FQDN }}/authn-jwt/github1/cybrlab/authenticate"
+  CONJUR_RETRIEVE_URL: "https://${{ vars.CONJUR_FQDN }}/secrets/cybrlab/variable"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  capture-oidc-jwt:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      #- uses: actions/checkout@v3
+
+      - name: 'echo set env'
+        run: |
+          echo "secrets: ${{ secrets.CONJUR_FQDN }}"
+          echo "env: ${{ vars.CONJUR_FQDN }}"
+
+      - name: 'capture env'
+        run: |
+          echo "output actions env "
+          env | grep ACTIONS_ >> /tmp/env.env
+          echo "" >> /tmp/env.env
+          env | grep CONJUR_ >> /tmp/env.env
+
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: env.log
+          path: /tmp/env.env
+          retention-days: 90
+
+  retrieve-secret:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: 'Get JWT (ID Token)'
+      uses: actions/github-script@v6
+      id: script
+      timeout-minutes: 1
+      with:
+        debug: true
+        script: |
+          const token = process.env['ACTIONS_RUNTIME_TOKEN']
+          const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
+          core.setOutput('TOKEN', token.trim())
+          core.setOutput('IDTOKENURL', runtimeUrl.trim())
+    - name: 'Get Conjur Secrets'
+      run: |
+        echo ${{steps.script.outputs.TOKEN}}
+        JWT=$(curl -H "Authorization: bearer  ${{steps.script.outputs.TOKEN}}" ${{steps.script.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
+        echo $JWT > /tmp/action.jwt
+
+        echo "Authenticating with Job's JWT to Conjur"
+        echo ""
+        echo curl -v -k -X POST $CONJUR_AUTHENTICATE_URL -H "Content-Type:application/x-www-form-urlencoded" -H "Accept-Encoding:base64" --data-urlencode "jwt=${CI_JOB_JWT}"
+        export SESSION_TOKEN=$(curl -v -k -X POST $CONJUR_AUTHENTICATE_URL -H "Content-Type:application/x-www-form-urlencoded" -H "Accept-Encoding:base64" --data-urlencode "jwt=$JWT")
+        echo ""
+        export DB_USER=$(curl -v -k -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/vault1/lob1/github1/mysql-account-01/username)
+        echo ""
+        export DB_PASSWORD=$(curl -v -k -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/vault1/lob1/github1/mysql-account-01/password)
+        echo ""
+        echo "$DB_USER:$DB_PASSWORD"
+
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: actions.jwt
+        path: /tmp/action.jwt
+        retention-days: 90

@@ -1,0 +1,7 @@
+Category: "Conjur Cloud"
+Name: "github.com"
+Docs: "https://github.com/David-Lang/cybr-demos/tree/main/demos/conjur_cloud/github.com"
+DemoScript: "demo.sh"
+SetupScript: "init.sh"
+Enabled: false
+IsSetup: false
