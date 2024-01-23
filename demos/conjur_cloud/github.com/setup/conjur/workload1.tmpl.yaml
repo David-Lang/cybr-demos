@@ -4,7 +4,7 @@
 # Identity for the application example that uses the authenticator
 # It annotates the host identity to grants it the role to authenticate
 - !host
-  id: workloads/github/{{ .JWT_CLAIM_IDENTITY }}
+  id: workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}
   annotations:
     authn-jwt/github1/actor: {{ .JWT_CLAIM_IDENTITY }}
     authn/api-key: true

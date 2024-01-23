@@ -44,7 +44,7 @@ set_variables() {
   github1_token_app_property_value="actor"
 
   github1_identity_path_id="conjur/authn-jwt/github1/identity-path"
-  github1_identity_path_value="workloads/github-actor"
+  github1_identity_path_value="data/workloads/github-actor"
 }
 
 platform_auth() {
