@@ -1,4 +1,6 @@
 #!/bin/bash
+# shellcheck disable=SC2059
+
 set -euo pipefail
 
 source "$CYBR_DEMOS_PATH/isp_vars.env.sh"
@@ -14,8 +16,7 @@ main() {
 
 # shellcheck disable=SC2153
 set_variables() {
-  echo
-  echo "Setting local vars from Env"
+  printf "\nSetting local vars from Env"
   isp_id=$TENANT_ID
   isp_subdomain=$TENANT_SUBDOMAIN
   client_id=$CLIENT_ID
@@ -26,8 +27,7 @@ set_variables() {
 
 platform_auth() {
   # $1 client_id, $2 client_secret
-  echo
-  echo "ISP Auth"
+  printf "\nISP Auth client_id: $1\n"
 
   identity_token=$(curl --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
   --header 'X-IDAP-NATIVE-CLIENT: true' \
@@ -41,8 +41,7 @@ platform_auth() {
 
 create_safe() {
   # $1 safe_name
-  echo
-  echo "Creating Safe: $1"
+  printf "Creating Safe: $1\n"
 
   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
   --header "Authorization: Bearer $identity_token" \
@@ -61,8 +60,7 @@ create_safe() {
 
 add_safe_member() {
   # $1 safe_name, $2 member_name
-  echo
-  echo "Adding Member: $2 to Safe: $1"
+  printf "Adding Member: $2 to Safe: $1\n"
   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$1/Members/" \
   --header "Authorization: Bearer $identity_token" \
   --header 'Content-Type: application/json' \
@@ -101,8 +99,7 @@ add_safe_member() {
 
 create_account_ssh_user_1() {
   # $1 safe_name
-  echo
-  echo "Creating Account: account-ssh-user-1 in Safe: $1"
+  printf "Creating Account: account-ssh-user-1 in Safe: $1\n"
 
   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
   --header "Authorization: Bearer $identity_token" \
@@ -140,8 +137,7 @@ conjur_list_groups(){
 }
 
 wait_for_synchronizer() {
-  echo
-  echo "Waiting for synchronizer (*/$safe_name/delegation/consumers)"
+  printf "Waiting for synchronizer (*/$safe_name/delegation/consumers)\n"
 
   conjur_isp_auth
   #echo "conjur_token: $conjur_token"

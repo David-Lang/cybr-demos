@@ -1,0 +1,94 @@
+name: conjur-cloud-jwt-direct
+
+# Controls when the workflow will trigger
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  # Triggers the workflow on push events but only for the "main" branch
+  # push:
+  #   branches: [ "main" ]
+  
+env:
+  CONJUR_AUTHENTICATE_URL: "${{ vars.CONJUR_URL }}/authn-jwt/${{ vars.CONJUR_JWT_AUTHN_ID }}/${{ vars.CONJUR_ACCOUNT }}/authenticate"
+  CONJUR_RETRIEVE_URL: "${{ vars.CONJUR_URL }}/secrets/${{ vars.CONJUR_ACCOUNT }}/variable"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 'echo parameters'
+        run: |
+          echo "vars.CONJUR_URL: ${{ vars.CONJUR_URL }}"
+          echo "vars.CONJUR_ACCOUNT: ${{ vars.CONJUR_ACCOUNT }}"
+          echo "vars.CONJUR_JWT_AUTHN_ID: ${{ vars.CONJUR_JWT_AUTHN_ID }}"
+          echo "vars.CONJUR_SECRET_ID_1: ${{ vars.CONJUR_SECRET_ID_1 }}"
+          echo "vars.CONJUR_SECRET_ID_2: ${{ vars.CONJUR_SECRET_ID_2 }}"
+
+      - name: 'Get JWT (ID Token)'
+        uses: actions/github-script@v6
+        id: script
+        timeout-minutes: 1
+        with:
+          debug: true
+          script: |
+            const token = process.env['ACTIONS_RUNTIME_TOKEN']
+            const runtimeUrl = process.env['ACTIONS_ID_TOKEN_REQUEST_URL']
+            core.setOutput('TOKEN', token.trim())
+            core.setOutput('IDTOKENURL', runtimeUrl.trim())
+
+      - name: 'Get JWT'
+        run: |
+          echo ${{steps.script.outputs.TOKEN}}
+          export JWT=$(curl -H "Authorization: bearer  ${{steps.script.outputs.TOKEN}}" ${{steps.script.outputs.IDTOKENURL}}  -H "Accept: application/json; api-version=2.0" -H "Content-Type: application/json" -d "{}" | jq -r '.value')
+          echo "JWT=$JWT" >> "$GITHUB_ENV"
+          echo $JWT > /tmp/action.jwt
+      
+      - name: 'Upload JWT Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: actions.jwt
+          path: /tmp/action.jwt
+          retention-days: 90
+
+      - name: 'Get Conjur Secrets'
+        run: |
+          echo "Authenticating with JWT to Conjur"
+          echo ""
+          export SESSION_TOKEN=$(curl -k -X POST $CONJUR_AUTHENTICATE_URL -H "Content-Type:application/x-www-form-urlencoded" -H "Accept-Encoding:base64" --data-urlencode "jwt=$JWT")
+          echo ""
+          echo "Retrieving secret: ${{ vars.CONJUR_SECRET_ID_1 }}"
+          export SECRET_1=$(curl -k -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/${{ vars.CONJUR_SECRET_ID_1 }})
+          echo ""
+          echo "Retrieving secret: ${{ vars.CONJUR_SECRET_ID_2 }}"
+          export SECRET_2=$(curl -k -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/${{ vars.CONJUR_SECRET_ID_2 }})
+          echo ""
+          echo "SECRET_1:$SECRET_1"
+          echo "SECRET_2:$SECRET_2"
+          echo "SECRET_1=$SECRET_1" >> "$GITHUB_ENV"
+          echo "SECRET_2=$SECRET_2" >> "$GITHUB_ENV"
+    
+      - name: 'capture to file'
+        run: |
+          echo "output file" >> /tmp/output.txt
+          echo "vars.CONJUR_URL: ${{ vars.CONJUR_URL }}" >> /tmp/output.txt
+          echo "vars.CONJUR_ACCOUNT: ${{ vars.CONJUR_ACCOUNT }}" >> /tmp/output.txt
+          echo "vars.CONJUR_JWT_AUTHN_ID: ${{ vars.CONJUR_JWT_AUTHN_ID }}" >> /tmp/output.txt
+          echo "vars.CONJUR_SECRET_ID_1: ${{ vars.CONJUR_SECRET_ID_1 }}" >> /tmp/output.txt
+          echo "vars.CONJUR_SECRET_ID_2: ${{ vars.CONJUR_SECRET_ID_2 }}" >> /tmp/output.txt
+          echo "SECRET_1: $SECRET_1" >> /tmp/output.txt
+          echo "SECRET_2: $SECRET_2" >> /tmp/output.txt
+          echo "" >> /tmp/output.txt
+          echo "env: " >> /tmp/output.txt
+          env >> /tmp/output.txt
+
+      - name: 'Upload Output Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: output.txt
+          path: /tmp/output.txt
+          retention-days: 90

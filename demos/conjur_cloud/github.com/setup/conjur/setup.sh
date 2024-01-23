@@ -39,19 +39,19 @@ set_variables() {
   github1_jwks_uri_id="conjur/authn-jwt/github1/jwks-uri"
   github1_jwks_uri_value="https://token.actions.githubusercontent.com/.well-known/jwks"
 
-  github1_token_app_property_id="conjur/authn-jwt/github1/token-app-property"
-  github1_token_app_property_value="repository"
-
-  github1_identity_path_id="conjur/authn-jwt/github1/identity-path"
-  github1_identity_path_value="apps/github1"
-
   github1_issuer_id="conjur/authn-jwt/github1/issuer"
   github1_issuer_value="https://token.actions.githubusercontent.com"
+
+  github1_token_app_property_id="conjur/authn-jwt/github1/token-app-property"
+  github1_token_app_property_value="actor"
+
+  github1_identity_path_id="conjur/authn-jwt/github1/identity-path"
+  github1_identity_path_value="workloads/github-actor"
 }
 
 platform_auth() {
   # $1 client_id, $2 client_secret
-  printf "\nISP Auth\n"
+  printf "\nISP Auth client_id: $1\n"
   identity_token=$(curl --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
   --header 'X-IDAP-NATIVE-CLIENT: true' \
   --header 'Content-Type: application/x-www-form-urlencoded' \

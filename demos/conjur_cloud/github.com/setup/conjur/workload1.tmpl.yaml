@@ -7,9 +7,17 @@
   id: workloads/{{ .JWT_CLAIM_IDENTITY }}
   annotations:
     authn-jwt/github1/repository: {{ .JWT_CLAIM_IDENTITY }}
+    authn/api-key: true
 
 - !grant
   roles:
     - !group authenticator/consumers
   members:
-    - !host workloads/{{ .JWT_CLAIM_IDENTITY }}
+    - !host workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}
+
+# Grants safe access to a workload.
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !host workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}
