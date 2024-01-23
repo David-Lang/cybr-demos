@@ -3,7 +3,7 @@
 # shellcheck disable=SC2059
 set -euo pipefail
 
-source "$CYBR_DEMOS_PATH/isp_vars.env.sh"
+source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
 
 main() {
   set_variables
