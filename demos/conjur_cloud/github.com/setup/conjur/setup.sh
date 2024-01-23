@@ -22,8 +22,6 @@ main() {
   # Setup Workloads
   resolve_template "workload1.tmpl.yaml" "workload1.yaml"
   apply_conjur_policy "data" "$(cat workload1.yaml)"
-  resolve_template "workload1_privileges.tmpl.yaml" "workload1_privileges.yaml"
-  apply_conjur_policy "data" "$(cat workload1_privileges.yaml)"
 
   printf "\n"
 }

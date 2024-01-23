@@ -11,8 +11,8 @@ set +a
 
 # Vault Setup
 cd setup/vault
-.setup.sh
+./setup.sh
 
 # Conjur Setup
 cd ../../setup/conjur
-.setup.sh
+./setup.sh
