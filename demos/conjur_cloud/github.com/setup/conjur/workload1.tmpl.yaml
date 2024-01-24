@@ -1,0 +1,23 @@
+# metadata
+# mode: append-policy
+---
+# Identity for the application example that uses the authenticator
+# It annotates the host identity to grants it the role to authenticate
+- !host
+  id: workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}
+  annotations:
+    authn-jwt/github1/actor: {{ .JWT_CLAIM_IDENTITY }}
+    authn/api-key: true
+
+- !grant
+  roles:
+    - !group authenticator/consumers
+  members:
+    - !host workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}
+
+# Grants safe access to a workload.
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !host workloads/github-actor/{{ .JWT_CLAIM_IDENTITY }}

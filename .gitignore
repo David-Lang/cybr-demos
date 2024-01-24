@@ -1,0 +1,21 @@
+.gitkeep
+bin/**
+# exception to the rule, keep folder not contents
+
+*.swp
+
+license.txt
+*.out
+
+*.tfplan
+.terraform*
+*tfstate*
+*secrets.auto.tfvars
+*terraform/*kubeconfig_*
+/go.sum
+
+*.idea/workspace.xml
+
+test_assets/*
+secret/*
+secrets/*
