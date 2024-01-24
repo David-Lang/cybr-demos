@@ -5,6 +5,9 @@ set -euo pipefail
 export CYBR_DEMOS_PATH=$HOME/cybr-demos
 echo "export CYBR_DEMOS_PATH=$HOME/cybr-demos" >> "$HOME/.profile"
 
+mkdir "$HOME/.cybr-demos"
+chmod 600 "$HOME/.cybr-demos"
+
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_jq.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_tree.sh
 
