@@ -12,7 +12,7 @@ main() {
 
   # Setup Auth Service
   apply_conjur_policy "data" "$(cat authenticator_consumers.yaml)"
-  apply_conjur_policy "conjur/authn-jwt" "$(cat service_repo_based_workloads.yaml)"
+  apply_conjur_policy "conjur/authn-jwt" "$(cat jwt_service_github1.yaml)"
   apply_conjur_secret "$github1_jwks_uri_id" "$github1_jwks_uri_value"
   apply_conjur_secret "$github1_token_app_property_id" "$github1_token_app_property_value"
   apply_conjur_secret "$github1_identity_path_id" "$github1_identity_path_value"
