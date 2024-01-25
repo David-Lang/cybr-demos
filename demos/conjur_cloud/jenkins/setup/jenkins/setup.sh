@@ -34,7 +34,7 @@ start_jenkins() {
 
   if [[ "$(docker ps | grep "$jenkins_container")" == "" ]]; then
      docker run -p "$jenkins_port":8080 -d --name "$jenkins_container" --restart always jenkins/jenkins:lts
-     sleep 5
+     sleep 10
      docker logs "$jenkins_container"
   fi
 
