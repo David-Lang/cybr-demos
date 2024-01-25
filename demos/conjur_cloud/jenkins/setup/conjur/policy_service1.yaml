@@ -69,4 +69,4 @@
 
     - !grant
       role: !group consumers
-      member: !group /apps/authenticators
+      member: !group /service/consumers
