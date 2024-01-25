@@ -4,6 +4,7 @@
 set -euo pipefail
 
 main() {
+  printf "\nJenkins Setup\n"
   set_variables
   start_jenkins
   printf "\n"

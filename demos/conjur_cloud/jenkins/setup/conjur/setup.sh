@@ -9,6 +9,7 @@ set -euo pipefail
 source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
 
 main() {
+  printf "\nConjur Setup\n"
   set_variables
   platform_auth "$client_id" "$client_secret"
   conjur_isp_auth

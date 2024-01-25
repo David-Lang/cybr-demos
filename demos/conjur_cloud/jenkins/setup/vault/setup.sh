@@ -5,6 +5,7 @@
  source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
 
  main() {
+   printf "\nVault Setup\n"
    set_variables
    platform_auth "$client_id" "$client_secret"
    create_safe "$safe_name"
@@ -170,7 +171,7 @@
  }
 
  conjur_list_groups(){
-    curl --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/resources?kind=group" \
+    curl --silent --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/resources?kind=group" \
     --header "Authorization: Token token=\"$conjur_token\""
  }
 
