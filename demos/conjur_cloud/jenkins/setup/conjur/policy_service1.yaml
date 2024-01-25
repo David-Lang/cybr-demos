@@ -21,7 +21,9 @@
     - !variable
       id: token-app-property
 
-    # This variable is used with token-app-property. This variable will hold the conjur policy path that contains the conjur host identity found by looking at the claim entered in token-app-property.
+    # This variable is used with token-app-property.
+    # This variable will hold the conjur policy path that contains the conjur host identity
+    # found by looking at the claim entered in token-app-property.
     - !variable
       id: identity-path
 
