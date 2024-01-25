@@ -4,7 +4,7 @@
 ---
 # This policy defines a JWT authenticator to be used with an instance of Jenkins
 - !policy
-  id: conjur/authn-jwt/jenkins1
+  id: jenkins1
   body:
     - !webservice
 
@@ -71,4 +71,4 @@
 
     - !grant
       role: !group consumers
-      member: !group data/service/consumers
+      member: !group /data/service/consumers

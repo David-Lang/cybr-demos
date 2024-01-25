@@ -49,7 +49,7 @@ start_jenkins() {
   echo "Jenkins URL: http://$host_fqdn:$jenkins_port"
   echo
   echo -n "Initial Jenkins admin password: "
-  echo $(docker exec "$jenkins_container" cat /var/lib/jenkins/secrets/initialAdminPassword)
+  echo $(docker exec "$jenkins_container" cat /var/jenkins_home/secrets/initialAdminPassword)
   echo
 }
 
