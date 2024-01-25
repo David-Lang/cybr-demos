@@ -61,7 +61,8 @@ set_variables() {
 platform_auth() {
   # $1 client_id, $2 client_secret
   printf "\nISP Auth client_id: $1\n"
-  identity_token=$(curl --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
+  identity_token=$(curl --silent \
+  --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
   --header 'X-IDAP-NATIVE-CLIENT: true' \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
@@ -72,7 +73,8 @@ platform_auth() {
 
 conjur_isp_auth(){
   printf "\nConjur Auth\n"
-  conjur_token=$(curl --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
+  conjur_token=$(curl --silent \
+  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
   --header 'Accept-Encoding: base64' \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "id_token=$identity_token")
@@ -82,7 +84,8 @@ conjur_isp_auth(){
 apply_conjur_policy(){
   # $1 branch, $2 policy
   printf "\nApply on Conjur Policy on Branch $1:\n$2\n"
-  curl --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$1" \
+  curl --silent \
+  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$1" \
   --header "Authorization: Token token=\"$conjur_token\"" \
   --header 'Content-Type: text/plain' \
   --data "$2"
@@ -91,7 +94,8 @@ apply_conjur_policy(){
 apply_conjur_secret(){
   # $1 id, 2$ value
   printf "\nActivate Conjur Secret ID: $1 Value: $2"
-  curl --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/secrets/conjur/variable/$1" \
+  curl --silent \
+  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/secrets/conjur/variable/$1" \
   --header "Authorization: Token token=\"$conjur_token\"" \
   --header 'Content-Type: text/plain' \
   --data "$2"
@@ -100,7 +104,8 @@ apply_conjur_secret(){
 activate_conjur_service(){
   # $1 service_id
   printf "\nActivate Conjur Service ID: $1"
-  curl --request PATCH --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/$1/conjur" \
+  curl --silent \
+  --request PATCH --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/$1/conjur" \
   --header 'X-Request-Id: <string>' \
   --header "Authorization: Token token=\"$conjur_token\"" \
   --header 'Content-Type: application/x-www-form-urlencoded' \

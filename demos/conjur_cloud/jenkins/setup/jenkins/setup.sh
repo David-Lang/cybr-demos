@@ -19,7 +19,7 @@ set_variables() {
 #  jenkins_volume="cybr-jenkins"
   jenkins_port=8081
 
-  host_fqdn=$(curl -s http://169.254.169.254/latest/meta-data/public-hostname)
+  host_fqdn=$(curl --silent http://169.254.169.254/latest/meta-data/public-hostname)
 }
 
 start_jenkins() {

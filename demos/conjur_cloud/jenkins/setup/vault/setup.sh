@@ -29,7 +29,8 @@
    # $1 client_id, $2 client_secret
    printf "\nISP Auth client_id: $1\n"
 
-   identity_token=$(curl --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
+   identity_token=$(curl --silent \
+   --location "https://$isp_id.id.cyberark.cloud/oauth2/platformtoken" \
    --header 'X-IDAP-NATIVE-CLIENT: true' \
    --header 'Content-Type: application/x-www-form-urlencoded' \
    --data-urlencode 'grant_type=client_credentials' \
@@ -43,7 +44,8 @@
    # $1 safe_name
    printf "Creating Safe: $1\n"
 
-   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
+   curl --silent \
+   --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
    --header "Authorization: Bearer $identity_token" \
    --header 'Content-Type: application/json' \
    --data "{
@@ -61,7 +63,8 @@
  add_safe_admin_role() {
    # $1 safe_name, $2 member_name
    printf "Adding Member: $2 to Safe: $1\n"
-   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$1/Members/" \
+   curl --silent \
+   --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$1/Members/" \
    --header "Authorization: Bearer $identity_token" \
    --header 'Content-Type: application/json' \
    --data "{
@@ -100,7 +103,8 @@
  add_safe_read_member() {
    # $1 safe_name, $2 member_name
    printf "Adding Member: $2 to Safe: $1\n"
-   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$1/Members/" \
+   curl --silent \
+   --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$1/Members/" \
    --header "Authorization: Bearer $identity_token" \
    --header 'Content-Type: application/json' \
    --data "{
@@ -140,7 +144,8 @@
    # $1 safe_name
    printf "Creating Account: account-ssh-user-1 in Safe: $1\n"
 
-   curl --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
+   curl --silent \
+   --location "https://$isp_subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
    --header "Authorization: Bearer $identity_token" \
    --header 'Content-Type: application/json' \
    --data "{
@@ -164,7 +169,7 @@
  }
 
  conjur_isp_auth(){
-   conjur_token=$(curl --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
+   conjur_token=$(curl --silent --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
    --header 'Accept-Encoding: base64' \
    --header 'Content-Type: application/x-www-form-urlencoded' \
    --data-urlencode "id_token=$identity_token")
