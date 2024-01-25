@@ -7,7 +7,7 @@
 - !host
   id: workloads/jenkins-name/{{ .JWT_CLAIM_IDENTITY }}
   annotations:
-    authn-jwt/jenkins1/sub: {{ .JWT_CLAIM_IDENTITY }}
+    authn-jwt/jenkins1/name: {{ .JWT_CLAIM_IDENTITY }}
     authn/api-key: true
 
 - !grant
