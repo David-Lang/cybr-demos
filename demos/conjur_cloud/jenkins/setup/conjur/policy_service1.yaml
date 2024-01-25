@@ -69,4 +69,4 @@
 
     - !grant
       role: !group consumers
-      member: !group /service/consumers
+      member: !group data/service/consumers
