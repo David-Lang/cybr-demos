@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-demo_path="$CYBR_DEMOS_PATH/demos/conjur_cloud/github.com"
+demo_path="$CYBR_DEMOS_PATH/demos/conjur_cloud/jenkins"
 # Set environment variables using .env file
 # -a means that every bash variable would become an environment variable
 # Using ‘+’ rather than ‘-’ causes the option to be turned off
