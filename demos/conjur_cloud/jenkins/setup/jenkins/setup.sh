@@ -1,6 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC2046
 # shellcheck disable=SC2005
+# shellcheck disable=SC2153
 set -euo pipefail
 
 main() {
@@ -10,12 +11,12 @@ main() {
   printf "\n"
 }
 
-# shellcheck disable=SC2153
+
 set_variables() {
   printf "\nSetting local vars from Env\n"
 
 #  jenkins_image="jenkins/jenkins:lts"
-  jenkins_container="cybr-jenkins"
+  jenkins_container="$JENKINS_CONTAINER"
 #  jenkins_volume="cybr-jenkins"
   jenkins_port=8081
 
@@ -32,7 +33,7 @@ start_jenkins() {
 #  fi
 
   if [[ "$(docker ps | grep "$jenkins_container")" == "" ]]; then
-     docker run -p 8081:8080 -d --name jenkins8081 --restart always jenkins/jenkins:lts
+     docker run -p 8081:8080 -d --name "$jenkins_container" --restart always jenkins/jenkins:lts
      sleep 5
      docker logs jenkins8081
   fi
