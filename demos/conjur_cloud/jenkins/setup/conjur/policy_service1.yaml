@@ -8,14 +8,12 @@
   body:
     - !webservice
 
+      # user either 'jwks-uri' or 'public-keys'
       # If the JWKS service is publicly available, uncomment 'jwks-uri'.
       # If the JWKS service is not available, uncomment 'public-keys'
-
     - !variable
-      id: jwks-uri
-
-    # - !variable
-    #   id: public-keys
+      #id: jwks-uri
+      id: public-keys
 
     # This variable tells Conjur which claim in the JWT to use to determine the conjur host identity.
     - !variable
@@ -27,8 +25,7 @@
     - !variable
       id: identity-path
 
-    # Uncomment ca-cert if the JWKS website cert isn't trusted by conjur
-
+    # Use / Uncomment ca-cert if the JWKS website cert isn't trusted by conjur
     # - !variable
     #   id: ca-cert
 
@@ -39,12 +36,6 @@
     # This variable contains what "aud" is the JWT.
     - !variable
       id: audience
-
-    # - !variable
-    #   id: enforced-claims
-
-    # - !variable
-    #   id: claim-aliases
 
     - !group
       id: consumers

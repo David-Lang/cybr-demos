@@ -1,6 +1,6 @@
 Category: "Conjur Cloud"
 Name: "Jenkins"
-Docs: "https://github.com/David-Lang/cybr-demos/tree/main/demos/jenkins"
+Docs: "https://github.com/David-Lang/cybr-demos/tree/main/demos/conjur_cloud/jenkins"
 DemoScript:
 SetupScript: setup.sh
 Enabled: false

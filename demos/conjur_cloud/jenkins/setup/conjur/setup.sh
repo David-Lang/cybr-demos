@@ -52,10 +52,10 @@ set_variables() {
   jenkins1_issuer_value="http://$host_fqdn:$jenkins_port"
 
   jenkins1_token_app_property_id="conjur/authn-jwt/jenkins1/token-app-property"
-  jenkins1_token_app_property_value="sub"
+  jenkins1_token_app_property_value="name"
 
   jenkins1_identity_path_id="conjur/authn-jwt/jenkins1/identity-path"
-  jenkins1_identity_path_value="data/workloads/jenkins-sub"
+  jenkins1_identity_path_value="data/workloads/jenkins-name"
 
   jenkins1_audience_id="conjur/authn-jwt/jenkins1/audience"
   jenkins1_audience_value="demo"
