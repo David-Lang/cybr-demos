@@ -33,9 +33,9 @@ start_jenkins() {
 #  fi
 
   if [[ "$(docker ps | grep "$jenkins_container")" == "" ]]; then
-     docker run -p 8081:8080 -d --name "$jenkins_container" --restart always jenkins/jenkins:lts
+     docker run -p "$jenkins_port":8080 -d --name "$jenkins_container" --restart always jenkins/jenkins:lts
      sleep 5
-     docker logs jenkins8081
+     docker logs "$jenkins_container"
   fi
 
   printf "\n\nKeystore Password is: changeit\n\n"
