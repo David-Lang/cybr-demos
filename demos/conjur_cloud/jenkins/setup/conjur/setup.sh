@@ -29,6 +29,9 @@ main() {
   resolve_template "policy_workload1.tmpl.yaml" "policy_workload1.yaml"
   apply_conjur_policy "data" "$(cat policy_workload1.yaml)"
 
+  resolve_template "policy_workload2.tmpl.yaml" "policy_workload2.yaml"
+  apply_conjur_policy "data" "$(cat policy_workload2.yaml)"
+
   printf "\n"
 }
 
