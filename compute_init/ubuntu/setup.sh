@@ -9,7 +9,7 @@ settings_dir="$HOME/.cybr-demos"
 
 if [ -d "$settings_dir" ]; then
   echo "$settings_dir exists. Skipping compute setup"
-  exit 1  # You can choose any non-zero exit code you prefer
+  exit 0  # Exit with success
 fi
 
 mkdir "$settings_dir"
