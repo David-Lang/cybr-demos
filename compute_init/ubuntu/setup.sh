@@ -7,7 +7,7 @@ echo "export CYBR_DEMOS_PATH=$HOME/cybr-demos" >> "$HOME/.profile"
 
 settings_dir="$HOME/.cybr-demos"
 
-if [ -d "settings_dir" ]; then
+if [ -d "$settings_dir" ]; then
   echo "$settings_dir exists. Skipping compute setup"
   exit 1  # You can choose any non-zero exit code you prefer
 fi
