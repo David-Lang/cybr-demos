@@ -12,8 +12,8 @@ if [ -d "settings_dir" ]; then
   exit 1  # You can choose any non-zero exit code you prefer
 fi
 
-mkdir "$HOME/$settings_dir"
-chmod 700 "$HOME/$settings_dir"
+mkdir "$settings_dir"
+chmod 700 "$settings_dir"
 
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_jq.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_tree.sh
