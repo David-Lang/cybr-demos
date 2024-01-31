@@ -183,7 +183,7 @@
 
    while [[ "$(conjur_list_groups | grep "/$safe_name"/delegation/consumers)" == "" ]]; do
      echo -n "."
-     sleep 2
+     sleep 5
    done
  }
 
