@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+provider "aws" {
+  region  = var.secrets_manager_region
+  version = "~> 3.0"
+  # Credentials are sourced from environment variables
+}
+
 # Configuration for the AWS Provider can be derived from several sources,
 # which are applied in the following order:
 #

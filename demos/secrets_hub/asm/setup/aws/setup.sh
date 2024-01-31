@@ -17,7 +17,7 @@ main() {
 
 # shellcheck disable=SC2153
 set_variables() {
-  printf "\nSetting local vars from Env"
+  printf "\nSetting local vars from Env\n"
 
   set -a
   source "../vars.env"
