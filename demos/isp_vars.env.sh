@@ -4,5 +4,5 @@
 # -a means that every bash variable would become an environment variable
 # Using ‘+’ rather than ‘-’ causes the option to be turned off
 set -a
-source "$CYBR_DEMOS_PATH/demos/isp_vars.env"
+source "$HOME/.cybr-demos/isp_vars.env"
 set +a

@@ -1,0 +1,10 @@
+# metadata
+# mode: append-policy
+# branch: data
+---
+- !policy
+  id: service
+  owner: !group /Conjur_Cloud_Admins
+
+  body:
+    - !group consumers
