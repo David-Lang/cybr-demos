@@ -2,14 +2,13 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
   }
 }
 
 provider "aws" {
   region  = var.secrets_manager_region
-  version = "~> 3.0"
   # Credentials are sourced from environment variables
 }
 
