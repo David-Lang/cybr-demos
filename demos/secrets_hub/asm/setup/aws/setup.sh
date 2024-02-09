@@ -8,9 +8,15 @@ source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
 main() {
   set_variables
 
-  # Setup AWS
+  # Get Secrets Hub Role ARN
+
+  # Setup AWS Cloud Formation Template
   cd terraform
   ./build.sh
+
+  # Set Secrets Hub Secret Store
+
+  # Set Secrets Hub Policy
 
   printf "\n"
 }
