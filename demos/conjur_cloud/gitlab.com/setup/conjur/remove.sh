@@ -11,10 +11,10 @@ main() {
   conjur_isp_auth
 
   # Remove Auth Service
-  apply_conjur_policy "conjur/authn-jwt" "$(cat remove_auth_service.yaml)"
+  patch_conjur_policy "conjur/authn-jwt" "$(cat remove_auth_service.yaml)"
 
   # Remove Workloads
-  apply_conjur_policy "data" "$(cat remove_workloads.yaml)"
+  patch_conjur_policy "data" "$(cat remove_workloads.yaml)"
 
   printf "\n"
 }
