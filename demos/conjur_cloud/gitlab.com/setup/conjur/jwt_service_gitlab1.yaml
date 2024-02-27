@@ -1,0 +1,68 @@
+# metadata
+# mode: append-policy
+---
+# This policy defines a JWT authenticator to be used with an instance of Gitlab
+- !policy
+  id: gitlab1
+  body:
+  - !webservice
+
+  # If the JWKS service is publicly available, uncomment 'jwks-uri'.
+  # If the JWKS service is not available, uncomment 'public-keys'
+  - !variable
+    id: jwks-uri
+  #  id: public-keys
+
+  # This variable sets which claim in the JWT to use to determine the conjur host identity.
+  - !variable
+    id: token-app-property
+
+  # This variable is used with token-app-property it holds the conjur policy path that contains the conjur host identity
+  # as set by the token-app-property claim value.
+  - !variable
+    id: identity-path
+
+  # Uncomment ca-cert if the JWKS website cert isn't trusted by conjur
+  # - !variable
+  #   id: ca-cert
+
+  # This variable contains what "iss" in the JWT.
+  - !variable
+    id: issuer
+  
+  # This variable contains what "aud" is the JWT.
+  # - !variable
+  #   id: audience
+
+  # - !variable
+  #   id: enforced-claims
+
+  # - !variable
+  #   id: claim-aliases
+
+  - !group
+    id: consumers
+
+  - !permit
+    role: !group consumers
+    privilege: [ read, authenticate ]
+    resource: !webservice
+
+  - !webservice
+    id: status
+    annotations:
+      description: Status service to check that the authenticator is configured correctly
+
+  - !group
+    id: operators
+    annotations:
+      description: Group of users who can check the status of the authenticator
+
+  - !permit
+     role: !group operators
+     privilege: [ read ]
+     resource: !webservice status
+
+  - !grant
+    role: !group consumers
+    member: !group /data/authenticator/consumers

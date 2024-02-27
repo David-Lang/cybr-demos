@@ -1,0 +1,35 @@
+jwt-echo:
+  script: echo ${CI_JOB_JWT} | cat > gitlab.jwt
+  # write out the jwt to artifacts for manual inspection
+  artifacts:
+    paths:
+      - gitlab.jwt
+    expire_in: 1 week
+
+get-secrets:
+  stage: test
+  variables:
+    CONJUR_HOSTNAME: "https://$CONJUR_FQDN"
+    CONJUR_AUTHENTICATE_URL: "$CONJUR_HOSTNAME/api/authn-jwt/gitlab1/conjur/authenticate"
+    CONJUR_RETRIEVE_URL: "$CONJUR_HOSTNAME/api/secrets/conjur/variable"
+  before_script:
+    - apk add --update curl && rm -rf /var/cache/apk/*
+  script:
+    - echo "Authenticating with Job's JWT to Conjur"
+
+    - authn_header="-H Content-Type:application/x-www-form-urlencoded -H Accept-Encoding:base64"
+    - echo curl -s -X POST $CONJUR_AUTHENTICATE_URL $authn_header --data-urlencode "jwt=${CI_JOB_JWT}"
+    - export SESSION_TOKEN=$(curl -s -X POST $CONJUR_AUTHENTICATE_URL $authn_header --data-urlencode "jwt=${CI_JOB_JWT}")
+
+    - echo "Retrieve Secrets from Conjur"
+
+    - secret01_path="data/vault/gitlab1-cybrlab-conjur-cloud/system-user/username"
+    - echo "curl -s -H '"Authorization:Token token=\"${SESSION_TOKEN}\""' $CONJUR_RETRIEVE_URL/$secret01_path"
+    - export SECRET01=$(curl -s -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/$secret01_path)
+
+    - secret02_path="data/vault/gitlab1-cybrlab-conjur-cloud/system-user/password"
+    - echo "curl -s -H '"Authorization:Token token=\"${SESSION_TOKEN}\""' $CONJUR_RETRIEVE_URL/$secret02_path"
+    - export SECRET02=$(curl -s -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/$secret02_path)
+
+    - echo "secret01_path"':' "$SECRET01"
+    - echo "secret02_path"':' "$SECRET02"
