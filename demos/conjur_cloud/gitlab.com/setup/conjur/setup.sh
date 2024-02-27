@@ -46,7 +46,7 @@ set_variables() {
   token_app_property_value="project_path"
 
   identity_path_id="conjur/authn-jwt/gitlab1/identity-path"
-  identity_path_value="data/workloads/github-project"
+  identity_path_value="data/workloads/gitlab-project"
 }
 
 platform_auth() {
