@@ -6,7 +6,7 @@
 - !host
   id: workloads/gitlab-project/{{ .JWT_CLAIM_IDENTITY }}
   annotations:
-    authn-jwt/github1/project_path: {{ .JWT_CLAIM_IDENTITY }}
+    authn-jwt/gitlab1/project_path: {{ .JWT_CLAIM_IDENTITY }}
     authn/api-key: true
 
 - !grant
