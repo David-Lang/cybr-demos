@@ -58,6 +58,16 @@ apply_conjur_policy(){
   --data "$2"
 }
 
+patch_conjur_policy(){
+  # $1 branch, $2 policy
+  printf "\Patch on Conjur Branch $1 Policy: \n$2\n"
+  curl --request PATCH \
+  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$1" \
+  --header "Authorization: Token token=\"$conjur_token\"" \
+  --header 'Content-Type: text/plain' \
+  --data "$2"
+}
+
 apply_conjur_secret(){
   # $1 id, 2$ value
   printf "\nActivate Conjur Secret ID: $1 Value: $2"
@@ -70,7 +80,8 @@ apply_conjur_secret(){
 activate_conjur_service(){
   # $1 service_id
   printf "\nActivate Conjur Service ID: $1"
-  curl -v --request PATCH --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/$1/conjur" \
+  curl -v --request PATCH \
+  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/$1/conjur" \
   --header 'X-Request-Id: <string>' \
   --header "Authorization: Token token=\"$conjur_token\"" \
   --header 'Content-Type: application/x-www-form-urlencoded' \
