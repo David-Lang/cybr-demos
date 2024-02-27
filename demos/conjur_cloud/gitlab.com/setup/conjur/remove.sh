@@ -10,20 +10,11 @@ main() {
   platform_auth "$client_id" "$client_secret"
   conjur_isp_auth
 
-  # Setup Auth Service
-  apply_conjur_policy "data" "$(cat authenticator_consumers.yaml)"
-  apply_conjur_policy "conjur/authn-jwt" "$(cat auth_service.yaml)"
+  # Remove Auth Service
+  apply_conjur_policy "conjur/authn-jwt" "$(cat remove_auth_service.yaml)"
 
-  apply_conjur_secret "$jwks_uri_id" "$jwks_uri_value"
-  apply_conjur_secret "$token_app_property_id" "$token_app_property_value"
-  apply_conjur_secret "$identity_path_id" "$identity_path_value"
-  apply_conjur_secret "$issuer_id" "$issuer_value"
-
-  activate_conjur_service "authn-jwt/gitlab1"
-
-  # Setup Workloads
-  resolve_template "workload1.tmpl.yaml" "workload1.yaml"
-  apply_conjur_policy "data" "$(cat workload1.yaml)"
+  # Remove Workloads
+  apply_conjur_policy "data" "$(cat remove_workloads.yaml)"
 
   printf "\n"
 }
@@ -35,18 +26,6 @@ set_variables() {
   isp_subdomain=$TENANT_SUBDOMAIN
   client_id=$CLIENT_ID
   client_secret=$CLIENT_SECRET
-
-  jwks_uri_id="conjur/authn-jwt/gitlab1/jwks-uri"
-  jwks_uri_value="https://gitlab.com/-/jwks/"
-
-  issuer_id="conjur/authn-jwt/gitlab1/issuer"
-  issuer_value="gitlab.com"
-
-  token_app_property_id="conjur/authn-jwt/gitlab1/token-app-property"
-  token_app_property_value="project_path"
-
-  identity_path_id="conjur/authn-jwt/gitlab1/identity-path"
-  identity_path_value="data/workloads/gitlab-project"
 }
 
 platform_auth() {
