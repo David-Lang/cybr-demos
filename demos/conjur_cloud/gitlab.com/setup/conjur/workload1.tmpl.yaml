@@ -12,15 +12,15 @@
       authn-jwt/gitlab1/project_path: {{ .JWT_CLAIM_IDENTITY }}
       authn/api-key: true
 
-  - !grant
-    roles:
-      - !group authenticator/consumers
-    members:
-      - !host workloads/gitlab-project/{{ .JWT_CLAIM_IDENTITY }}
+- !grant
+  roles:
+    - !group authenticator/consumers
+  members:
+    - !host workloads/gitlab-project/{{ .JWT_CLAIM_IDENTITY }}
 
-  # Grants safe access to a workload.
-  - !grant
-    roles:
-      - !group vault/{{ .SAFE_NAME }}/delegation/consumers
-    members:
-      - !host workloads/gitlab-project/{{ .JWT_CLAIM_IDENTITY }}
+# Grants safe access to a workload.
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !host workloads/gitlab-project/{{ .JWT_CLAIM_IDENTITY }}
