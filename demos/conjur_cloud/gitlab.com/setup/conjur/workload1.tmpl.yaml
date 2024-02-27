@@ -1,16 +1,13 @@
 # metadata
 # mode: append-policy
 ---
-- !policy
-  id: workloads/gitlab-project
-  body:
-  # Identity for the application example that uses the authenticator
-  # It annotates the host identity to grants it the role to authenticate
-  - !host
-    id: {{ .JWT_CLAIM_IDENTITY }}
-    annotations:
-      authn-jwt/gitlab1/project_path: {{ .JWT_CLAIM_IDENTITY }}
-      authn/api-key: true
+# Identity for the application example that uses the authenticator
+# It annotates the host identity to grants it the role to authenticate
+- !host
+  id: {{ .JWT_CLAIM_IDENTITY }}
+  annotations:
+    authn-jwt/gitlab1/project_path: {{ .JWT_CLAIM_IDENTITY }}
+    authn/api-key: true
 
 - !grant
   roles:
