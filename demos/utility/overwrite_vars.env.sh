@@ -9,6 +9,7 @@ set -euo pipefail
 
 apply_env_file() {
     local file_path="$1"
+    echo "Applying env from: $file_path"
 
     # Check if the path exists
     if [ -e "$file_path" ]; then
