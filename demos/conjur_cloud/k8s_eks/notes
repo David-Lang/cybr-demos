@@ -1,12 +1,29 @@
+
+region=$REGION
+eks_name=$EKS_NAME
+profile_name=$PROFILE_NAME
+eks_context=$EKS_CONTEXT
+
 # add additional provide to AWS cmd line config
-aws configure --profile new_profile_name
-aws sts get-caller-identity --profile new_profile_name
+aws configure --profile $profile_name
+aws sts get-caller-identity --profile $profile_name
 
 # get k8s config
-aws eks update-kubeconfig --region $REGION --name $EKS_NAME
+aws eks list-clusters --region $region --profile $profile_name
+aws eks update-kubeconfig --region $region --name $eks_name --profile $profile_name
+
+
+#
+kubectl config get-contexts
+kubectl config use-context $eks_context
+kubectl config current-context
+kubectl config view
+kubectl get namespaces
+
+kubectl get configmap/aws-auth -n kube-system -o yaml > aws-auth.yaml
 
 # get vpcs
-aws ec2 describe-vpcs --region ca-cental-1
+aws ec2 describe-vpcs --region $region
 kubectl config view
 kubectl config current-context
 #kubectl config use-context <context-name>
