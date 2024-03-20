@@ -7,7 +7,7 @@ get_conjur_token(){
       return 1
   fi
 
-  curl --location "https://$1.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
+  curl --silent --location "https://$1.secretsmgr.cyberark.cloud/api/authn-oidc/cyberark/conjur/authenticate" \
   --header 'Accept-Encoding: base64' \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "id_token=$2"
@@ -20,7 +20,7 @@ apply_conjur_policy(){
       return 1
   fi
 
-  curl --location "https://$1.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$3" \
+  curl --silent --location "https://$1.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$3" \
   --header "Authorization: Token token=\"$2\"" \
   --header 'Content-Type: text/plain' \
   --data "$4"
@@ -33,7 +33,7 @@ apply_conjur_secret(){
       return 1
   fi
 
-  curl --location "https://$1.secretsmgr.cyberark.cloud/api/secrets/conjur/variable/$3" \
+  curl --silent --location "https://$1.secretsmgr.cyberark.cloud/api/secrets/conjur/variable/$3" \
   --header "Authorization: Token token=\"$2\"" \
   --header 'Content-Type: text/plain' \
   --data "$4"
@@ -46,7 +46,7 @@ activate_conjur_service(){
       return 1
   fi
 
-  curl -v --request PATCH --location "https://$1.secretsmgr.cyberark.cloud/api/$3/conjur" \
+  curl --silent --request PATCH --location "https://$1.secretsmgr.cyberark.cloud/api/$3/conjur" \
   --header 'X-Request-Id: <string>' \
   --header "Authorization: Token token=\"$2\"" \
   --header 'Content-Type: application/x-www-form-urlencoded' \
@@ -59,7 +59,7 @@ get_conjur_groups(){
       echo "Usage: get_conjur_groups isp_subdomain conjur_token"
       return 1
   fi
-  curl --location "https://$1.secretsmgr.cyberark.cloud/api/resources?kind=group" \
+  curl --silent --location "https://$1.secretsmgr.cyberark.cloud/api/resources?kind=group" \
   --header "Authorization: Token token=\"$2\""
 }
 

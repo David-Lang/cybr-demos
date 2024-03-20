@@ -7,7 +7,7 @@ get_identity_token() {
       return 1
   fi
 
-  curl --location "https://$1.id.cyberark.cloud/oauth2/platformtoken" \
+  curl --silent --location "https://$1.id.cyberark.cloud/oauth2/platformtoken" \
   --header 'X-IDAP-NATIVE-CLIENT: true' \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
