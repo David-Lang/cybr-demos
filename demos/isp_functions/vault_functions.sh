@@ -20,6 +20,17 @@ set -euo pipefail
    }"
  }
 
+  delete_safe() {
+    # $1 isp_subdomain, $2 identity_token, $3 safe_name,
+    printf "\nDeleting Safe: $3\n"
+    safeUrlId="$3"
+
+    curl --silent \
+    --request DELETE \
+    --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$safeUrlId" \
+    --header "Authorization: Bearer $2"
+  }
+
  add_safe_admin_role() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
    printf "\nAdding Member: $4 to Safe: $3\n"
@@ -123,4 +134,22 @@ set -euo pipefail
          \"accessRestrictedToRemoteMachines\": true
        }
      }"
+ }
+
+
+ delete_account_ssh_user_1() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name
+   printf "\nDeleting Account: account-ssh-user-1 in Safe: $3\n"
+
+   id=$(curl --silent \
+   --request DELETE \
+   --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safename eq $3" \
+   --header "Authorization: Bearer $2" | jq -r .value[0].id)
+
+   printf "\nDeleting Account Id: account-ssh-user-1 in Safe: $3 Id: $id\n"
+   curl --silent \
+   --request DELETE \
+   --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+   --header "Authorization: Bearer $2" \
+
  }

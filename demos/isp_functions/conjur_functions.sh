@@ -27,6 +27,20 @@ apply_conjur_policy(){
   --data "$4"
 }
 
+patch_conjur_policy(){
+  # $1 isp_subdomain, $2 conjur_token, $3 branch, $4 policy
+  if [ $# -ne 4 ]; then
+      echo "Usage: isp_subdomain conjur_token apply_conjur_policy branch policy "
+      return 1
+  fi
+  printf "\Patch on Conjur Branch $3 Policy: \n$4\n"
+  curl --silent --request PATCH \
+  --location "https://$1.secretsmgr.cyberark.cloud/api/policies/conjur/policy/$3" \
+  --header "Authorization: Token token=\"$2\"" \
+  --header 'Content-Type: text/plain' \
+  --data "$4"
+}
+
 apply_conjur_secret(){
   # $1 isp_subdomain, $2 conjur_token, $3 id, 4$ value
   if [ $# -ne 4 ]; then
