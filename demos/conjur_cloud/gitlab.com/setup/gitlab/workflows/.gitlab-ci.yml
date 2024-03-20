@@ -1,0 +1,38 @@
+jwt-echo:
+  script: echo ${CI_JOB_JWT} | cat > gitlab.jwt
+  # write out the jwt to artifacts for manual inspection
+  artifacts:
+    paths:
+      - gitlab.jwt
+    expire_in: 1 week
+
+get-secrets:
+  stage: test
+  # GitLab Project Variables Expected:
+  # $CONJUR_FQDN
+  # $CONJUR_ACCOUNT
+  # $CONJUR_AUTHN_SERVICE
+  # $CONJUR_SECRET_PATH_01
+  # $CONJUR_SECRET_PATH_02
+  variables:
+    CONJUR_HOSTNAME: "https://$CONJUR_FQDN"
+    CONJUR_AUTHN_URL: "$CONJUR_HOSTNAME/api/authn-jwt/$CONJUR_AUTHN_SERVICE/$CONJUR_ACCOUNT/authenticate"
+    CONJUR_RETRIEVE_URL: "$CONJUR_HOSTNAME/api/secrets/$CONJUR_ACCOUNT/variable"
+  before_script:
+    - apk add --update curl && rm -rf /var/cache/apk/*
+  script:
+    - echo "Authenticating with Job's JWT to Conjur"
+    - echo "CONJUR_FQDN $CONJUR_FQDN"
+    - echo "CONJUR_ACCOUNT $CONJUR_ACCOUNT"
+    - echo "CONJUR_AUTHN_SERVICE $CONJUR_AUTHN_SERVICE"
+    - echo "CONJUR_SECRET_PATH_01 $CONJUR_SECRET_PATH_01"
+    - echo "CONJUR_SECRET_PATH_02 $CONJUR_SECRET_PATH_02"
+    - echo ""
+    - echo curl -X POST $CONJUR_AUTHN_URL -H "Content-Type:application/x-www-form-urlencoded" -H "Accept-Encoding:base64" --data-urlencode "jwt=${CI_JOB_JWT}"
+    - export SESSION_TOKEN=$(curl -X POST $CONJUR_AUTHN_URL -H "Content-Type:application/x-www-form-urlencoded" -H "Accept-Encoding:base64" --data-urlencode "jwt=${CI_JOB_JWT}")
+    - echo ""
+    - echo curl -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/$CONJUR_SECRET_PATH_01
+    - export PAS_USERNAME=$(curl -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/$CONJUR_SECRET_PATH_01)
+    - export PAS_PASSWORD=$(curl -H "Authorization:Token token=\"${SESSION_TOKEN}\"" $CONJUR_RETRIEVE_URL/$CONJUR_SECRET_PATH_02)
+    - echo ""
+    - echo "$PAS_USERNAME:$PAS_PASSWORD"

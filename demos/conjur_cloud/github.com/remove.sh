@@ -11,12 +11,8 @@ set +a
 
 # Vault Setup
 cd "$demo_path/setup/vault"
-./setup.sh
+./remove.sh
 
 # Conjur Setup
 cd "$demo_path/setup/conjur"
-./setup.sh
-
-# Github Setup
-cd "$demo_path/setup/github"
-./setup.sh
+./remove.sh
