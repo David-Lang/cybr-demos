@@ -34,7 +34,7 @@ main() {
 
   # Setup Workloads
 
-  printf "\n\nresolve_template "workload1.tmpl.yaml" "workload1.yaml\n"
+  printf "\n\nresolve_template workload1.tmpl.yaml workload1.yaml\n"
   resolve_template "workload1.tmpl.yaml" "workload1.yaml"
 
   printf "\n\napply_conjur_policies $isp_subdomain conjur_token branch policy\n"
@@ -64,6 +64,5 @@ set_variables() {
   github1_identity_path_id="conjur/authn-jwt/github1/identity-path"
   github1_identity_path_value="data/workloads/github-actor"
 }
-
 
 main "$@"

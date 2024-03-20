@@ -1,8 +1,9 @@
 #!/bin/bash
+set -euo pipefail
 
  create_safe() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name,
-   printf "Creating Safe: $3\n"
+   printf "\nCreating Safe: $3\n"
 
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
    --header "Authorization: Bearer $2" \
@@ -21,7 +22,7 @@
 
  add_safe_admin_role() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
-   printf "Adding Member: $4 to Safe: $3\n"
+   printf "\nAdding Member: $4 to Safe: $3\n"
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$3/Members/" \
    --header "Authorization: Bearer $2" \
    --header 'Content-Type: application/json' \
@@ -60,7 +61,7 @@
 
  add_safe_read_member() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
-   printf "Adding Member: $4 to Safe: $3\n"
+   printf "\nAdding Member: $4 to Safe: $3\n"
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$3/Members/" \
    --header "Authorization: Bearer $2" \
    --header 'Content-Type: application/json' \
@@ -99,7 +100,7 @@
 
  create_account_ssh_user_1() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name
-   printf "Creating Account: account-ssh-user-1 in Safe: $3\n"
+   printf "\nCreating Account: account-ssh-user-1 in Safe: $3\n"
 
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
    --header "Authorization: Bearer $2" \

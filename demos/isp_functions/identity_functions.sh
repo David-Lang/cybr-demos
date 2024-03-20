@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 get_identity_token() {
   # $1 isp_id, $2 client_id, $3 client_secret

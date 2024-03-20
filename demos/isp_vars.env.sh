@@ -13,7 +13,7 @@ set +a
 
 is_tool_installed() {
   if command -v "$1" >/dev/null 2>&1; then
-    echo "$1 is installed."
+    echo "$1 is installed"
   else
     echo "$1 is not installed and it might be required to run setup scripts"
   fi

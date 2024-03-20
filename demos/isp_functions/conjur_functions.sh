@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 get_conjur_token(){
   # $1 isp_subdomain, $2 identity_token

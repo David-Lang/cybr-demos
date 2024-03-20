@@ -1,6 +1,5 @@
 #!/bin/bash
 # shellcheck disable=SC2059
-
 set -euo pipefail
 
 source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
