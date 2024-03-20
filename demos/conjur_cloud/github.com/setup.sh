@@ -16,3 +16,7 @@ cd "$demo_path/setup/vault"
 # Conjur Setup
 cd "$demo_path/setup/conjur"
 ./setup.sh
+
+# Github Setup
+cd "$demo_path/setup/github"
+./setup.sh
