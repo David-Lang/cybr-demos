@@ -8,35 +8,36 @@ source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
 main() {
   set_variables
 
-  printf "\nplatform_auth $isp_id $client_id $client_secret\n"
+  printf "\n\nplatform_auth $isp_id $client_id $client_secret\n"
   identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
+  printf "\n\nidentity_token: \n$identity_token\n"
 
-  printf "\nconjur_isp_auth $isp_subdomain $identity_token\n"
+  printf "\n\nconjur_isp_auth $isp_subdomain identity_token\n"
   conjur_token=$(get_conjur_token "$isp_subdomain" "$identity_token")
+  printf "\n\nconjur_token: \n$conjur_token\n"
 
   # Setup Auth Service
-  printf "\napply_conjur_policies $isp_subdomain $conjur_token branch policy\n"
+  printf "\n\napply_conjur_policies $isp_subdomain conjur_token branch policy\n"
 
   apply_conjur_policy "$isp_subdomain" "$conjur_token" "data" "$(cat authenticator_consumers.yaml)"
   apply_conjur_policy "$isp_subdomain" "$conjur_token" "conjur/authn-jwt" "$(cat jwt_service_github1.yaml)"
 
-  printf "\napply_conjur_secret $isp_subdomain $conjur_token id value\n"
+  printf "\n\napply_conjur_secret $isp_subdomain conjur_token id value\n"
 
   apply_conjur_secret "$isp_subdomain" "$conjur_token" "$github1_jwks_uri_id" "$github1_jwks_uri_value"
   apply_conjur_secret "$isp_subdomain" "$conjur_token" "$github1_token_app_property_id" "$github1_token_app_property_value"
   apply_conjur_secret "$isp_subdomain" "$conjur_token" "$github1_identity_path_id" "$github1_identity_path_value"
   apply_conjur_secret "$isp_subdomain" "$conjur_token" "$github1_issuer_id" "$github1_issuer_value"
 
-  printf "\nactivate_conjur_service $isp_subdomain $conjur_token service_id\n"
+  printf "\n\nactivate_conjur_service $isp_subdomain conjur_token service_id\n"
   activate_conjur_service "$isp_subdomain" "$conjur_token" "authn-jwt/github1"
 
   # Setup Workloads
 
-  printf "\nResolve Template: input_file $1 output_file: $2\n"
-
+  printf "\n\nresolve_template "workload1.tmpl.yaml" "workload1.yaml\n"
   resolve_template "workload1.tmpl.yaml" "workload1.yaml"
 
-  printf "\napply_conjur_policies $isp_subdomain $conjur_token branch policy\n"
+  printf "\n\napply_conjur_policies $isp_subdomain conjur_token branch policy\n"
 
   apply_conjur_policy "$isp_subdomain" "$conjur_token" "data" "$(cat workload1.yaml)"
 
@@ -45,7 +46,7 @@ main() {
 
 # shellcheck disable=SC2153
 set_variables() {
-  printf "\nSetting local vars from Env"
+  printf "\n\nSetting local vars from Env\n"
   isp_id=$TENANT_ID
   isp_subdomain=$TENANT_SUBDOMAIN
   client_id=$CLIENT_ID
