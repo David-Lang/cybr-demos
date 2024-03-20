@@ -13,7 +13,7 @@ resolve_template() {
     while IFS= read -r line; do
         # Use a regular expression to find Go lang style templates with dots
         # echo "$line"
-        pattern='\{\{\s*\.([A-Z][A-Z0-9_]*)\s*\}\}'
+        pattern='\{\{\s*\.([A-Za-z][A-Zz-z0-9_]*)\s*\}\}'
         while [[ $line =~ $pattern ]]; do
             pattern_match=${BASH_REMATCH[0]}
             echo "Found pattern: $pattern_match"
