@@ -9,9 +9,8 @@ main() {
   identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
   printf "\n\nidentity_token: \n$identity_token\n"
 
-  delete_safe "$isp_subdomain" "identity_token" "$safe_name"
-
   delete_account_ssh_user_1 "$isp_subdomain" "identity_token" "$safe_name"
+  delete_safe "$isp_subdomain" "identity_token" "$safe_name"
 
 }
 
