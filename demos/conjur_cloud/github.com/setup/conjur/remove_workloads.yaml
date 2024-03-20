@@ -1,0 +1,8 @@
+# metadata
+# mode: append-policy
+# branch: /conjur/authn-jwt
+---
+# Identity for the application example that uses the authenticator
+# It annotates the host identity to grants it the role to authenticate
+- !delete
+  record: !policy workloads/github-actor
