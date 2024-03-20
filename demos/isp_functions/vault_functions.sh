@@ -141,6 +141,11 @@ set -euo pipefail
    # $1 isp_subdomain, $2 identity_token, $3 safe_name
    printf "\nDeleting Account: account-ssh-user-1 in Safe: $3\n"
 
+   echo curl --silent \
+        --request DELETE \
+        --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safename eq $3" \
+        --header "Authorization: Bearer $2" | jq -r .value[0].id
+
    id=$(curl --silent \
    --request DELETE \
    --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safename eq $3" \
