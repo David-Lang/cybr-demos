@@ -8,10 +8,7 @@ conjur_authn_id: SetWitHelm
 
 conjur_app_service_account: SetWitHelm
 
-conjur_k8_secret_name_1: SetWitHelm
 conjur_k8_secret_id_1: SetWitHelm
-
-conjur_k8_secret_name_2: SetWitHelm
 conjur_k8_secret_id_2: SetWitHelm
 
 conjur_push_secret_name_1: SetWitHelm
