@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alpine-curl
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: alpine-curl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: demo
+      app: alpine-curl
+  template:
+    metadata:
+      labels:
+        role: demo
+        app: alpine-curl
+    spec:
+      containers:
+        - name: alpine-curl
+          image: alpine/curl
+          command: ["sleep","infinity"]
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: jwt-token
+              mountPath: /var/run/secrets/tokens
+      volumes:
+        - name: jwt-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: jwt
+                  expirationSeconds: 6000
+                  audience: conjur
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations

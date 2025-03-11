@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: demo-push-to-file
+  name: demo-push-to-file
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-push-to-file
+  template:
+    metadata:
+      labels:
+        app: demo-push-to-file
+      annotations:
+        conjur.org/container-mode: sidecar
+        conjur.org/secrets-destination: file
+        conjur.org/jwt-token-path: /var/run/secrets/tokens/jwt
+        #conjur.org/conjur-secrets-policy-path.conjur-demo-file: data/vault/dso-app5
+        conjur.org/conjur-secrets.conjur-demo-file: |
+          - {{ .Values.conjur_push_secret_name_1 }}: {{ .Values.conjur_push_secret_id_1 }}
+          - {{ .Values.conjur_push_secret_name_2 }}: {{ .Values.conjur_push_secret_id_2 }}
+          - {{ .Values.conjur_push_secret_name_3 }}: {{ .Values.conjur_push_secret_id_3 }}
+        conjur.org/secret-file-path.conjur-demo-file: "./credentials.yaml"
+        conjur.org/secret-file-format.conjur-demo-file: "yaml"
+        conjur.org/secrets-refresh-enabled: "true"
+        conjur.org/secrets-refresh-interval: 60s
+        conjur.org/remove-deleted-secrets-enabled: "true"
+    spec:
+      serviceAccountName: poc-conjur-service-account
+      containers:
+        - name: conjur-demo-file
+          image: alpine:latest
+          command: [ "/bin/sh", "-c", "--" ]
+          args: [ "while true; do sleep 30; done;" ]
+          volumeMounts:
+            - name: conjur-secrets
+              mountPath: /opt/secrets/conjur
+              readOnly: true
+        - name: cyberark-secrets-provider-for-k8s
+          image: 'cyberark/secrets-provider-for-k8s:latest'
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: podinfo
+              mountPath: /conjur/podinfo
+            - name: conjur-secrets
+              mountPath: /conjur/
+            - name: jwt-token
+              mountPath: /var/run/secrets/tokens
+          env:
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: conjur-cloud
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+        - name: conjur-secrets
+          emptyDir:
+            medium: Memory
+        - name: jwt-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: jwt
+                  expirationSeconds: 6000
+                  audience: conjur
