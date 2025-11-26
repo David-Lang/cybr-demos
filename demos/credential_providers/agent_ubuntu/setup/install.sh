@@ -105,19 +105,19 @@ setup_app_id() {
   add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "OSUser" "$(whoami)"
 
   # Add the path to demo.sh
-  add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "Path" "$(pwd)"/app1.sh
+  add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "Path" "$demo_path/app1.sh"
 
   # Add the hash of $pwd/demo.sh
-  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1.sh)
+  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$demo_path/app1.sh")
   echo "Adding hash authn for appID $cp_app_id: $appHash"
-    add_app_authentication "$isp_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
+    add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
 
-  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1_imposter.sh)
+  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$demo_path"/app1_imposter.sh)
   echo "Adding hash authn for appID $cp_app_id: $appHash"
-  add_app_authentication "$isp_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
+  add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
 
   echo "Adding AppId $cp_app_id to safe $cp_safe"
-  add_safe_read_member "$isp_subdomain" "$identity_token" "$safe_name" "$cp_app_id"
+  add_safe_read_member "$tenant_subdomain" "$identity_token" "$safe_name" "$cp_app_id"
 }
 
 main "$@"

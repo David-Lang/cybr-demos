@@ -8,7 +8,7 @@ echo
 # shellcheck disable=SC2059
 app_id="cp_app1"
 safe="cp_app1"
-user_name="account-ssh-user-1"
+user_name="ssh-user-1"
 
 # shellcheck disable=SC2154
 printf "app_id:    ${Green}$app_id${Color_Off}\n"
