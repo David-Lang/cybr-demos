@@ -1,6 +1,7 @@
 #!/bin/bash
-# EC2 expected to have s3 access via its attached IAM Role
+set -euo pipefail
 
+# EC2 expected to have s3 access via its attached IAM Role
 get_s3_asset() {
     # $1 = S3 URI, $2 = target path
     if [ $# -ne 2 ]; then

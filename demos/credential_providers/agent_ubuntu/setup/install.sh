@@ -3,27 +3,46 @@ set -euo pipefail
 
 main() {
   set_variables
+  add_ip_to_privledge_cloud_allowList
   install_package
-#  setup_safe
-#  setup_app_id
+  setup_safe
+  setup_app_id
 }
 
 # shellcheck disable=SC2153
 set_variables() {
+  demo_path="$CYBR_DEMOS_PATH/demos/credential_providers/agent_ubuntu"
+
   # Set environment variables using .env file
   # -a means that every bash variable would become an environment variable
   # Using ‘+’ rather than ‘-’ causes the option to be turned off
   set -a
+  source "$CYBR_DEMOS_PATH/demos/setup_vars.env.sh"
   source "$demo_path/setup/vars.env"
   set +a
 
-  asset_s3_uri="s3://cybr-demos/marketplace/credential-providers/AAM-Ubuntu-Intel64-Rls-v14.2.4.3.zip"
-  zip_file="AAM-Ubuntu-Intel64-Rls-v14.2.4.3.zip"
-  cark_package="CARKaim-14.02.4.3.amd64.deb"
-  install_directory_base="/home/ubuntu/cybr-demos-install/credential-provider"
+  tenant_id=$TENANT_ID
+  tenant_subdomain=$TENANT_SUBDOMAIN
+  client_id=$CLIENT_ID
+  client_secret=$CLIENT_SECRET
 
-#  cp_app_id="cp_app1"
-#  cp_safe="app1_safe"
+  asset_s3_uri="$ASSET_S3_URI"
+  zip_file="$ZIP_FILE"
+  cark_package="$CARK_PACKAGE"
+  cp_app_id="$CP_APP_ID"
+  safe_name="$SAFE_NAME"
+
+  install_directory_base="/home/ubuntu/cybr-demos-install/credential-provider"
+}
+
+add_ip_to_privilege_cloud_allowList(){
+  ip=$(curl --silent "https://checkip.amazonaws.com/")
+  ip_cidr="${ip}/32"
+  ip_list="[\"${ip_cidr}\"]"
+  identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
+  update_ip_allowlist "$tenant_subdomain" "$identity_token" "$ip_list"
+  printf "\nWaiting 10 minutes for Privilege Cloud Allow List update to complete...\n"
+  sleep 600
 }
 
 install_package() {
@@ -36,16 +55,21 @@ install_package() {
   vault_ini="$install_directory_base/Vault.ini"
   aimparms="$install_directory_base/aimparms"
 
-  unzip $zip_file
+  pas_username="$CLIENT_ID"
+  pas_password="$CLIENT_SECRET"
+  vault_address="vault.$TENANT_SUBDOMAIN.privilegecloud.cyberark.cloud"
+
+  unzip -o $zip_file
 
 # create_cred_file
   chmod 700 ./CreateCredFile
   ./CreateCredFile $cred_file Password -Username "$pas_username" -Password "$pas_password" -Hostname -EntropyFile
 
-# massage_vault_ini
+# setup_vault_ini
   mv Vault.ini Vault.ini.orig
   # shellcheck disable=SC2002
-  cat Vault.ini.orig | sed "s/ADDRESS=.*/ADDRESS=$vault_ip/" > $vault_ini
+  cat Vault.ini.orig | sed "s/ADDRESS=.*/ADDRESS=$vault_address/" > $vault_ini
+  cat Vault.ini.orig | sed "s/VaultName=.*/VaultName=CAMainVault/" > $vault_ini
 
   # shellcheck disable=SC2002
   cat aimparms.sample \
@@ -59,41 +83,41 @@ install_package() {
   popd || exit
 }
 
-#add_provider_to_safe() {
-#  # awk the Provider ID from the install logs
-#  # shellcheck disable=SC2005
-#  # shellcheck disable=SC2046
-#  prov_id=$(echo $(sudo grep 'Adding \[Prov' /var/tmp/aim-install-logs/CreateEnv.log) | nawk -F "[][]" -v var="2" '{print $(var*2)}' -)
-#
-#  echo "Adding Provider $prov_id to safe $cp_safe"
-#  cybr safes add-member -m "$prov_id" -s "$cp_safe" --view-safe-members --list-accounts --retrieve-accounts --use-accounts --access-content-without-confirmation
-#}
-#
-#create_app_id() {
-#  cybr applications add -a $cp_app_id -l "\\"
-#}
-#
-#create_app_id_authn() {
-#  # Add the OS user
-#  cybr applications add-authn -a $cp_app_id --auth-type OSUser --auth-value "$(whoami)"
-#
-#  # Add the path to demo.sh
-#  cybr applications add-authn -a $cp_app_id --auth-type Path --auth-value "$(pwd)"/app1.sh
-#
-#  # Add the hash of $pwd/demo.sh
-#  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1.sh)
-#  echo "Adding hash authn for appID $cp_app_id: $appHash"
-#  cybr applications add-authn -a $cp_app_id --auth-type Hash --auth-value "$appHash"
-#
-#  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1_imposter.sh)
-#  echo "Adding hash authn for appID $cp_app_id: $appHash"
-#  cybr applications add-authn -a $cp_app_id --auth-type Hash --auth-value "$appHash"
-#
-#}
-#
-#add_app_id_to_safe() {
-#  echo "Adding Provider $cp_app_id to safe $cp_safe"
-#  cybr safes add-member -m "$cp_app_id" -s "$cp_safe" --list-accounts --retrieve-accounts --use-accounts --access-content-without-confirmation
-#}
+setup_safe() {
+  identity_token=$(get_identity_token "$tenant_id" "$client_id" "$client_secret")
+
+  create_safe "$tenant_subdomain" "$identity_token" "$safe_name"
+  add_safe_admin_role "$tenant_subdomain" "$identity_token" "$safe_name" "Privilege Cloud Administrators"
+
+  create_account_ssh_user_1 "$tenant_subdomain" "$identity_token" "$safe_name"
+
+  # awk the Provider ID from the install logs
+  # shellcheck disable=SC2005
+  # shellcheck disable=SC2046
+  prov_id=$(echo $(sudo grep 'Provider \[Prov_ip' /var/opt/CARKaim/logs/APPConsole.log) | nawk -F "[][]" -v var="2" '{print $(var*2)}' -)
+  echo "Adding Provider $prov_id to safe $safe_name"
+  add_safe_read_member "$tenant_subdomain" "$identity_token" "$safe_name" "$prov_id"
+}
+
+setup_app_id() {
+  create_app "$tenant_subdomain" "$identity_token" "$cp_app_id"
+  # Add the OS user
+  add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "OSUser" "$(whoami)"
+
+  # Add the path to demo.sh
+  add_app_authentication "$tenant_subdomain" "$identity_token" "$cp_app_id" "Path" "$(pwd)"/app1.sh
+
+  # Add the hash of $pwd/demo.sh
+  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1.sh)
+  echo "Adding hash authn for appID $cp_app_id: $appHash"
+    add_app_authentication "$isp_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
+
+  appHash=$(/opt/CARKaim/bin/aimgetappinfo GetHash -FilePath "$(pwd)"/app1_imposter.sh)
+  echo "Adding hash authn for appID $cp_app_id: $appHash"
+  add_app_authentication "$isp_subdomain" "$identity_token" "$cp_app_id" "Hash" "$appHash"
+
+  echo "Adding AppId $cp_app_id to safe $cp_safe"
+  add_safe_read_member "$isp_subdomain" "$identity_token" "$safe_name" "$cp_app_id"
+}
 
 main "$@"
