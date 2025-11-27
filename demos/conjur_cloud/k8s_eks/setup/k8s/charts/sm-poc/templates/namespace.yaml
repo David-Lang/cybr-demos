@@ -11,18 +11,18 @@ metadata:
   name: conjur-cloud
   namespace: {{ .Values.namespace }}
 data:
-  CONJUR_ACCOUNT: "{{ .Values.conjur_account }}"
-  CONJUR_APPLIANCE_URL: "https://{{ .Values.conjur_fqdn }}/api"
-  CONJUR_AUTHN_URL: "https://{{ .Values.conjur_fqdn }}/api/authn-jwt/{{ .Values.conjur_authn_id }}"
-  AUTHENTICATOR_ID: "{{ .Values.conjur_authn_id }}"
+  CONJUR_ACCOUNT: "{{ .Values.sm_account }}"
+  CONJUR_APPLIANCE_URL: "https://{{ .Values.sm_fqdn }}/api"
+  CONJUR_AUTHN_URL: "https://{{ .Values.sm_fqdn }}/api/authn-jwt/{{ .Values.sm_authn_id }}"
+  AUTHENTICATOR_ID: "{{ .Values.sm_authn_id }}"
   CONJUR_VERSION: "5"
-  CONJUR_SSL_CERTIFICATE: {{ .Values.conjur_cert_b64 | b64dec | quote }}
+  CONJUR_SSL_CERTIFICATE: {{ .Values.sm_cert_b64 | b64dec | quote }}
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .Values.conjur_app_service_account }}
+  name: {{ .Values.sm_app_service_account }}
   namespace: {{ .Values.namespace }}
 
 ---
@@ -45,7 +45,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     namespace: {{ .Values.namespace }}
-    name: {{ .Values.conjur_app_service_account }}
+    name: {{ .Values.sm_app_service_account }}
 roleRef:
   kind: Role
   apiGroup: rbac.authorization.k8s.io

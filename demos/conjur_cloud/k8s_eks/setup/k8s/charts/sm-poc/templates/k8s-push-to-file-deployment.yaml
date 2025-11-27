@@ -21,9 +21,9 @@ spec:
         conjur.org/jwt-token-path: /var/run/secrets/tokens/jwt
         #conjur.org/conjur-secrets-policy-path.conjur-demo-file: data/vault/dso-app5
         conjur.org/conjur-secrets.conjur-demo-file: |
-          - {{ .Values.conjur_push_secret_name_1 }}: {{ .Values.conjur_push_secret_id_1 }}
-          - {{ .Values.conjur_push_secret_name_2 }}: {{ .Values.conjur_push_secret_id_2 }}
-          - {{ .Values.conjur_push_secret_name_3 }}: {{ .Values.conjur_push_secret_id_3 }}
+          - {{ .Values.sm_push_secret_name_1 }}: {{ .Values.sm_push_secret_id_1 }}
+          - {{ .Values.sm_push_secret_name_2 }}: {{ .Values.sm_push_secret_id_2 }}
+          - {{ .Values.sm_push_secret_name_3 }}: {{ .Values.sm_push_secret_id_3 }}
         conjur.org/secret-file-path.conjur-demo-file: "./credentials.yaml"
         conjur.org/secret-file-format.conjur-demo-file: "yaml"
         conjur.org/secrets-refresh-enabled: "true"
