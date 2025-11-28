@@ -26,7 +26,7 @@ spec:
         conjur.org/secrets-refresh-interval: 60s
         conjur.org/remove-deleted-secrets-enabled: "true"
     spec:
-      serviceAccountName: poc-conjur-service-account
+      serviceAccountName: {{ .Values.sm_app_service_account }}
       containers:
         - name: conjur-demo-file
           image: alpine:latest

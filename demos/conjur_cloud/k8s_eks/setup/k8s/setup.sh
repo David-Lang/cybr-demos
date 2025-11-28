@@ -24,33 +24,47 @@ openssl s_client -connect "$sm_fqdn":443 </dev/null 2>/dev/null \
 # Setup kubconfig
 # aws eks update-kubeconfig --region ca-central-1 --name "$eks_name"
 
+# Helm install ESO Service
 
-# helm repo add external-secrets https://charts.external-secrets.io
-# helm install external-secrets external-secrets/external-secrets --debug
-helm install sm-poc-external-secrets \
-     ./setup/charts/external-secrets \
-     --namespace default \
-     --debug
 
-# Helm install Release names does not allow '_' use '-'
-helm install sm-poc-k8s-eks \
-     ./setup/charts/sm-poc \
-     --namespace default \
-     --set namespace=$namespace \
-     --set conjur_fqdn="$sm_fqdn" \
-     --set conjur_cert_b64="$(cat sm.pem | base64 -w0 )" \
-     --set conjur_authn_id="k8s-eks-1" \
-     --set conjur_app_service_account="poc-conjur-service-account" \
-     --set conjur_k8_secret_id_1="data/vault/safe/account/username" \
-     --set conjur_k8_secret_id_2="data/vault/safe/account/password" \
-     --set conjur_push_secret_name_1="username" \
-     --set conjur_push_secret_id_1="data/vault/safe/account/username" \
-     --set conjur_push_secret_name_2="password" \
-     --set conjur_push_secret_id_2="data/vault/safe/account/password" \
-     --set conjur_push_secret_name_3="address" \
-     --set conjur_push_secret_id_3="data/vault/safe/account/address" \
-     --debug
+kubectl get crd externalsecrets.external-secrets.io secretstores.external-secrets.io \
+  -o custom-columns=NAME:.metadata.name,VERSIONS:.spec.versions[*].name
+
+
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+
+kubectl create namespace external-secrets 2>/dev/null || true
+helm install external-secrets external-secrets/external-secrets \
+    --namespace external-secrets \
+    --set installCRDs=true \
+    --debug
+
+kubectl api-resources | grep -Ei 'externalsecret|secretstore'
+kubectl get crd | grep -i external-secrets || echo "no external-secrets CRDs"
+kubectl get crd | grep -Ei 'externalsecret|secretstore' || echo "no CRDs for ExternalSecret/SecretStore"
+kubectl -n external-secrets get pods
 
 # ESO CRD
 kubectl apply -f https://raw.githubusercontent.com/external-secrets/external-secrets/main/deploy/crds/bundle.yaml
+
+
+# Helm install Release names does not allow '_' use '-'
+helm install poc-sm-k8s-eks \
+     charts/poc-sm \
+     --namespace default \
+     --set namespace=$sm_namespace \
+     --set sm_fqdn="$sm_fqdn" \
+     --set sm_cert_b64="$(cat sm.pem | base64 -w0 )" \
+     --set sm_authn_id="k8s-eks-1" \
+     --set sm_app_service_account="poc-service-account" \
+     --set sm_k8_secret_id_1="data/vault/safe/account/username" \
+     --set sm_k8_secret_id_2="data/vault/safe/account/password" \
+     --set sm_push_secret_name_1="username" \
+     --set sm_push_secret_id_1="data/vault/safe/account/username" \
+     --set sm_push_secret_name_2="password" \
+     --set sm_push_secret_id_2="data/vault/safe/account/password" \
+     --set sm_push_secret_name_3="address" \
+     --set sm_push_secret_id_3="data/vault/safe/account/address" \
+     --debug
 
