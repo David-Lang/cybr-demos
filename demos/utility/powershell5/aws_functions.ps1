@@ -40,6 +40,6 @@ function Get-S3File {
     # decode the key to remove %20 etc.
     $key = [System.Uri]::UnescapeDataString($u.AbsolutePath).TrimStart('/')
     $file = Split-Path $key -Leaf
-    echo Read-S3Object -BucketName $bucket -Key $key -File $file
+    echo "Read-S3Object BucketName: $bucket Key: $key File: $file"
     Read-S3Object -BucketName $bucket -Key $key -File $file
 }

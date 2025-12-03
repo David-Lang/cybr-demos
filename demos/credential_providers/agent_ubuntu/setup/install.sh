@@ -57,7 +57,7 @@ install_package() {
 
   pas_username="$CLIENT_ID"
   pas_password="$CLIENT_SECRET"
-  vault_address="vault.$TENANT_SUBDOMAIN.privilegecloud.cyberark.cloud"
+  vault_address="vault-$TENANT_SUBDOMAIN.privilegecloud.cyberark.cloud"
 
   unzip -o $zip_file
 

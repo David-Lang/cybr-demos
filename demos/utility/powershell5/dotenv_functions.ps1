@@ -20,9 +20,10 @@ function Load-DotEnv {
 
         $key   = $parts[0].Trim()
         $value = $parts[1].Trim().Trim('"', "'")   # remove wrapping quotes
+        Write-Host "$key=$value"
 
         # Export as environment variable
-        $env:$key = $value
+        #$env:${key} = $value
 
         # Export as PowerShell variable
         Set-Variable -Name $key -Value $value -Scope Script

@@ -2,10 +2,13 @@ Start-Transcript -Append C:\PSScriptLog.txt
 Get-Date -UFormat "%A /%Y%m/%d %R %Z"
 Set-ExecutionPolicy Bypass -Scope process
 
+$CYBR_DEMOS_PATH = "$HOME\cybr-demos"
+
 # Load utility functions
-. (Resolve-Path "$PSScriptRoot\..\..\utility\powershell5\dotenv_functions.ps1")
-. (Resolve-Path "$PSScriptRoot\..\..\utility\powershell5\aws_functions.ps1")
-Load-DotEnv "..\..\..\setup_vars.env"
+#demo_path
+. "$CYBR_DEMOS_PATH\demos\utility\powershell5\dotenv_functions.ps1"
+. "$CYBR_DEMOS_PATH\demos\utility\powershell5\aws_functions.ps1"
+Load-DotEnv "$CYBR_DEMOS_PATH\demos\setup_vars.env"
 
 # Local setup
 Load-DotEnv "vars.env"
@@ -15,27 +18,39 @@ $s3_akey = $S3_AKEY
 $s3_skey = $S3_SKEY
 $vault_fqdn = "vault-$TENANT_SUBDOMAIN.privilegecloud.cyberark.cloud"
 
+###
+### Add Agent IP to Privledge Cloud Allow List
+###
+
 # Get File from S3
 Connect-AWS -AccessKey $s3_akey -SecretKey $s3_skey
 Get-S3File $s3_uri
 
-Expand-Archive "$zip_file"
+Expand-Archive -Path $zip_file -DestinationPath ./installer -Force
+cd "./installer"
 
-# Steps to Create the silent.ini file
-# do not use cred file, advanced setup, vault IP, cred user name
-#.\setup.exe /r /f1"C:/Cyberark/CP/Installer/silent.iss"
-
-#$content = [System.IO.File]::ReadAllText("$silent_path").Replace("{{vault_fqdn}}",$vault_ip)
-#[System.IO.File]::WriteAllText("$silent_path", $content)
+# Steps to Create the silent.ini file in Record mode
+# !Do not use cred file, advanced setup, vault IP, cred user name
 #
-#start-sleep -s 2
+# Instead of manually configuring a response file before running the silent CP installation,
+# Record mode runs an interactive CP installation, collects the values provided during the installation,
+# and saves them to a response file.
+# The response file is fully defined and can be used when installing other CPs using Full silent mode.
+# This is especially useful if you are setting up a wide-scale installation of CPs.
+# $record_file = "$(pwd)\record.iss"
+# .\setup.exe /r /f1"$record_file"
+
+
+$record_file = "record.iss"
+$silent_file = "silent.iss"
+cp ../$record_file $silent_file
+(Get-Content $silent_file) -replace "szEdit1='\s*'", ("szEdit1='$vault_fqdn'") | Set-Content $silent_file
+
+start-sleep -s 1
 ## first run partialy succededs?
-#.\setup.exe /s /f1"C:/Cyberark/CP/Installer/silent.iss"
-#start-sleep -s 2
-#
-## run a second time?, now files should be in the installation directory: C:\Program Files\CyberArk\ApplicationPasswordProvider
-#.\setup.exe /s /f1"C:/Cyberark/CP/Installer/silent.iss"
-#start-sleep -s 2
+.\setup.exe /s /f1"silent.iss"
+start-sleep -s 2
+
 #
 ## edit vault ini file
 #$vault_path = "C:\Program Files\CyberArk\ApplicationPasswordProvider\Vault\Vault.ini"
