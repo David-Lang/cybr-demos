@@ -53,7 +53,7 @@ spec:
                   fieldPath: metadata.namespace
           envFrom:
             - configMapRef:
-                name: conjur-cloud
+                name: sm-configmap
       volumes:
         - name: podinfo
           downwardAPI:

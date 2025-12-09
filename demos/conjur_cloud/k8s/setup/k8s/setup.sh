@@ -50,21 +50,17 @@ kubectl apply -f https://raw.githubusercontent.com/external-secrets/external-sec
 
 
 # Helm install Release names does not allow '_' use '-'
-helm install poc-sm-k8s-eks \
+helm install poc-sm-k8s \
      charts/poc-sm \
      --namespace default \
      --set namespace=$sm_namespace \
      --set sm_fqdn="$sm_fqdn" \
      --set sm_cert_b64="$(cat sm.pem | base64 -w0 )" \
-     --set sm_authn_id="k8s-eks-1" \
+     --set sm_authn_id="poc-sm-k8s-1" \
      --set sm_app_service_account="poc-service-account" \
-     --set sm_k8_secret_id_1="data/vault/safe/account/username" \
-     --set sm_k8_secret_id_2="data/vault/safe/account/password" \
-     --set sm_push_secret_name_1="username" \
-     --set sm_push_secret_id_1="data/vault/safe/account/username" \
-     --set sm_push_secret_name_2="password" \
-     --set sm_push_secret_id_2="data/vault/safe/account/password" \
-     --set sm_push_secret_name_3="address" \
-     --set sm_push_secret_id_3="data/vault/safe/account/address" \
+     --set sm_secret_1_id="data/vault/safe/account/username" \
+     --set sm_secret_1_name="username" \
+     --set sm_secret_2_id="data/vault/safe/account/password" \
+     --set sm_secret_2_name="password" \
      --debug
 

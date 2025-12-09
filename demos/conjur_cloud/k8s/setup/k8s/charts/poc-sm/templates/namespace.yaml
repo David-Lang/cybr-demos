@@ -8,7 +8,7 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: conjur-cloud
+  name: sm-configmap
   namespace: {{ .Values.namespace }}
 data:
   CONJUR_ACCOUNT: "{{ .Values.sm_account }}"

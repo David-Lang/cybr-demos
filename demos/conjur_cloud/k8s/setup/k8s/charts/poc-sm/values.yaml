@@ -1,0 +1,14 @@
+namespace: SetWithHelm
+
+sm_account: conjur
+sm_fqdn: SetWithHelm
+sm_cert_b64: SetWitHelm
+
+sm_authn_id: SetWitHelm
+
+sm_app_service_account: SetWitHelm
+
+sm_secret_1_id: SetWitHelm
+sm_secret_1_name: SetWitHelm
+sm_secret_2_id: SetWitHelm
+sm_secret_2_name: SetWitHelm
