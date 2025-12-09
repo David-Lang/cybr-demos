@@ -3,25 +3,23 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: demo-push-to-file
-  name: demo-push-to-file
+    app: demo-push-to-file-fetch-all
+  name: demo-push-to-file-fetch-all
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-push-to-file
+      app: demo-push-to-file-fetch-all
   template:
     metadata:
       labels:
-        app: demo-push-to-file
+        app: demo-push-to-file-fetch-all
       annotations:
         conjur.org/container-mode: sidecar
         conjur.org/secrets-destination: file
         conjur.org/jwt-token-path: /var/run/secrets/tokens/jwt
-        conjur.org/conjur-secrets.conjur-demo-file: |
-          - {{ .Values.sm_secret_1_name }}: {{ .Values.sm_secret_1_id }}
-          - {{ .Values.sm_secret_2_name }}: {{ .Values.sm_secret_2_id }}
+        conjur.org/conjur-secrets.test-app: "*"
         conjur.org/secret-file-path.conjur-demo-file: "./credentials.yaml"
         conjur.org/secret-file-format.conjur-demo-file: "yaml"
         conjur.org/secrets-refresh-enabled: "true"
@@ -30,14 +28,14 @@ spec:
     spec:
       serviceAccountName: {{ .Values.sm_app_service_account }}
       containers:
-        - name: conjur-demo-file
+        - name: app-container
           image: alpine:latest
           command: [ "/bin/sh", "-c", "--" ]
           args: [ "while true; do sleep 30; done;" ]
           volumeMounts:
             - name: conjur-secrets
               mountPath: /opt/secrets/conjur
-              readOnly: true
+              readOnly: false
         - name: cyberark-secrets-provider-for-k8s
           image: 'cyberark/secrets-provider-for-k8s:latest'
           imagePullPolicy: Always
