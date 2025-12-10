@@ -65,4 +65,3 @@ helm install poc-sm-k8s \
      --set sm_secret_2_id="$sm_secret_2_id" \
      --set sm_secret_2_name="$sm_secret_2_name" \
      --debug
-
