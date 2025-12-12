@@ -1,0 +1,5 @@
+echo ""
+echo "Env Variables"
+echo "SECRET1: $SECRET1"
+echo "SECRET2: $SECRET2"
+echo "SECRET3: $SECRET3"
