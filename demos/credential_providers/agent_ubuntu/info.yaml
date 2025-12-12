@@ -1,0 +1,7 @@
+Category: "Credential Provider"
+Name: "CP"
+Docs: "https://github.com/david-lang/cybr-demos/tree/main/demos/credential_providers/agent_ubuntu"
+DemoScript: "demo.sh"
+SetupScript: "install.sh"
+Enabled: false
+IsSetup: false
