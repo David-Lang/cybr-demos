@@ -15,8 +15,15 @@ fi
 mkdir "$settings_dir"
 chmod 700 "$settings_dir"
 
+# Suppress debconf dialog
+export DEBIAN_FRONTEND=noninteractive
+
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_jq.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_tree.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_docker.sh
-sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_summon.sh
+sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_terraform.sh
+sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_awscli.sh
+sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_kubectl.sh
+
+#sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_summon.sh
 

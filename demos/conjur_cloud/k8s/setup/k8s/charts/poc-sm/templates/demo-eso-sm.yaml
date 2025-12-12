@@ -1,0 +1,45 @@
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: conjur
+  namespace: {{ .Values.namespace }}
+spec:
+  provider:
+    conjur:
+      # Service URL
+      url: "https://{{ .Values.sm_fqdn }}/api"
+      # [OPTIONAL] base64 encoded string of certificate
+      #caBundle: OPTIONALxFIELDxxxBase64xCertxString==
+      auth:
+        jwt:
+          # conjur account
+          account: conjur
+          # The authn-jwt service ID
+          serviceID: {{ .Values.sm_authn_id }}
+          # Service account to retrieve JWT token for
+          serviceAccountRef:
+            name: {{ .Values.sm_app_service_account }}
+            # [OPTIONAL] audiences to include in JWT token
+            audiences:
+              - conjur
+
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: conjur
+  namespace: {{ .Values.namespace }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    # This name must match the metadata.name in the `SecretStore`
+    name: conjur
+    kind: SecretStore
+  data:
+    - secretKey: {{ .Values.sm_secret_1_name }}
+      remoteRef:
+        key: {{ .Values.sm_secret_1_id }}
+    - secretKey: {{ .Values.sm_secret_2_name }}
+      remoteRef:
+        key: {{ .Values.sm_secret_2_id }}
