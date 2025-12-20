@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Set CYBR_DEMOS_PATH and persist it in .profile
-export CYBR_DEMOS_PATH=$HOME/cybr-demos
-echo "export CYBR_DEMOS_PATH=$HOME/cybr-demos" >> "$HOME/.profile"
+export CYBR_DEMOS_PATH=/opt/cybr-demos
+echo "export CYBR_DEMOS_PATH=/opt/cybr-demos" >> "$HOME/.profile"
 
 settings_dir="$HOME/.cybr-demos"
 

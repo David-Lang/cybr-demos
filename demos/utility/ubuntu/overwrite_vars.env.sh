@@ -4,7 +4,7 @@ set -euo pipefail
 ##
 ## "$HOME/.cybr-demos/overwrite_vars_env" expected format
 ## full_path VAR_NAME NEW_VALUE
-## /home/ubuntu/cybr-demos/demos/conjur_cloud/github.com/setup/vars.env JWT_CLAIM_IDENTITY D2avid-Lang
+## /home/ubuntu/cybr-demos/demos/conjur_cloud/github.com/setup/vars.env JWT_CLAIM_IDENTITY David-Lang
 ##
 
 apply_env_file() {

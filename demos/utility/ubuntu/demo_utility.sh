@@ -3,7 +3,7 @@
 # shellcheck disable=SC2034
 # shellcheck disable=SC2059
 
-source "$CYBR_DEMOS_PATH/demos/utility/ansi_colors.sh"
+source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/ansi_colors.sh"
 
 print_line() {
   columns=$(tput cols)
