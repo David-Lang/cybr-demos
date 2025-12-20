@@ -24,6 +24,7 @@ sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_docker.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_terraform.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_awscli.sh
 sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_kubectl.sh
+sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_k9s.sh
 
 #sudo -i -u ubuntu bash "$CYBR_DEMOS_PATH"/compute_init/ubuntu/install_summon.sh
 
