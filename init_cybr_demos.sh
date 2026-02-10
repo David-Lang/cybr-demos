@@ -1,10 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-branch="main"
-rm -rf /home/ubuntu/cybr-demos
-git clone https://github.com/David-Lang/cybr-demos.git \
-  --branch $branch --depth 1 --single-branch
+REPO_URL="https://github.com/David-Lang/cybr-demos.git"
+BRANCH="main"
+DEST="${CYBR_DEMOS_PATH:-/home/ubuntu/cybr-demos}"
 
-cybr-demos/compute_init/ubuntu/setup.sh
-cybr-demos/demos/utility/overwrite_vars.env.sh
+# Fresh clone every time (idempotent by replacement)
+rm -rf "$DEST"
+git clone --branch "$BRANCH" "$REPO_URL" "$DEST"
+
+# Fix ownership if needed
+sudo chown -R ubuntu:ubuntu "$DEST"
+
+# Run setup scripts
+"$DEST/compute_init/ubuntu/setup.sh"
