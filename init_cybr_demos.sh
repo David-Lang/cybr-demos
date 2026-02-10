@@ -6,8 +6,9 @@ BRANCH="main"
 DEST="${CYBR_DEMOS_PATH:-/home/ubuntu/cybr-demos}"
 
 # Fresh clone every time (idempotent by replacement)
-rm -rf "$DEST"
-git clone --depth 1 --single-branch --branch "$BRANCH" "$REPO_URL" "$DEST"
+sudo rm -rf "$DEST"
+sudo git clone --depth 1 --single-branch --branch "$BRANCH" "$REPO_URL" "$DEST"
+sudo chown -R ubuntu:ubuntu "$DEST"
 
 # Fix ownership if needed
 sudo chown -R ubuntu:ubuntu "$DEST"
