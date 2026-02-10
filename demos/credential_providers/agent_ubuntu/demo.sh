@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/demo_utility.sh"
+cd "$CYBR_DEMOS_PATH/demos/credential_providers/agent_ubuntu"
 
 echo
 echo
