@@ -105,3 +105,40 @@ set_user_lock_state() {
 
 }
 
+reset_user_password() {
+  # $1 isp_id, $2 identity_token, $3 user_uuid, $4 user_secret
+  if [ $# -ne 4 ]; then
+    echo "Usage: reset_user_password isp_id identity_token user_uuid user_secret"
+    return 1
+  fi
+
+  response=$(curl --silent --location --request POST \
+    "https://$1.id.cyberark.cloud/UserMgmt/ResetUserPassword" \
+    --header "authorization: Bearer $2" \
+    --header "content-type: application/json" \
+    --data "$(jq -cn --arg id "$3" --arg pw "$4" '{ID:$id,newPassword:$pw}')"
+  )
+
+  # Check if response is empty or null (some APIs may return empty; keep strict like your style)
+  if [ -z "$response" ] || [ "$response" == "null" ]; then
+    printf "\nERROR: ResetUserPassword failed. Response is empty or null.\n" >&2
+    exit 1
+  fi
+
+  # If API returns a success flag, enforce it (safe even if it doesn't exist)
+  success=$(printf '%s' "$response" | jq -r '.success // empty' 2>/dev/null)
+  if [ -n "$success" ] && [ "$success" != "true" ]; then
+    message=$(printf '%s' "$response" | jq -r '.Message // .message // empty' 2>/dev/null)
+    errorCode=$(printf '%s' "$response" | jq -r '.ErrorCode // .errorCode // empty' 2>/dev/null)
+    errorID=$(printf '%s' "$response" | jq -r '.ErrorID // .errorID // empty' 2>/dev/null)
+
+    printf "\nERROR: ResetUserPassword returned success=false. Message=%s ErrorCode=%s ErrorID=%s\nResponse: %s\n" \
+      "$message" "$errorCode" "$errorID" "$response" >&2
+    exit 1
+  fi
+
+  # Optional: echo response for debugging
+  # printf '%s\n' "$response"
+}
+
+

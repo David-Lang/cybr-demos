@@ -9,8 +9,8 @@ $CYBR_DEMOS_PATH = "C:\cybr-demos"
 . "$CYBR_DEMOS_PATH\demos\utility\powershell5\dotenv_functions.ps1"
 . "$CYBR_DEMOS_PATH\demos\utility\powershell5\aws_functions.ps1"
 . "$CYBR_DEMOS_PATH\demos\tenant_vars.ps1"
-. "$CYBR_DEMOS_PATH\demos\setup_functions\powershell5\vault_functions.ps1"
-. "$CYBR_DEMOS_PATH\demos\setup_functions\powershell5\identity_functions.ps1"
+. "$CYBR_DEMOS_PATH\demos\utility\powershell5\vault_functions.ps1"
+. "$CYBR_DEMOS_PATH\demos\utility\powershell5\identity_functions.ps1"
 
 # Local setup
 Load-DotEnv "$ScriptRoot\vars.env"
