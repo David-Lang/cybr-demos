@@ -74,8 +74,11 @@ install_package() {
   add_ip_to_privilege_cloud_allowList "$tenant_subdomain" "$identity_token"
 
   # Reset installer pwd to unlock re-enable special installer_user account
+  echo "Reset installer pwd to unlock re-enable special installer_user account: $installer_id"
   user_uuid=$(get_uuid_by_userid "$tenant_id" "$identity_token" "$installer_id")
+  echo "user_uuid: $user_uuid"
   reset_user_password "$tenant_id" "$identity_token" "$user_uuid" "$installer_secret"
+
 
   echo Installing agent package
   sudo dpkg -i $cark_package
