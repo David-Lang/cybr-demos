@@ -73,7 +73,8 @@ try {
         # Trigger at logon (Administrator)
         $Action   = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-ExecutionPolicy Bypass -File `"$UserScript`""
         $Trigger  = New-ScheduledTaskTrigger -AtLogOn -User "Administrator"
-        $Principal = New-ScheduledTaskPrincipal -UserId "Administrator" -LogonType InteractiveToken -RunLevel Highest
+        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
         $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 
         Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null

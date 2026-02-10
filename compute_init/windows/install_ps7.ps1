@@ -2,52 +2,40 @@ Write-Host "# Installing PowerShell 7.4 (if not already installed)"
 
 $ErrorActionPreference = 'Stop'
 $ConfirmPreference     = 'None'
-
-$requiredVersion = [Version]'7.4.0'
-$pwshExe = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
+$ProgressPreference    = 'SilentlyContinue'
 
 # ------------------------------
-# Check if PowerShell 7 is already installed
+# Check if pwsh already exists
 # ------------------------------
-if (Test-Path $pwshExe) {
-    $currentVersion = [Version](& $pwshExe -NoLogo -Command '$PSVersionTable.PSVersion.ToString()')
-
-    if ($currentVersion -ge $requiredVersion) {
-        Write-Host "PowerShell already installed: $currentVersion"
-        return
-    }
+if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+    $v = & pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+    Write-Host "PowerShell already installed: $v"
+    exit 0
 }
 
 # ------------------------------
-# Download MSI
+# Install PS7 (Chocolatey example)
 # ------------------------------
-$msi = "$env:TEMP\PowerShell-7.4.0-win-x64.msi"
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Host "ERROR: choco not found"
+    exit 1
+}
 
-Write-Host "Downloading PowerShell 7.4..."
-Invoke-WebRequest `
-    -Uri "https://github.com/PowerShell/PowerShell/releases/download/v7.4.0/PowerShell-7.4.0-win-x64.msi" `
-    -OutFile $msi
-
-# ------------------------------
-# Install (no prompts)
-# ------------------------------
 Write-Host "Installing PowerShell 7.4..."
-Start-Process `
-    -FilePath "msiexec.exe" `
-    -ArgumentList "/i `"$msi`" /qn /norestart" `
-    -Wait `
-    -NoNewWindow
+choco install powershell-core --version=7.4.0 -y --no-progress
 
-# ------------------------------
-# Cleanup (optional)
-# ------------------------------
-# Remove-Item $msi -Force
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: choco failed installing PowerShell 7.4 (exit $LASTEXITCODE)"
+    exit 1
+}
 
 # ------------------------------
 # Verify
 # ------------------------------
-if (Test-Path $pwshExe) {
-    & $pwshExe -NoLogo -Command '$PSVersionTable.PSVersion'
-} else {
-    Write-Warning "PowerShell installation completed but pwsh.exe not found."
+if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+    & pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+    exit 0
 }
+
+Write-Host "ERROR: pwsh not found after install"
+exit 1
