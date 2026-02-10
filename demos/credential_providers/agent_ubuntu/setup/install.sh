@@ -73,7 +73,7 @@ install_package() {
   identity_token=$(get_identity_token "$tenant_id" "$client_id" "$client_secret")
   add_ip_to_privilege_cloud_allowList "$tenant_subdomain" "$identity_token"
 
-  #Reset installer pwd:  "$tenant_id" "$identity_token" "$installer_id"
+  # Reset installer pwd:  "$tenant_id" "$identity_token" "$installer_id"
 
   echo Installing agent package
   sudo dpkg -i $cark_package
