@@ -25,15 +25,19 @@ function Invoke-Step {
 
     if (-not (Test-Path $Path)) { throw "Missing script: $Path" }
     Write-Host "# Running $(Split-Path -Leaf $Path)"
-    & $Path
 
-    # Respect common "reboot required" signal if a child sets it
-    if ($global:NeedsReboot -eq $true) { $script:NeedsReboot = $true }
+    # Run in a fresh PowerShell so we get a REAL process exit code
+    $p = Start-Process -FilePath "powershell.exe" -Wait -PassThru -NoNewWindow `
+    -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy","Bypass",
+        "-File", "`"$Path`""
+    )
 
-    # Respect child exit codes (rare when using "&", but keep it deterministic)
-    if ($LASTEXITCODE -eq 3010) { $script:NeedsReboot = $true; $global:NeedsReboot = $true }
-    elseif ($LASTEXITCODE -ne 0) { throw "$Path failed with exit code $LASTEXITCODE" }
+    if ($p.ExitCode -eq 3010) { $script:NeedsReboot = $true; return }
+    if ($p.ExitCode -ne 0)    { throw "$Path failed with exit code $($p.ExitCode)" }
 }
+
 
 function Test-PendingReboot {
     if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") { return $true }
@@ -52,6 +56,7 @@ try {
     Invoke-Step "$ScriptRoot\install_nuget.ps1"
     Invoke-Step "$ScriptRoot\install_chocolatey.ps1"
     Invoke-Step "$ScriptRoot\install_git.ps1"
+    Invoke-Step "$ScriptRoot\install_bruno.ps1"
     Invoke-Step "$ScriptRoot\install_ps7.ps1"
     Invoke-Step "$ScriptRoot\install_notepad++.ps1"
     Invoke-Step "$ScriptRoot\install_chrome.ps1"

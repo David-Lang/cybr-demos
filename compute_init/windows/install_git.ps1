@@ -9,7 +9,7 @@ $ConfirmPreference     = 'None'
 if (Get-Command git -ErrorAction SilentlyContinue) {
     Write-Host "Git already installed:"
     git --version
-    return
+    exit 0
 }
 
 # ------------------------------

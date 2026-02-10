@@ -47,3 +47,5 @@ if ($machinePath -notlike "*$pathEntry*") {
 # Verify
 # ------------------------------
 nuget.exe help | Select-Object -First 1
+
+exit 0
