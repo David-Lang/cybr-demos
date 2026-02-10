@@ -27,35 +27,48 @@ access_token=$(curl --silent --location "https://$1.id.cyberark.cloud/oauth2/pla
 
 get_uuid_by_userid() {
   # $1 isp_id, $2 identity_token, $3 username
-    if [ $# -ne 3 ]; then
-      echo "Usage: get_user_uuid_by_name isp_id identity_token username"
-      return 1
-    fi
+  if [ $# -ne 3 ]; then
+    echo "Usage: get_uuid_by_userid isp_id identity_token username" >&2
+    return 1
+  fi
 
-    response=$(curl --silent --location --request POST \
-      "https://$1.id.cyberark.cloud/CDirectoryService/GetUserByName" \
-      --header "authorization: Bearer $2" \
-      --header "content-type: application/json" \
-      --data "$(jq -cn --arg u "$3" '{username:$u}')"
-    )
+  local isp_id="$1"
+  local token="$2"
+  local username="$3"
 
-    # Check if response is empty or null
-    if [ -z "$response" ] || [ "$response" == "null" ]; then
-      printf "\nERROR: GetUserByName failed. Response is empty or null.\n" >&2
-      exit 1
-    fi
+  local response
+  response=$(curl --silent --location --request POST \
+    "https://${isp_id}.id.cyberark.cloud/CDirectoryService/GetUserByName" \
+    --header "authorization: Bearer ${token}" \
+    --header "content-type: application/json" \
+    --data "$(jq -cn --arg u "$username" '{username:$u}')"
+  )
 
-    # Extract UUID (handle common field names)
-    user_uuid=$(printf '%s' "$response" | jq -r '.Uuid // empty' 2>/dev/null)
+  if [ -z "$response" ] || [ "$response" = "null" ]; then
+    printf "\nERROR: GetUserByName failed. Response is empty or null.\n" >&2
+    return 1
+  fi
 
-    # Validate UUID
-    if [ -z "$user_uuid" ] || [ "$user_uuid" == "null" ]; then
-      printf "\nERROR: GetUserByName failed. UUID not found.\nResponse: %s\n" "$response" >&2
-      exit 1
-    fi
+  # Fail fast if API says it failed
+  local success
+  success=$(printf '%s' "$response" | jq -r '.success // false' 2>/dev/null)
+  if [ "$success" != "true" ]; then
+    local msg
+    msg=$(printf '%s' "$response" | jq -r '.Message // .Result.Message // empty' 2>/dev/null)
+    printf "\nERROR: GetUserByName failed. success=false. %s\nResponse: %s\n" "$msg" "$response" >&2
+    return 1
+  fi
 
-    # Return UUID to caller via stdout
-    printf '%s' "$user_uuid"
+  # Extract UUID from the right spot
+  local user_uuid
+  user_uuid=$(printf '%s' "$response" | jq -r '.Result.Uuid // empty' 2>/dev/null)
+
+  if [ -z "$user_uuid" ] || [ "$user_uuid" = "null" ]; then
+    printf "\nERROR: GetUserByName failed. Uuid not found.\nResponse: %s\n" "$response" >&2
+    return 1
+  fi
+
+  printf '%s' "$user_uuid"
 }
 
 set_user_lock_state() {
