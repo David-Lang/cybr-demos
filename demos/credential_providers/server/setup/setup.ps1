@@ -88,8 +88,8 @@ $cfgSection = Get-IISConfigSection -Location "$siteName/$appName" -SectionPath "
 Set-IISConfigAttributeValue -ConfigElement $cfgSection -AttributeName "sslFlags" -AttributeValue "Ssl, SslNegotiateCert"
 
 # ----- CREATE APP -----
-$token = Get-IdentityToken -IspId "$env:TENANT_ID" -ClientId "$env:CLIENT_ID" -ClientSecret "$env:CLIENT_SECRET"
-New-App -IspSubdomain "$env:TENANT_SUBDOMAIN" -IdentityToken $token -AppId "AIMWebService"
+#$token = Get-IdentityToken -IspId "$env:TENANT_ID" -ClientId "$env:CLIENT_ID" -ClientSecret "$env:CLIENT_SECRET"
+#New-App -IspSubdomain "$env:TENANT_SUBDOMAIN" -IdentityToken $token -AppId "AIMWebService"
 
 
 # Other things that need to be done
