@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "cybr-demos": {
+      "command": "node",
+      "args": [
+        "/Users/david.lang/Library/CloudStorage/GoogleDrive-dalang@paloaltonetworks.com/My Drive/_GolandProjects/cybr-demos/mcp-server/index.js"
+      ]
+    }
+  }
+}
