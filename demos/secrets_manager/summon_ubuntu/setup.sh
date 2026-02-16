@@ -21,12 +21,11 @@ fi
 
 echo "Installing Summon and summon-conjur provider..."
 bash "$INSTALL_SCRIPT"
-echo ""
-echo "Running vault setup..."
-bash ./setup/vault/setup.sh
-echo ""
-echo "Running Conjur workload setup..."
-bash ./setup/conjur/setup.sh
 
 echo ""
-echo "Setup completed successfully!"
+echo "Installation completed."
+echo ""
+echo "Next steps:"
+echo "   bash ./setup/vault/setup.sh"
+echo "   bash ./setup/conjur/setup.sh"
+echo "   source ./conjur_credentials.env"

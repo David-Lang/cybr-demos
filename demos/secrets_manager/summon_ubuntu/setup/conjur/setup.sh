@@ -1,64 +1,94 @@
 #!/bin/bash
-# shellcheck disable=SC2059
 set -euo pipefail
 
+export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-/opt/cybr-demos}"
 demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/summon_ubuntu"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$script_dir"
+
+require_env() {
+  local var_name="$1"
+  if [ -z "${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\n" "$var_name" >&2
+    exit 1
+  fi
+}
+
+ensure_file() {
+  local file_path="$1"
+  if [ ! -f "$file_path" ]; then
+    printf "ERROR: Required file not found: %s\n" "$file_path" >&2
+    exit 1
+  fi
+}
 
 set -a
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$demo_path/setup/vars.env"
 set +a
 
-isp_id=$TENANT_ID
-isp_subdomain=$TENANT_SUBDOMAIN
-client_id=$CLIENT_ID
-client_secret=$CLIENT_SECRET
-safe_name=$SAFE_NAME
-workload_name="${WORKLOAD_NAME:-summon-ubuntu}"
-workload_id="data/workloads/$workload_name"
+require_env "TENANT_ID"
+require_env "TENANT_SUBDOMAIN"
+require_env "CLIENT_ID"
+require_env "CLIENT_SECRET"
+require_env "SAFE_NAME"
+ensure_file "workload.tmpl.yaml"
+ensure_file "grant_safe_access.tmpl.yaml"
 
-echo ""
-echo "Conjur setup"
-echo "Safe: $safe_name"
-echo "Workload: $workload_id"
+WORKLOAD_NAME="${WORKLOAD_NAME:-summon-ubuntu}"
+WORKLOAD_ID="data/workloads/$WORKLOAD_NAME"
 
-identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
-conjur_token=$(get_conjur_token "$isp_subdomain" "$identity_token")
+printf "\n========================================\n"
+printf "Provisioning Workload: %s\n" "$WORKLOAD_NAME"
+printf "========================================\n"
+printf "\nSafe: %s\n" "$SAFE_NAME"
+printf "Workload: %s\n" "$WORKLOAD_ID"
 
-workload_policy=$(cat <<POLICY
-- !host
-  id: $workload_name
-  annotations:
-    description: Summon Ubuntu workload
-POLICY
-)
+printf "\nAuthenticating to Identity...\n"
+identity_token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
+if [ -z "$identity_token" ]; then
+  printf "ERROR: Failed to get identity token\n" >&2
+  exit 1
+fi
+printf "Authentication successful\n"
 
-apply_conjur_policy "$isp_subdomain" "$conjur_token" "data/workloads" "$workload_policy" >/dev/null
+printf "\nAuthenticating to Conjur...\n"
+conjur_token="$(get_conjur_token "$TENANT_SUBDOMAIN" "$identity_token")"
+if [ -z "$conjur_token" ]; then
+  printf "ERROR: Failed to get Conjur token\n" >&2
+  exit 1
+fi
+printf "Conjur authentication successful\n"
 
-echo "Rotating API key for workload..."
-workload_api_key=$(rotate_workload_api_key "$isp_subdomain" "$conjur_token" "$workload_id")
+printf "\nCreating workload policy...\n"
+resolve_template "workload.tmpl.yaml" "workload.yaml"
+apply_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "data/workloads" "$(cat workload.yaml)" >/dev/null
+printf "Workload policy created\n"
 
-grant_policy=$(cat <<POLICY
-- !grant
-  role: !group /$safe_name/delegation/consumers
-  member: !host /$workload_id
-POLICY
-)
+printf "\nGranting safe access to workload...\n"
+resolve_template "grant_safe_access.tmpl.yaml" "grant_safe_access.yaml"
+patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "data" "$(cat grant_safe_access.yaml)" >/dev/null
+printf "Safe access granted\n"
 
-patch_conjur_policy "$isp_subdomain" "$conjur_token" "data" "$grant_policy" >/dev/null
+printf "\nRotating API key for workload...\n"
+workload_api_key="$(rotate_workload_api_key "$TENANT_SUBDOMAIN" "$conjur_token" "$WORKLOAD_ID")"
+if [ -z "$workload_api_key" ]; then
+  printf "ERROR: Failed to rotate workload API key\n" >&2
+  exit 1
+fi
+printf "API key rotated\n"
 
 creds_file="$demo_path/conjur_credentials.env"
 cat > "$creds_file" <<CREDS
 # Conjur Credentials for Summon Ubuntu Demo
-export CONJUR_APPLIANCE_URL="https://$isp_subdomain.secretsmgr.cyberark.cloud"
+export CONJUR_APPLIANCE_URL="https://$TENANT_SUBDOMAIN.secretsmgr.cyberark.cloud"
 export CONJUR_ACCOUNT="conjur"
-export CONJUR_AUTHN_LOGIN="host/$workload_id"
+export CONJUR_AUTHN_LOGIN="host/$WORKLOAD_ID"
 export CONJUR_AUTHN_API_KEY="$workload_api_key"
 CREDS
 
 chmod 600 "$creds_file"
 
-echo ""
-echo "Conjur setup completed successfully"
-echo "Credentials file: $creds_file"
-echo "Run: source $creds_file"
+printf "\nConjur setup completed successfully.\n"
+printf "Credentials file: %s\n" "$creds_file"
+printf "Run: source %s\n" "$creds_file"

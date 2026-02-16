@@ -1,37 +1,65 @@
 #!/bin/bash
-# shellcheck disable=SC2059
 set -euo pipefail
 
+export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-/opt/cybr-demos}"
 demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/summon_ubuntu"
-# Set environment variables using .env file
-# -a means that every bash variable would become an environment variable
-# Using '+' rather than '-' causes the option to be turned off
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$script_dir"
+
+require_env() {
+  local var_name="$1"
+  if [ -z "${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\n" "$var_name" >&2
+    exit 1
+  fi
+}
+
 set -a
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$demo_path/setup/vault/vars.env"
 set +a
 
-printf "\nSetting local vars from Env"
-isp_id=$TENANT_ID
-isp_subdomain=$TENANT_SUBDOMAIN
-client_id=$CLIENT_ID
-client_secret=$CLIENT_SECRET
-safe_name=$SAFE_NAME
+require_env "TENANT_ID"
+require_env "TENANT_SUBDOMAIN"
+require_env "CLIENT_ID"
+require_env "CLIENT_SECRET"
+require_env "SAFE_NAME"
 
-identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
-printf "\n\nidentity_token: \n$identity_token\n"
+printf "\n========================================\n"
+printf "Provisioning Safe: %s\n" "$SAFE_NAME"
+printf "========================================\n"
 
-create_safe "$isp_subdomain" "$identity_token" "$safe_name"
-add_safe_admin_role "$isp_subdomain" "$identity_token" "$safe_name" "Privilege Cloud Administrators"
-add_safe_read_member "$isp_subdomain" "$identity_token" "$safe_name" "Conjur Sync"
+printf "\nAuthenticating to Identity...\n"
+identity_token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
+if [ -z "$identity_token" ]; then
+  printf "ERROR: Failed to get identity token\n" >&2
+  exit 1
+fi
+printf "Authentication successful\n"
 
-create_account_ssh_user_1 "$isp_subdomain" "$identity_token" "$safe_name"
+printf "\nCreating safe: %s...\n" "$SAFE_NAME"
+create_safe "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME"
+printf "Safe created\n"
 
+printf "\nAdding admin role...\n"
+add_safe_admin_role "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "Privilege Cloud Administrators"
+printf "Admin role added\n"
 
-conjur_token=$(get_conjur_token "$isp_subdomain" "$identity_token")
-printf "\n\nconjur_token: \n$conjur_token\n"
-printf "Waiting for synchronizer (*/$safe_name/delegation/consumers)\n"
-wait_for_synchronizer "$isp_subdomain" "$conjur_token" "$safe_name"
+printf "\nAdding Conjur Sync member...\n"
+add_safe_read_member "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "Conjur Sync"
+printf "Conjur Sync member added\n"
 
+printf "\nCreating demo account...\n"
+create_account_ssh_user_1 "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME"
+printf "Demo account created\n"
 
-printf "\n\nSafe setup completed successfully!\n"
+printf "\nWaiting for synchronizer (*/%s/delegation/consumers)...\n" "$SAFE_NAME"
+conjur_token="$(get_conjur_token "$TENANT_SUBDOMAIN" "$identity_token")"
+if [ -z "$conjur_token" ]; then
+  printf "ERROR: Failed to get Conjur token\n" >&2
+  exit 1
+fi
+wait_for_synchronizer "$TENANT_SUBDOMAIN" "$conjur_token" "$SAFE_NAME"
+printf "Synchronizer detected safe delegation group\n"
+
+printf "\nSafe setup completed successfully.\n"
