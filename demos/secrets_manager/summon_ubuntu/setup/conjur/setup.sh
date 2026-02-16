@@ -36,10 +36,7 @@ POLICY
 apply_conjur_policy "$isp_subdomain" "$conjur_token" "data/workloads" "$workload_policy" >/dev/null
 
 echo "Rotating API key for workload..."
-workload_api_key=$(curl --silent \
-  --request PUT \
-  --location "https://$isp_subdomain.secretsmgr.cyberark.cloud/api/authn/conjur/api_key?role=host/$workload_id" \
-  --header "Authorization: Token token=\"$conjur_token\"" )
+workload_api_key=$(rotate_workload_api_key "$isp_subdomain" "$conjur_token" "$workload_id")
 
 grant_policy=$(cat <<POLICY
 - !grant

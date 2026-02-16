@@ -90,3 +90,16 @@ wait_for_synchronizer() {
     sleep 5
   done
 }
+
+rotate_workload_api_key() {
+  # $1 isp_subdomain, $2 conjur_token, $3 workload_id (e.g. data/workloads/summon-ubuntu)
+  if [ $# -ne 3 ]; then
+    echo "Usage: rotate_workload_api_key isp_subdomain conjur_token workload_id"
+    return 1
+  fi
+
+  curl --silent \
+    --request PUT \
+    --location "https://$1.secretsmgr.cyberark.cloud/api/authn/conjur/api_key?role=host/$3" \
+    --header "Authorization: Token token=\"$2\""
+}

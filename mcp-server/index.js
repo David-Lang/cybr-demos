@@ -35,6 +35,16 @@ const CATEGORIES = [
   "secrets_hub",
   "utility",
 ];
+const REQUIRED_AUTOMATION_ENV_VARS = [
+  "CYBR_DEMOS_PATH",
+  "INSTALLER_USR",
+  "CLIENT_SECRET",
+  "CLIENT_ID",
+  "TENANT_SUBDOMAIN",
+  "LAB_ID",
+  "TENANT_ID",
+  "INSTALLER_PWD",
+];
 
 /**
  * Create a new demo with standard scaffolding
@@ -249,6 +259,14 @@ source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$demo_path/setup/vault/vars.env"
 set +a
 
+required_vars=(${REQUIRED_AUTOMATION_ENV_VARS.join(" ")})
+for var_name in "\${required_vars[@]}"; do
+  if [ -z "\${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\\n" "$var_name" >&2
+    exit 1
+  fi
+done
+
 printf "\\nSetting local vars from Env"
 isp_id=$TENANT_ID
 isp_subdomain=$TENANT_SUBDOMAIN
@@ -315,6 +333,14 @@ set -euo pipefail
 
 # Source environment and utility functions
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
+
+required_vars=(${REQUIRED_AUTOMATION_ENV_VARS.join(" ")})
+for var_name in "\${required_vars[@]}"; do
+  if [ -z "\${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\\n" "$var_name" >&2
+    exit 1
+  fi
+done
 
 printf "\\n========================================\\n"
 printf "Provisioning Safe: ${safeName}\\n"
@@ -458,6 +484,14 @@ set -euo pipefail
 
 # Source environment and utility functions
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
+
+required_vars=(${REQUIRED_AUTOMATION_ENV_VARS.join(" ")})
+for var_name in "\${required_vars[@]}"; do
+  if [ -z "\${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\\n" "$var_name" >&2
+    exit 1
+  fi
+done
 
 printf "\\n========================================\\n"
 printf "Provisioning Workload: ${workloadName}\\n"
