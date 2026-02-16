@@ -1,4 +1,50 @@
-# Quick Start Guide
+# Quickstart Guide
+
+## New Feature: Automatic Safe Name Generation
+
+The `create_demo_safe` tool now automatically generates safe names using your `LAB_ID` environment variable!
+
+### Default Behavior
+
+When you don't specify a `safeName`, the tool will automatically generate one using the pattern:
+```
+${LAB_ID}-{demo-name}
+```
+
+Where:
+- `LAB_ID` is your lab environment identifier (set in `demos/tenant_vars.sh`)
+- `demo-name` is extracted from your demo path and normalized (lowercase, spaces and non-alphanumeric chars → hyphens)
+
+### Examples
+
+| Demo Path | Generated Safe Name |
+|-----------|---------------------|
+| `secrets_manager/azure_devops` | `${LAB_ID}-azure-devops` |
+| `secrets_manager/k8s` | `${LAB_ID}-k8s` |
+| `secrets_hub/aws_secrets_manager` | `${LAB_ID}-aws-secrets-manager` |
+
+### Setup
+
+1. Set your `LAB_ID` in `demos/tenant_vars.sh`:
+   ```bash
+   export LAB_ID="poc"  # or "lab01", "demo", etc.
+   ```
+
+2. Create a demo safe without specifying the name:
+   ```
+   Create a demo safe for secrets_manager/azure_devops
+   ```
+   
+   This will use `${LAB_ID}-azure-devops` as the safe name.
+
+3. Or override with a custom name:
+   ```
+   Create a demo safe for secrets_manager/azure_devops with safe name "my-custom-safe"
+   ```
+
+---
+
+# Quickstart Guide
 
 Get the CyberArk Demos MCP Server up and running in minutes!
 

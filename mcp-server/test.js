@@ -171,6 +171,91 @@ echo "Configuration completed!"
   };
 }
 
+async function createDemoSafe(demoPath, safeName, options = {}) {
+  // Validate demo path exists
+  try {
+    await fs.access(demoPath);
+  } catch (err) {
+    throw new Error(`Demo path does not exist: ${demoPath}`);
+  }
+
+  // Generate default safe name if not provided
+  if (!safeName) {
+    // Extract demo name from path (last directory component)
+    const demoName = path.basename(demoPath);
+    // Normalize: replace spaces and non-alphanumeric chars with hyphens
+    const normalizedName = demoName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    safeName = `\${LAB_ID}-${normalizedName}`;
+  }
+
+  // Create setup/vault directory
+  const vaultPath = path.join(demoPath, "setup", "vault");
+  await fs.mkdir(vaultPath, { recursive: true });
+
+  // Create vars.env
+  const varsEnv = `# CyberArk Vault
+SAFE_NAME="${safeName}"
+
+${options.additionalVars || "# Add additional environment variables here"}
+`;
+  await fs.writeFile(path.join(vaultPath, "vars.env"), varsEnv);
+
+  // Create setup.sh
+  const setupScript = `#!/bin/bash
+# shellcheck disable=SC2059
+set -euo pipefail
+
+demo_path="${options.demoPathVar || "$CYBR_DEMOS_PATH/demos/secrets_manager/" + path.basename(demoPath)}"
+# Set environment variables using .env file
+# -a means that every bash variable would become an environment variable
+# Using '+' rather than '-' causes the option to be turned off
+set -a
+source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
+source "$demo_path/setup/vault/vars.env"
+set +a
+
+printf "\\nSetting local vars from Env"
+isp_id=$TENANT_ID
+isp_subdomain=$TENANT_SUBDOMAIN
+client_id=$CLIENT_ID
+client_secret=$CLIENT_SECRET
+safe_name=$SAFE_NAME
+
+identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
+printf "\\n\\nidentity_token: \\n$identity_token\\n"
+
+create_safe "$isp_subdomain" "$identity_token" "$safe_name"
+add_safe_admin_role "$isp_subdomain" "$identity_token" "$safe_name" "Privilege Cloud Administrators"
+${options.addSyncMember || demoPath.includes(`${path.sep}secrets_manager${path.sep}`) ? 'add_safe_read_member "$isp_subdomain" "$identity_token" "$safe_name" "Conjur Sync"' : ""}
+
+${options.createAccount ? 'create_account_ssh_user_1 "$isp_subdomain" "$identity_token" "$safe_name"' : ""}
+
+${
+  options.setupConjur
+    ? `
+conjur_token=$(get_conjur_token "$isp_subdomain" "$identity_token")
+printf "\\n\\nconjur_token: \\n$conjur_token\\n"
+printf "Waiting for synchronizer (*/$safe_name/delegation/consumers)\\n"
+wait_for_synchronizer "$isp_subdomain" "$conjur_token" "$safe_name"
+`
+    : ""
+}
+
+printf "\\n\\nSafe setup completed successfully!\\n"
+`;
+  await fs.writeFile(path.join(vaultPath, "setup.sh"), setupScript);
+  await fs.chmod(path.join(vaultPath, "setup.sh"), 0o755);
+
+  return {
+    success: true,
+    path: vaultPath,
+    files: ["vars.env", "setup.sh"],
+  };
+}
+
 async function cleanupTestDemo() {
   const demoPath = path.join(DEMOS_BASE_DIR, TEST_CATEGORY, TEST_DEMO_NAME);
   try {
@@ -312,7 +397,137 @@ async function runTests() {
   }
   console.log("");
 
-  // Final cleanup
+  // Cleanup after test 3
+  console.log("Cleanup after test 3:");
+  await cleanupTestDemo();
+  console.log("");
+
+  // Test 4: Create demo safe with default safe name
+  console.log("Test 4: Create demo safe with default safe name");
+  try {
+    // First create the demo
+    await createDemo(TEST_CATEGORY, TEST_DEMO_NAME);
+    const demoPath = path.join(DEMOS_BASE_DIR, TEST_CATEGORY, TEST_DEMO_NAME);
+    const result = await createDemoSafe(demoPath);
+
+    if (result.success) {
+      console.log("✓ Demo safe created successfully");
+      console.log(`  Path: ${result.path}`);
+      console.log(`  Files: ${result.files.join(", ")}`);
+
+      // Verify vars.env contains default safe name pattern
+      const varsEnvPath = path.join(result.path, "vars.env");
+      const varsContent = await fs.readFile(varsEnvPath, "utf-8");
+
+      if (varsContent.includes('SAFE_NAME="${LAB_ID}-mcp-test-demo"')) {
+        console.log(
+          "  ✓ vars.env contains default safe name: ${LAB_ID}-mcp-test-demo",
+        );
+      } else {
+        throw new Error(
+          `Default safe name pattern not found in vars.env. Content: ${varsContent}`,
+        );
+      }
+
+      // Verify setup.sh exists and is executable
+      const setupShPath = path.join(result.path, "setup.sh");
+      const setupStat = await fs.stat(setupShPath);
+      if ((setupStat.mode & 0o111) !== 0) {
+        console.log("  ✓ setup.sh is executable");
+      } else {
+        throw new Error("setup.sh is not executable");
+      }
+
+      testsPassed++;
+    } else {
+      throw new Error("Demo safe creation returned success: false");
+    }
+  } catch (err) {
+    console.error(`✗ Test failed: ${err.message}`);
+    testsFailed++;
+  }
+  console.log("");
+
+  // Test 5: Create demo safe with custom safe name (demo already exists from test 4)
+  console.log("Test 5: Create demo safe with custom safe name");
+  try {
+    const demoPath = path.join(DEMOS_BASE_DIR, TEST_CATEGORY, TEST_DEMO_NAME);
+    // Delete existing vault directory first
+    const vaultPath = path.join(demoPath, "setup", "vault");
+    try {
+      await fs.rm(vaultPath, { recursive: true, force: true });
+    } catch (err) {
+      // Ignore if doesn't exist
+    }
+    const result = await createDemoSafe(demoPath, "custom-safe-name");
+
+    if (result.success) {
+      console.log("✓ Demo safe created with custom name");
+
+      // Verify vars.env contains custom safe name
+      const varsEnvPath = path.join(result.path, "vars.env");
+      const varsContent = await fs.readFile(varsEnvPath, "utf-8");
+
+      if (varsContent.includes('SAFE_NAME="custom-safe-name"')) {
+        console.log("  ✓ vars.env contains custom safe name: custom-safe-name");
+      } else {
+        throw new Error("Custom safe name not found in vars.env");
+      }
+
+      testsPassed++;
+    } else {
+      throw new Error("Demo safe creation returned success: false");
+    }
+  } catch (err) {
+    console.error(`✗ Test failed: ${err.message}`);
+    testsFailed++;
+  }
+  console.log("");
+
+  // Test 6: Verify safe name normalization
+  console.log("Test 6: Verify safe name normalization");
+  try {
+    // Create a temporary demo with special characters in name
+    const specialDemoName = "Test Demo@123 Special!";
+    const specialDemoDir = specialDemoName.toLowerCase().replace(/\s+/g, "_");
+    const specialDemoPath = path.join(
+      DEMOS_BASE_DIR,
+      TEST_CATEGORY,
+      specialDemoDir,
+    );
+
+    await fs.mkdir(specialDemoPath, { recursive: true });
+    await fs.mkdir(path.join(specialDemoPath, "setup"), { recursive: true });
+
+    const result = await createDemoSafe(specialDemoPath);
+
+    if (result.success) {
+      const varsEnvPath = path.join(result.path, "vars.env");
+      const varsContent = await fs.readFile(varsEnvPath, "utf-8");
+
+      // Expected normalized name: test_demo-123_special (underscores from directory name, other chars to hyphens)
+      if (varsContent.includes('SAFE_NAME="${LAB_ID}-test-demo-123-special"')) {
+        console.log(
+          "  ✓ Safe name normalized correctly: ${LAB_ID}-test-demo-123-special",
+        );
+        testsPassed++;
+      } else {
+        throw new Error(`Normalization failed. Content: ${varsContent}`);
+      }
+    } else {
+      throw new Error("Demo safe creation returned success: false");
+    }
+
+    // Cleanup special demo
+    await fs.rm(specialDemoPath, { recursive: true, force: true });
+    console.log("  ✓ Cleaned up special test demo");
+  } catch (err) {
+    console.error(`✗ Test failed: ${err.message}`);
+    testsFailed++;
+  }
+  console.log("");
+
+  // Final cleanup after all tests
   console.log("Final cleanup:");
   await cleanupTestDemo();
   console.log("");

@@ -1,99 +1,80 @@
-# Summon Demo - Ubuntu/Linux
+# Demo: Summon Ubuntu
 
-Quick demonstration of using Summon to inject Conjur secrets into a bash application.
+## About
 
-## Quick Start
+Demonstrates how to use Summon on Ubuntu/Linux with CyberArk Secrets Manager workload identity.
 
-### 1. Install Summon and Conjur Provider
+## Prerequisites
 
-Run the setup script:
+- Ubuntu/Linux with `bash`, `curl`, `tar`, and `sudo`
+- Access to CyberArk tenant variables configured for this repo
+- Codex session with CyberArk demo MCP tools enabled
 
-```bash
-cd setup
-sudo ./setup.sh
-```
+## Setup
 
-This automatically installs:
-- Summon CLI
-- Conjur provider
-
-### 2. Configure Conjur Connection
-
-Set your Conjur credentials:
+Run local setup to install Summon and the Conjur provider:
 
 ```bash
-export CONJUR_APPLIANCE_URL="https://your-conjur-instance.com"
-export CONJUR_ACCOUNT="your-account"
-export CONJUR_AUTHN_LOGIN="your-username"
-export CONJUR_AUTHN_API_KEY="your-api-key"
+./setup.sh
 ```
 
-Or use the helper script:
+## Provision with Setup Scripts
+
+If you want script-based provisioning in the demo directory:
 
 ```bash
-cd setup
-./configure.sh
+bash ./setup/vault/setup.sh
+bash ./setup/conjur/setup.sh
+source ./conjur_credentials.env
 ```
 
-This will persist the variables to `~/.bashrc`.
+## Provision with MCP Tools
 
-### 3. Configure Secret Mappings
+Provision demo infrastructure using MCP tools:
 
-Edit `secrets.yml` to map environment variables to Conjur paths:
+1. Provision a safe and demo account:
+   - `mcp__cybr-demos__provision_safe`
+   - `demoPath: secrets_manager/summon_ubuntu`
+   - `safeName: <your-safe-name>`
+   - `addSyncMember: true`
+   - `createAccounts: true`
+   - `setupConjur: true`
 
-```yaml
-SECRET1: !var path/to/your/secret1
-SECRET2: !var path/to/your/secret2
-SECRET3: !var path/to/your/secret3
+2. Provision workload identity:
+   - `mcp__cybr-demos__provision_workload`
+   - `demoPath: secrets_manager/summon_ubuntu`
+   - `safeName: <your-safe-name>`
+   - `workloadName: summon-ubuntu`
+
+After workload provisioning, source the generated credentials file:
+
+```bash
+source ./conjur_credentials.env
 ```
 
-### 4. Run the Demo
+## Running the Demo
 
 ```bash
 ./demo.sh
 ```
 
-## How It Works
+## Workflow
 
-1. **demo.sh** - Validates Conjur environment variables and calls Summon
-2. **Summon** - Reads `secrets.yml` and fetches secrets from Conjur
-3. **consumer.sh** - Receives secrets as environment variables and displays them
-
-```
-demo.sh → summon → Conjur API → consumer.sh
-         ↑
-    secrets.yml
-```
-
-## Expected Output
-
-```
---- Variables Used ---
-CONJUR_APPLIANCE_URL=https://your-conjur-instance.com
-CONJUR_ACCOUNT=your-account
-CONJUR_AUTHN_LOGIN=your-username
-
-Env Variables
-SECRET1: [secret value 1]
-SECRET2: [secret value 2]
-SECRET3: [secret value 3]
-```
+1. `demo.sh` verifies Conjur auth variables.
+2. Summon reads `secrets.yml` and fetches mapped secrets.
+3. `consumer.sh` receives secrets as environment variables.
 
 ## Files
 
-- `setup/setup.sh` - Automated installation script
-- `setup/configure.sh` - Helper to set and persist environment variables
-- `demo.sh` - Main demo script
-- `consumer.sh` - Application that consumes the secrets
-- `secrets.yml` - Secret mapping configuration
-
-## Next Steps
-
-- Modify `secrets.yml` for your application's secrets
-- Integrate into your CI/CD pipeline
-- Use in production: `summon -p summon-conjur bash your-app.sh`
+- `setup.sh` - Local installer and MCP provisioning guidance
+- `setup/setup.sh` - Installs Summon and summon-conjur
+- `setup/vault/setup.sh` - Safe setup scaffold generated via MCP demo tooling
+- `setup/conjur/setup.sh` - Creates workload host, grants safe delegation access, writes credentials
+- `secrets.yml` - Summon variable mappings
+- `demo.sh` - Runs Summon with `consumer.sh`
+- `consumer.sh` - Prints injected secret variables
 
 ## Documentation
 
-- **Summon Docs**: https://cyberark.github.io/summon/
-- **Conjur Provider**: https://github.com/cyberark/summon-conjur
+- Summon: https://cyberark.github.io/summon/
+- Summon Conjur Provider: https://github.com/cyberark/summon-conjur
