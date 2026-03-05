@@ -1,7 +1,7 @@
 node {
    stage('get_secrets') {
     withCredentials([
-     conjurSecretCredential(credentialsId: 'data-vault-poc-jenkins-account-ssh-user-1-username', variable: 'SSH_UNAME'),
+     conjurSecretCredential(credentialsId: 'data-vault-poc-jenkins--username', variable: 'SSH_UNAME'),
      conjurSecretCredential(credentialsId: 'data-vault-poc-jenkins-account-ssh-user-1-password', variable: 'SSH_PWD')
     ]) {
       sh "echo -n SSH_UNAME:"
