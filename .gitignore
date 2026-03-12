@@ -14,7 +14,7 @@ license.txt
 *terraform/*kubeconfig_*
 /go.sum
 
-*.idea/workspace.xml
+*.idea/*
 
 test_assets/*
 secret/*

@@ -1,5 +1,5 @@
-Category: "Conjur Cloud"
-Name: "EKS K8s"
+Category: "Secret Manager"
+Name: "K8s"
 Docs: "https://docs.cyberark.com/portal/latest/en/docs.htm"
 DemoScript: "demo.sh"
 SetupScript: "install.sh"

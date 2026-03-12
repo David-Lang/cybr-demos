@@ -1,0 +1,6 @@
+# metadata
+# mode: append-policy
+---
+- !grant
+  role: !group /{{ .SAFE_NAME }}/delegation/consumers
+  member: !host /data/workloads/{{ .WORKLOAD_NAME }}

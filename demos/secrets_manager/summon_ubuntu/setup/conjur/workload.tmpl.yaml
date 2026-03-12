@@ -1,0 +1,7 @@
+# metadata
+# mode: append-policy
+---
+- !host
+  id: {{ .WORKLOAD_NAME }}
+  annotations:
+    description: Summon Ubuntu workload
