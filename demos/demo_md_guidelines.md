@@ -1,12 +1,63 @@
-# `demo.md` Authoring Guide
+# Demo Doc Authoring Guide
 
-Use this guide when creating a new `demo.md` for any demo under `demos/`.
+Use this guide when creating demo documentation under `demos/`.
 
-The purpose of a `demo.md` file is to help a user understand and validate a deployed demo. It should explain what to look at after install, how the CyberArk functionality works, and how to confirm the expected behavior in the target platform.
+The standard filenames are:
+
+- `demo_setup.md` for deployment and setup guidance
+- `demo_validation.md` for post-install walkthrough and validation guidance
+
+## Standard Pair
+
+Use both files when the demo has meaningful deployment and validation steps.
+
+- `demo_setup.md`
+  - deployment context
+  - automation path in this repo
+  - setup scripts and sequence
+  - required environment and prerequisites
+  - what gets installed
+
+- `demo_validation.md`
+  - post-install walkthrough
+  - runtime validation
+  - CyberArk behavior
+  - platform behavior
+  - troubleshooting
+
+If the demo is simple, `demo_validation.md` may be enough. If the demo has a non-trivial setup path, include both.
+
+## File Roles
+
+Keep the file roles distinct.
+
+`demo_setup.md` should answer:
+
+- How is this demo deployed in this repo?
+- What scripts or automation run?
+- What environment variables and platform prerequisites are required?
+- What gets installed or configured?
+- What is specific to the lab or platform deployment path?
+
+`demo_validation.md` should answer:
+
+- What should the user inspect after deployment?
+- What are the major use cases or integration patterns?
+- What commands prove the demo is working?
+- What is CyberArk doing behind the scenes?
+- How does the user troubleshoot failures?
 
 ## Primary Goal
 
-A good `demo.md` should help a new user:
+A good `demo_setup.md` should help a new user:
+
+- understand how the demo is deployed in this repo
+- understand which setup path is repo-specific versus platform-generic
+- identify the scripts, variables, and prerequisites involved
+- understand what infrastructure or application resources will be created
+- troubleshoot setup failures before moving to validation
+
+A good `demo_validation.md` should help a new user:
 
 - understand what was deployed
 - understand the CyberArk integration pattern being demonstrated
@@ -14,9 +65,16 @@ A good `demo.md` should help a new user:
 - compare the important patterns in the demo
 - troubleshoot common failure points
 
-## Default Assumption
+## Default Assumptions
 
-Assume the demo is already installed.
+For `demo_setup.md`:
+
+- explain the deployment path clearly
+- document the setup sequence explicitly
+- call out what is lab-specific
+- separate deployment context from runtime validation
+
+For `demo_validation.md`, assume the demo is already installed.
 
 That usually means:
 
@@ -24,11 +82,20 @@ That usually means:
 - any Helm chart or manifests have already been applied
 - the user is now exploring and validating the environment
 
-Do not make setup the focus unless the use case specifically requires it.
+Do not make setup the focus of `demo_validation.md` unless the use case specifically requires it.
 
 ## What To Emphasize
 
-Prioritize these topics:
+In `demo_setup.md`, prioritize:
+
+- deployment flow
+- setup scripts and their sequence
+- platform or lab context
+- required variables and prerequisites
+- what gets deployed
+- setup troubleshooting
+
+In `demo_validation.md`, prioritize:
 
 - post-install validation
 - user understanding of the deployed resources
@@ -45,13 +112,23 @@ For Kubernetes demos, that usually means:
 - configmaps
 - service accounts
 - mounted files
-- operator/controller health
+- operator or controller health
 
 For other platforms, adapt the same idea to the platform primitives.
 
 ## Recommended Structure
 
-Most `demo.md` files should follow this flow:
+Most `demo_setup.md` files should follow this flow:
+
+1. Short intro explaining the deployment path.
+2. Main entry point such as `setup.sh`.
+3. Deployment context for the repo or lab.
+4. Required environment, variables, and prerequisites.
+5. Setup stages and the scripts that run.
+6. What gets deployed or configured.
+7. Setup troubleshooting.
+
+Most `demo_validation.md` files should follow this flow:
 
 1. Short intro explaining the purpose of the demo.
 2. Starting point that assumes the environment is already deployed.
@@ -60,11 +137,11 @@ Most `demo.md` files should follow this flow:
 5. A comparison section if multiple patterns exist.
 6. A troubleshooting section.
 
-Keep the structure practical. The user should be able to walk through it live in a terminal.
+Keep both files practical. The user should be able to follow them live in a terminal.
 
 ## Pattern Sections
 
-For each major pattern, include:
+For each major pattern in `demo_validation.md`, include:
 
 - what the pattern does
 - what CyberArk component or feature is involved
@@ -84,7 +161,7 @@ Examples of pattern-oriented sections:
 
 ## Validation Over Deployment
 
-Prefer validation commands over authoring or deployment inspection.
+In `demo_validation.md`, prefer validation commands over authoring or deployment inspection.
 
 Good examples:
 
@@ -96,7 +173,7 @@ Good examples:
 - decoding created secrets
 - checking synced resources
 
-Avoid making the guide about:
+Avoid making the validation guide about:
 
 - Helm install commands
 - rendered manifest dumps
@@ -105,11 +182,20 @@ Avoid making the guide about:
 
 It is fine to mention which manifest or template implements a pattern, but the focus should stay on validating the live result.
 
+For `demo_setup.md`, the opposite emphasis is appropriate:
+
+- explain the actual deployment flow in this repo
+- identify setup scripts and automation boundaries
+- call out whether the deployment path is Rancher, EKS, OCP, or other
+- distinguish repo-specific automation from generic platform behavior
+
+Do not turn `demo_setup.md` into a generic product overview. It should stay tied to the repo’s real deployment path.
+
 ## Explain The CyberArk Behavior
 
 Do not stop at platform commands. Explain what CyberArk is doing.
 
-For each pattern, clarify:
+For each pattern in `demo_validation.md`, clarify:
 
 - how authentication happens
 - what identity is used
@@ -145,11 +231,11 @@ When a variable like namespace or workload name is dynamic, source it from the d
 
 Write for a technically capable user who is new to the specific demo.
 
-The guide should be:
+The docs should be:
 
 - practical
 - concise
-- validation-oriented
+- validation-oriented where appropriate
 - explanatory without becoming a full product manual
 
 Avoid placeholder text, generic filler, or repeating README content unless it directly helps the walkthrough.
@@ -158,16 +244,25 @@ Avoid placeholder text, generic filler, or repeating README content unless it di
 
 Avoid these common mistakes:
 
-- spending half the document on setup
+- spending half the validation document on setup
 - describing resources without showing how to validate them
 - listing commands without saying what they prove
 - focusing only on manifests instead of runtime behavior
 - ignoring the CyberArk authentication and delivery flow
-- mixing too many goals into one section
+- mixing deployment guidance and validation guidance into one unclear document
 
 ## Minimal Quality Bar
 
-Before considering a new `demo.md` complete, check that it answers:
+Before considering a new `demo_setup.md` complete, check that it answers:
+
+- How is the demo deployed here?
+- What script should the user run?
+- What variables or tenant settings are required?
+- What gets installed or configured?
+- What part of the setup is platform-specific or lab-specific?
+- Where should the user look if setup fails?
+
+Before considering a new `demo_validation.md` complete, check that it answers:
 
 - What is this demo proving?
 - What should the user validate first?
@@ -177,12 +272,42 @@ Before considering a new `demo.md` complete, check that it answers:
 - Where do the secrets end up?
 - How does the user troubleshoot a broken flow?
 
-## Reusable Template
+## Reusable Templates
 
-This outline is a good default:
+These outlines are good defaults.
 
 ```md
-# Demo Walkthrough
+# Demo Setup
+
+Short description of how this demo is deployed in this repo.
+
+## Main Entry Point
+
+What script or command deploys the demo.
+
+## Deployment Context
+
+What part of the setup is repo-specific, lab-specific, or platform-specific.
+
+## Required Environment
+
+Variables, credentials, and prerequisites.
+
+## Setup Flow
+
+What scripts run and what each stage does.
+
+## What Gets Deployed
+
+Main resources, services, workloads, or integrations created.
+
+## Troubleshooting Setup
+
+What to check if deployment fails.
+```
+
+```md
+# Demo Validation
 
 Short description of the deployed demo.
 
@@ -221,4 +346,4 @@ Logs, describe commands, API checks, and common failure points.
 
 ## Final Rule
 
-If a user can follow the `demo.md` after install and clearly understand both the platform behavior and the CyberArk behavior, the file is doing its job.
+If a user can follow `demo_setup.md` to understand deployment and `demo_validation.md` to understand runtime behavior, the documentation is doing its job.

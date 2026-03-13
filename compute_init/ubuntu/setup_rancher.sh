@@ -48,7 +48,6 @@ root_scripts=(
 
 # ubuntu scripts (demo setup, kube interactions, repo config, etc.)
 ubuntu_scripts=(
-  "${cybr_demos_path}/demos/secrets_manager/k8s/setup.sh"
 )
 
 for script in "${root_scripts[@]}"; do

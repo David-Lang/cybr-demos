@@ -2,9 +2,18 @@
 
 This guide starts after `./setup.sh` has completed successfully and the Helm chart has already been deployed.
 
+This repo deploys the demo through the Rancher-based lab setup.
+
+The validation patterns in this walkthrough are standard Kubernetes patterns. They are intended to be conceptually valid on other conformant Kubernetes platforms, including OpenShift, as long as the cluster supports projected service account tokens, the required provider or operator components, and the CyberArk workload identity mapping.
+
 The goal is to help a new user validate what Helm installed and understand how CyberArk Secrets Manager delivers secrets into workloads.
 
 ## Start Here
+
+Deployment context:
+
+- Repo automation and `setup.sh` assume the Rancher-based lab path.
+- The workload validation steps below focus on standard Kubernetes resources and behavior.
 
 Load the demo namespace:
 
