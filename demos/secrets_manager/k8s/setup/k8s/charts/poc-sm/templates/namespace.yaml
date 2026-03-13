@@ -81,8 +81,7 @@ data:
     echo
     SECRET_ID="{{ .Values.sm_secret_1_id | quote }}"
     URI=$CONJUR_APPLIANCE_URL/secrets/conjur/variable/$SECRET_ID
-    HEADER_1="authorization: Token token=\"$session_token\""
     echo
-    echo curl --request GET --url $URI --header $HEADER_1
-    curl --request GET --url $URI --header $HEADER_1
+    echo curl --request GET --url "$URI" --header "authorization: Token token=\\\"$session_token\\\""
+    curl --request GET --url "$URI" --header "authorization: Token token=\\\"$session_token\\\""
     echo
