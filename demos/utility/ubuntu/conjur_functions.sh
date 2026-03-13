@@ -87,7 +87,7 @@ wait_for_synchronizer() {
 
   while [[ "$(get_conjur_groups "$1" "$2" | grep "/$3"/delegation/consumers)" == "" ]]; do
     echo -n "."
-    sleep 5
+    sleep 10
   done
 }
 
