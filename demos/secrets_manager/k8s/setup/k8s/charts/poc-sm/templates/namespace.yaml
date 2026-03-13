@@ -74,14 +74,15 @@ data:
     HEADER_2="Accept-Encoding:base64"
     DATA="jwt=$JWT"
     echo
-    echo curl -k -X POST $URI -H $HEADER_1 -H $HEADER_2 --data-urlencode $DATA
+    echo curl -k -X POST "$URI" -H "$HEADER_1" -H "$HEADER_2" --data-urlencode "$DATA"
     echo
-    session_token=$(curl -k -X POST $URI -H $HEADER_1 -H $HEADER_2 --data-urlencode $DATA)
-    echo $session_token
+    session_token=$(curl -k -X POST "$URI" -H "$HEADER_1" -H "$HEADER_2" --data-urlencode "$DATA")
+    echo "$session_token"
     echo
     SECRET_ID="{{ .Values.sm_secret_1_id | quote }}"
     URI=$CONJUR_APPLIANCE_URL/secrets/conjur/variable/$SECRET_ID
+    AUTH_HEADER="authorization: Token token=\"$session_token\""
     echo
-    echo curl --request GET --url "$URI" --header "authorization: Token token=\\\"$session_token\\\""
-    curl --request GET --url "$URI" --header "authorization: Token token=\\\"$session_token\\\""
+    echo curl --request GET --url "$URI" --header "$AUTH_HEADER"
+    curl --request GET --url "$URI" --header "$AUTH_HEADER"
     echo
