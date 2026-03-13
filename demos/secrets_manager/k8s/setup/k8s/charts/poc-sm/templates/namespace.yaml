@@ -83,6 +83,6 @@ data:
     URI=$CONJUR_APPLIANCE_URL/secrets/conjur/variable/$SECRET_ID
     AUTH_HEADER="authorization: Token token=\"$session_token\""
     echo
-    echo curl --request GET --url "$URI" --header "$AUTH_HEADER"
+    echo curl --request GET --url "$URI" --header "'$AUTH_HEADER'"
     curl --request GET --url "$URI" --header "$AUTH_HEADER"
     echo
