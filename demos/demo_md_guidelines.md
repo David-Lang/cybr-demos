@@ -227,6 +227,24 @@ Prefer commands that prove something concrete, such as:
 
 When a variable like namespace or workload name is dynamic, source it from the demo’s env file when possible.
 
+## Path Guidance
+
+Always use relative paths in demo documentation.
+
+Use paths like:
+
+- `demos/secrets_manager/k8s/demo_setup.md`
+- `setup/k8s/charts/poc-sm/templates/namespace.yaml`
+- `setup/vars.env`
+
+Do not use:
+
+- absolute filesystem paths from the development machine
+- paths rooted in a developer home directory
+- `file:///` URLs
+
+The docs should be portable across environments, users, and installation locations.
+
 ## Tone And Depth
 
 Write for a technically capable user who is new to the specific demo.
