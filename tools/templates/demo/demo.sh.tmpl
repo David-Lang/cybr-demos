@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Demo: {{DISPLAY_NAME}}
+# Category: {{CATEGORY}}
+
+set -e
+
+# Source common environment variables if available
+if [ -f "../../tenant_vars.sh" ]; then
+    source ../../tenant_vars.sh
+fi
+
+echo "=========================================="
+echo "Demo: {{DISPLAY_NAME}}"
+echo "=========================================="
+echo ""
+
+# Add your demo commands here
+
+echo ""
+echo "Demo completed!"

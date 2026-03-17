@@ -44,7 +44,7 @@ aws sts get-caller-identity
 The generated workload identity is:
 
 ```text
-host/data/workloads/aws-iam/<account-from-sts>/<role-path-from-sts>
+host/data/<LAB_ID>/<account-from-sts>/<role-path-from-sts>
 ```
 
 For an assumed role ARN such as:
@@ -56,7 +56,7 @@ arn:aws:sts::123456789012:assumed-role/example-summon-role/session-name
 the generated Conjur host becomes:
 
 ```text
-host/data/workloads/aws-iam/123456789012/example-summon-role
+host/data/<LAB_ID>/123456789012/example-summon-role
 ```
 
 ## Deployment Flow
@@ -101,7 +101,8 @@ bash ./test_runner.sh
 
 - authenticates to CyberArk using the repo tenant variables
 - resolves the active AWS caller identity with `aws sts get-caller-identity`
-- creates a host under `data/workloads/aws-iam`
+- creates a lab-specific policy branch under `data/$LAB_ID`
+- creates a host directly under `data/$LAB_ID`
 - grants the host access to the configured `authn-iam` consumer group
 - grants the host access to the safe delegation group
 - writes `conjur_authn_iam.env`

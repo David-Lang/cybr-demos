@@ -2,21 +2,15 @@
 # mode: append-policy
 ---
 - !policy
-  id: workloads/aws-iam
+  id: {{ .LAB_ID }}
   body:
   - !host
     id: {{ .AWS_ACCOUNT_ID }}/{{ .AWS_ROLE_NAME }}
     annotations:
       description: Summon AWS IAM workload
 
-  - !grant
-    roles:
-      - !group /conjur/authn-iam/{{ .AUTHN_IAM_SERVICE_ID }}/consumers
-    members:
-      - !host /data/workloads/aws-iam/{{ .AWS_ACCOUNT_ID }}/{{ .AWS_ROLE_NAME }}
-
-  - !grant
-    roles:
-      - !group /{{ .SAFE_NAME }}/delegation/consumers
-    members:
-      - !host /data/workloads/aws-iam/{{ .AWS_ACCOUNT_ID }}/{{ .AWS_ROLE_NAME }}
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !host /data/{{ .LAB_ID }}/{{ .AWS_ACCOUNT_ID }}/{{ .AWS_ROLE_NAME }}

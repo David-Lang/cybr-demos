@@ -1,0 +1,11 @@
+# metadata
+# mode: append-policy
+---
+- !policy
+  id: {{ .AUTHN_IAM_SERVICE_ID }}
+  body:
+  - !grant
+    roles:
+      - !group consumers
+    members:
+      - !host /data/{{ .LAB_ID }}/{{ .AWS_ACCOUNT_ID }}/{{ .AWS_ROLE_NAME }}

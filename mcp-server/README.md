@@ -1,6 +1,6 @@
 # CyberArk Demos MCP Server
 
-Model Context Protocol (MCP) server for managing the CyberArk demos project. This server provides AI assistants with tools to create and manage demo scaffolding automatically.
+Model Context Protocol (MCP) server for managing the CyberArk demos project. The MCP server is now a thin adapter over the repo-native CLI in `tools/cli/`, which is the source of truth for tool behavior, templates, and command execution.
 
 ## 🚀 Quick Start
 
@@ -13,6 +13,12 @@ This MCP server gives AI assistants (like Claude or Zed) the ability to:
 - Generate consistent documentation templates
 - Set up standard directory structures
 - Create executable scripts with proper permissions
+- Trigger provisioning and validation through the shared CLI layer
+
+Implementation model:
+- `tools/cli/` owns command behavior and JSON output contracts
+- `tools/templates/` owns scaffold templates
+- `mcp-server/index.js` translates MCP tool calls into CLI invocations
 
 ## Features
 
@@ -213,28 +219,38 @@ npm start
 
 The server communicates via stdio using the Model Context Protocol.
 
-### Testing
+### CLI Development
 
-Test the create_demo function:
+The implementation layer lives in:
+
+- [tools/cli/README.md](../tools/cli/README.md)
+- [tools/cli/cybr-demos.js](../tools/cli/cybr-demos.js)
+
+Run the CLI directly from the repo root:
 
 ```bash
-node -e "
-const { createDemo } = require('./index.js');
-createDemo('utility', 'test_demo', {
-  displayName: 'Test Demo',
-  description: 'A test demo'
-}).then(console.log);
-"
+node tools/cli/cybr-demos.js --help
+```
+
+### Testing
+
+Run the CLI smoke test:
+
+```bash
+cd ../tools/cli
+npm run smoke
 ```
 
 ### Modifying Templates
 
-Edit `index.js` and modify the template strings in the `createDemo` function:
-- `infoYaml` - info.yaml template
-- `readme` - README.md template
-- `demoScript` - demo.sh template
-- `setupScript` - setup.sh template
-- `configureScript` - setup/configure.sh template
+Do not add template strings to `mcp-server/index.js`.
+
+Modify the real template files under:
+
+- [tools/templates/demo](../tools/templates/demo)
+- [tools/templates/safe](../tools/templates/safe)
+
+If command behavior changes, update the CLI command implementation in `tools/cli/commands/` and keep `mcp-server/index.js` as a thin adapter.
 
 ## Troubleshooting
 

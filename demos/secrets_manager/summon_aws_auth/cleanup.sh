@@ -61,6 +61,7 @@ source "$demo_path/setup/vars.env"
 set +a
 
 required_vars=(
+  LAB_ID
   TENANT_ID
   TENANT_SUBDOMAIN
   CLIENT_ID
@@ -80,7 +81,8 @@ aws_identity_json="$(aws sts get-caller-identity --output json)"
 AWS_ACCOUNT_ID="$(get_aws_identity_field "$aws_identity_json" "Account")"
 AWS_CALLER_ARN="$(get_aws_identity_field "$aws_identity_json" "Arn")"
 AWS_ROLE_NAME="$(get_role_path_from_arn "$AWS_CALLER_ARN")"
-WORKLOAD_HOST_ID="data/workloads/aws-iam/$AWS_ACCOUNT_ID/$AWS_ROLE_NAME"
+WORKLOAD_POLICY_ID="data/$LAB_ID"
+WORKLOAD_HOST_ID="$WORKLOAD_POLICY_ID/$AWS_ACCOUNT_ID/$AWS_ROLE_NAME"
 
 printf "\nAuthenticating to Identity...\n"
 identity_token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
@@ -102,7 +104,7 @@ patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "data" "$(cat <<EOF
 # mode: append-policy
 ---
 - !delete
-  record: !host /$WORKLOAD_HOST_ID
+  record: !policy /$WORKLOAD_POLICY_ID
 EOF
 )" >/dev/null || true
 

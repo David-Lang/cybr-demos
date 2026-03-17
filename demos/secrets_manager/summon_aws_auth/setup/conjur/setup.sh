@@ -78,6 +78,7 @@ source "$demo_path/setup/vars.env"
 set +a
 
 required_vars=(
+  LAB_ID
   TENANT_ID
   TENANT_SUBDOMAIN
   CLIENT_ID
@@ -95,6 +96,7 @@ validate_safe_name "$SAFE_NAME"
 require_command "aws"
 require_command "jq"
 ensure_file "workload.tmpl.yaml"
+ensure_file "authenticator_grant.tmpl.yaml"
 
 printf "\nResolving AWS caller identity...\n"
 aws_identity_json="$(aws sts get-caller-identity --output json)"
@@ -113,7 +115,7 @@ if [ -z "$AWS_CALLER_ARN" ] || [ "$AWS_CALLER_ARN" = "null" ]; then
 fi
 
 WORKLOAD_POLICY_BRANCH="data"
-WORKLOAD_HOST_ID="data/workloads/aws-iam/$AWS_ACCOUNT_ID/$AWS_ROLE_NAME"
+WORKLOAD_HOST_ID="data/$LAB_ID/$AWS_ACCOUNT_ID/$AWS_ROLE_NAME"
 
 printf "\n========================================\n"
 printf "Provisioning AWS IAM Workload\n"
@@ -139,10 +141,19 @@ if [ -z "$conjur_token" ]; then
 fi
 printf "Conjur authentication successful\n"
 
+printf "\nEnabling authn-iam service: %s...\n" "$AUTHN_IAM_SERVICE_ID"
+activate_conjur_service "$TENANT_SUBDOMAIN" "$conjur_token" "authn-iam/$AUTHN_IAM_SERVICE_ID" >/dev/null
+printf "authn-iam service enabled\n"
+
 printf "\nCreating workload policy...\n"
 resolve_template "workload.tmpl.yaml" "workload.yaml"
 apply_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "$WORKLOAD_POLICY_BRANCH" "$(cat workload.yaml)" >/dev/null
 printf "Workload policy created\n"
+
+printf "\nGranting workload access to authn-iam consumers...\n"
+resolve_template "authenticator_grant.tmpl.yaml" "authenticator_grant.yaml"
+patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "conjur/authn-iam" "$(cat authenticator_grant.yaml)" >/dev/null
+printf "authn-iam consumer grant applied\n"
 
 creds_file="$demo_path/conjur_authn_iam.env"
 cat > "$creds_file" <<CREDS

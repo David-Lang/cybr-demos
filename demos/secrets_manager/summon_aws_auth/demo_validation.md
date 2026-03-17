@@ -48,7 +48,7 @@ What this proves:
 
 - the workstation or instance has AWS credentials available
 - the demo is targeting the expected `authn-iam` service
-- the Conjur host identity matches the AWS role identity derived from STS
+- the Conjur host identity matches the AWS role identity derived from STS under the lab-specific `data/$LAB_ID` branch
 
 CyberArk behavior:
 

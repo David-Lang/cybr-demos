@@ -107,3 +107,51 @@ Heredoc policy:
 - `provision_workload`
 - `create_demo_safe` generated scripts
 - Any current or future provisioning/integration tools, generated scripts, setup scripts, and helper workflows under these domains
+
+### B8) Demo Vars File Pattern
+
+Rule:
+- Demo-specific configuration SHOULD default to one shared file at `setup/vars.env`.
+- Setup, cleanup, and validation entrypoints SHOULD all read the same demo-level vars file.
+
+Required behavior:
+- Avoid creating separate `vars.env` files under `setup/vault/`, `setup/conjur/`, or other subdirectories unless there is a documented technical reason.
+- If a tool generates safe or workload scaffolding, it SHOULD write demo configuration into `setup/vars.env` instead of introducing multiple independent vars files.
+
+Purpose:
+- Prevent configuration drift between setup stages.
+- Keep operator edits in one predictable location.
+
+### B9) Remote Deployment Testability
+
+Rule:
+- Generated setup and test entrypoints SHOULD be safe for non-interactive remote execution.
+
+Required behavior:
+- Do not assume an interactive shell.
+- If the lab environment relies on a standard profile script such as `/etc/profile.d/cyberark.sh`, entrypoints SHOULD source it explicitly when present.
+- Demos intended for remote validation SHOULD prefer a top-level `test_runner.sh` and `cleanup.sh`.
+
+Deployment-readiness expectation:
+- Before declaring a demo ready for remote test deployment, verify the target repo copy actually contains the latest changes.
+- File presence alone is not sufficient; the expected content or commit state must be visible on the deployment target.
+
+### B10) Runtime Template Resolution
+
+Rule:
+- Files with runtime-dependent values MUST be committed as templates and resolved before use.
+
+Required behavior:
+- Summon variable maps with dynamic safe names or lab identifiers SHOULD be committed as template files such as `secrets.tmpl.yml`.
+- Setup scripts SHOULD render the runtime file, for example `secrets.yml`, from the template before the demo executes.
+- Demo scripts SHOULD consume the resolved file and MUST NOT rely on implicit shell expansion inside committed YAML.
+
+### B11) Deployment Validation Scripts
+
+Rule:
+- Validation scripts SHOULD verify actual success, not only command execution.
+
+Required behavior:
+- `test_runner.sh` SHOULD fail if injected secrets are empty.
+- Setup scripts SHOULD verify that critical Conjur resources actually exist after policy application.
+- Cleanup scripts SHOULD target the same canonical identity path used by setup and runtime configuration.

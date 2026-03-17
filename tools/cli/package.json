@@ -1,0 +1,12 @@
+{
+  "name": "cybr-demos-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node ./test/smoke.mjs"
+  },
+  "bin": {
+    "cybr-demos": "./cybr-demos.js"
+  }
+}

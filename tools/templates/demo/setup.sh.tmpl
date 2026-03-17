@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Setup script for: {{DISPLAY_NAME}}
+# Category: {{CATEGORY}}
+
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+echo "=========================================="
+echo "Setup: {{DISPLAY_NAME}}"
+echo "=========================================="
+echo ""
+
+# Source common environment variables if available
+if [ -f "../../tenant_vars.sh" ]; then
+    source ../../tenant_vars.sh
+fi
+
+# Add your setup commands here
+
+echo ""
+echo "Setup completed successfully!"

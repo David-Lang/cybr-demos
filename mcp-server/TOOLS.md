@@ -2,6 +2,11 @@
 
 This document provides detailed documentation for all tools available in the CyberArk Demos MCP Server.
 
+Architecture note:
+- The CLI under `tools/cli/` is the source of truth for tool behavior.
+- `mcp-server/index.js` is an adapter that invokes the CLI and returns MCP-shaped responses.
+- If this document conflicts with the CLI implementation, treat the CLI as authoritative and update this file.
+
 ## Table of Contents
 
 - [create_demo](#create_demo)
@@ -13,6 +18,10 @@ This document provides detailed documentation for all tools available in the Cyb
 ---
 
 ## create_demo
+
+Implementation source:
+- CLI command: `node tools/cli/cybr-demos.js create-demo`
+- Handler: `tools/cli/commands/create-demo.js`
 
 Creates a new demo with standard scaffolding files including README.md, info.yaml, demo.sh, setup.sh, and setup directory. The demo will be created in the appropriate category directory under `demos/`.
 
@@ -110,6 +119,10 @@ Returns a JSON object:
 
 ## create_demo_safe
 
+Implementation source:
+- CLI command: `node tools/cli/cybr-demos.js create-demo-safe`
+- Handler: `tools/cli/commands/create-demo-safe.js`
+
 Creates scaffolding for CyberArk Privilege Cloud safe setup. This tool generates a `setup/vault` directory structure with scripts to create and configure a safe using the CyberArk Privilege Cloud REST APIs.
 
 ### Purpose
@@ -149,8 +162,9 @@ This tool automates the creation of safe setup scripts that:
 - **`addSyncMember`** (boolean)
   - Add "Conjur Sync" user as a read member to the safe
   - Required for Conjur/Secrets Hub synchronization
-  - Automatically enabled for `secrets_manager` demos
-  - Defaults to `false` for non-`secrets_manager` demos
+  - Defaults to `true` for `secrets_manager` demos when omitted
+  - Defaults to `false` for non-`secrets_manager` demos when omitted
+  - An explicit value still overrides the default behavior
 
 - **`createAccount`** (boolean)
   - Include account creation in the setup script
@@ -204,15 +218,15 @@ Creates the following directory structure:
 ```
 demos/{category}/{demo_name}/
 └── setup/
+    ├── vars.env               # Shared demo configuration
     └── vault/
-        ├── vars.env            # Environment variables
-        └── setup.sh           # Main setup script (executable)
+        └── setup.sh           # Vault setup script
 ```
 
 ### Generated Files
 
-#### vars.env
-Contains safe-specific environment variables:
+#### setup/vars.env
+Contains demo-level environment variables shared across setup stages:
 ```bash
 # CyberArk Vault
 SAFE_NAME="${LAB_ID}-azure-devops"
@@ -220,11 +234,14 @@ SAFE_NAME="${LAB_ID}-azure-devops"
 # Add additional environment variables here
 ```
 Note: If you provide a custom `safeName`, that value will be used instead of the default pattern.
+Preferred structure:
+- Keep `SAFE_NAME` and related demo settings in `setup/vars.env`
+- Avoid creating a second `setup/vault/vars.env` unless there is a documented exception
 
-#### setup.sh
-Main orchestration script that:
+#### setup/vault/setup.sh
+Vault setup script that:
 1. Sources common environment and utility functions
-2. Loads variables from `vars.env`
+2. Loads variables from `setup/vars.env`
 3. Gets Identity authentication token
 4. Creates the safe
 5. Adds admin role permissions
@@ -239,10 +256,10 @@ Returns a JSON object:
 ```json
 {
   "success": true,
-  "path": "/full/path/to/demos/category/demo_name/setup/vault",
+  "path": "/full/path/to/demos/category/demo_name/setup",
   "files": [
     "vars.env",
-    "setup.sh"
+    "vault/setup.sh"
   ]
 }
 ```
@@ -365,6 +382,10 @@ chmod +x setup/vault/*.sh
 ---
 
 ## provision_safe
+
+Implementation source:
+- CLI command: `node tools/cli/cybr-demos.js provision-safe`
+- Handler: `tools/cli/commands/provision-safe.js`
 
 Provisions a safe in CyberArk Privilege Cloud and optionally creates accounts. This tool executes the actual API calls using environment variables from `tenant_vars.sh`. **No user input required** - uses system environment variables automatically.
 
@@ -647,6 +668,10 @@ If you see rate limiting errors, wait a few minutes between provision attempts.
 ---
 
 ## provision_workload
+
+Implementation source:
+- CLI command: `node tools/cli/cybr-demos.js provision-workload`
+- Handler: `tools/cli/commands/provision-workload.js`
 
 Provisions a Secrets Manager workload with API key authentication and grants it access to a specified safe. This tool creates the workload policy in Conjur, rotates the API key, and securely saves the credentials. **No user input required** - uses system environment variables automatically.
 
@@ -1062,6 +1087,10 @@ To remove a workload (manual process):
 ---
 
 ## validate_readme
+
+Implementation source:
+- CLI command: `node tools/cli/cybr-demos.js validate-readme`
+- Handler: `tools/cli/commands/validate-readme.js`
 
 Validates README and markdown files against documentation guidelines. Checks for common issues like emojis, formatting problems, and documentation standards. Returns validation results with suggestions for improvements.
 

@@ -1,0 +1,40 @@
+#!/bin/bash
+# shellcheck disable=SC2059
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEMO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+if [ -f /etc/profile.d/cyberark.sh ]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
+
+set -a
+source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
+source "$DEMO_DIR/setup/vars.env"
+set +a
+
+required_vars=(CYBR_DEMOS_PATH INSTALLER_USR CLIENT_SECRET CLIENT_ID TENANT_SUBDOMAIN LAB_ID TENANT_ID INSTALLER_PWD)
+for var_name in "${required_vars[@]}"; do
+  if [ -z "${!var_name:-}" ]; then
+    printf "ERROR: Required environment variable is not set: %s\n" "$var_name" >&2
+    exit 1
+  fi
+done
+
+isp_id=$TENANT_ID
+isp_subdomain=$TENANT_SUBDOMAIN
+client_id=$CLIENT_ID
+client_secret=$CLIENT_SECRET
+safe_name=$SAFE_NAME
+
+identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")
+
+create_safe "$isp_subdomain" "$identity_token" "$safe_name"
+add_safe_admin_role "$isp_subdomain" "$identity_token" "$safe_name" "Privilege Cloud Administrators"
+{{ADD_SYNC_MEMBER_BLOCK}}
+{{CREATE_ACCOUNT_BLOCK}}
+{{SETUP_CONJUR_BLOCK}}
+
+printf "\nSafe setup completed successfully!\n"
