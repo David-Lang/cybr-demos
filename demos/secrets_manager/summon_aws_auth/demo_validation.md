@@ -64,6 +64,8 @@ Inspect the variable mapping:
 cat secrets.yml
 ```
 
+That file is rendered during setup from `secrets.tmpl.yml`, so the safe path is concrete before Summon runs.
+
 Run the mapped secret retrieval:
 
 ```bash

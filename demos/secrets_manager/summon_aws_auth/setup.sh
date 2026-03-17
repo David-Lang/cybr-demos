@@ -11,6 +11,26 @@ printf "==========================================\n\n"
 INSTALL_SCRIPT="$SCRIPT_DIR/../../../compute_init/ubuntu/install_summon.sh"
 VAULT_SETUP_SCRIPT="$SCRIPT_DIR/setup/vault/setup.sh"
 CONJUR_SETUP_SCRIPT="$SCRIPT_DIR/setup/conjur/setup.sh"
+SECRETS_TEMPLATE="$SCRIPT_DIR/secrets.tmpl.yml"
+SECRETS_RESOLVED="$SCRIPT_DIR/secrets.yml"
+
+render_secrets_file() {
+  local template_file="$1"
+  local output_file="$2"
+
+  if [ ! -f "$template_file" ]; then
+    printf "ERROR: Secrets template not found: %s\n" "$template_file" >&2
+    exit 1
+  fi
+
+  if [ -z "${LAB_ID:-}" ]; then
+    printf "ERROR: LAB_ID is required to render the secrets file\n" >&2
+    exit 1
+  fi
+
+  local safe_name="${LAB_ID}-summon-aws-auth"
+  sed "s|{{ SAFE_NAME }}|$safe_name|g" "$template_file" > "$output_file"
+}
 
 if [ ! -f "$INSTALL_SCRIPT" ]; then
   printf "ERROR: Shared install script not found: %s\n" "$INSTALL_SCRIPT" >&2
@@ -35,6 +55,9 @@ printf "\n[2/3] Provisioning demo safe and sample account...\n"
 
 printf "\n[3/3] Provisioning Conjur workload and runtime environment...\n"
 "$CONJUR_SETUP_SCRIPT"
+
+printf "\nRendering resolved Summon secrets file...\n"
+render_secrets_file "$SECRETS_TEMPLATE" "$SECRETS_RESOLVED"
 
 printf "\nSetup completed successfully.\n\n"
 printf "Next step:\n"

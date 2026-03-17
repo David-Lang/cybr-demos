@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+SECRETS_FILE="$SCRIPT_DIR/secrets.yml"
+
 if [ -f "$SCRIPT_DIR/conjur_authn_iam.env" ]; then
   # shellcheck disable=SC1091
   source "$SCRIPT_DIR/conjur_authn_iam.env"
@@ -21,6 +23,12 @@ for var_name in "${required_vars[@]}"; do
     exit 1
   fi
 done
+
+if [ ! -f "$SECRETS_FILE" ]; then
+  printf "ERROR: Resolved secrets file not found: %s\n" "$SECRETS_FILE" >&2
+  printf "Run ./setup.sh to render the runtime secrets file.\n" >&2
+  exit 1
+fi
 
 if ! command -v aws >/dev/null 2>&1; then
   printf "ERROR: aws CLI is required for AWS IAM authentication\n" >&2
@@ -82,4 +90,4 @@ printf "AWS caller identity:\n"
 aws sts get-caller-identity
 printf "\n"
 
-summon --provider summon-conjur bash "$SCRIPT_DIR/consumer.sh"
+summon --provider summon-conjur -f "$SECRETS_FILE" bash "$SCRIPT_DIR/consumer.sh"

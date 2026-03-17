@@ -7,7 +7,8 @@ The repo setup path has four stages. `./setup.sh` orchestrates the deployment st
 1. `./setup.sh` installs Summon and the `summon-conjur` provider.
 2. `./setup.sh` runs `./setup/vault/setup.sh` to create the demo safe, add `Conjur Sync`, and create the sample account used by `secrets.yml`.
 3. `./setup.sh` runs `./setup/conjur/setup.sh` to create the Conjur workload policy for the AWS IAM role and write `conjur_authn_iam.env` for the runtime session.
-4. `./test_runner.sh` can run the full deployment and validation sequence non-interactively on a prepared lab host.
+4. `./setup.sh` renders `secrets.yml` from `secrets.tmpl.yml` using the resolved safe name.
+5. `./test_runner.sh` can run the full deployment and validation sequence non-interactively on a prepared lab host.
 
 ## Prerequisites
 
@@ -72,6 +73,7 @@ That script:
 - provisions the demo safe and sample account
 - provisions the Conjur workload
 - writes `conjur_authn_iam.env`
+- renders `secrets.yml` with the concrete safe path for this lab
 
 After it finishes, load the runtime environment:
 

@@ -15,4 +15,5 @@ Key files:
 - `test_runner.sh` performs install, deployment, validation, and artifact capture
 - `cleanup.sh` removes the workload host, demo safe, and local artifacts for reruns
 - `demo.sh` validates the AWS caller identity and runs Summon
-- `secrets.yml` maps synced safe secrets into environment variables
+- `secrets.tmpl.yml` is the template for Summon variable mappings
+- `secrets.yml` is rendered during setup with the resolved safe name
