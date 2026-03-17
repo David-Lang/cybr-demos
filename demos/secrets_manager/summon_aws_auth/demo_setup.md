@@ -33,7 +33,7 @@ Set these in `setup/vars.env` before running the setup scripts:
 - `AUTHN_IAM_SERVICE_ID`
 - `AWS_REGION`
 
-`SAFE_NAME` must not exceed 28 characters. Because this demo defaults to `${LAB_ID}-summon-aws-auth`, choose a `LAB_ID` value short enough to keep the final safe name within that limit.
+`SAFE_NAME` must not exceed 28 characters. This demo uses `setup/vars.env` as the single source of configuration for both the vault and Conjur setup paths.
 
 `setup/conjur/setup.sh` derives the AWS account and role path from:
 

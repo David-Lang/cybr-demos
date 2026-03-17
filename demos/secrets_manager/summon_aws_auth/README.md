@@ -12,6 +12,7 @@ Key files:
 - `setup.sh` installs Summon, provisions the safe, provisions the Conjur workload, and writes the runtime environment file
 - `setup/vault/setup.sh` provisions the demo safe and sample account
 - `setup/conjur/setup.sh` creates the AWS IAM workload policy and writes runtime environment variables
+- `setup/vars.env` is the single configuration file for safe name, authn-iam service, and region
 - `test_runner.sh` performs install, deployment, validation, and artifact capture
 - `cleanup.sh` removes the workload host, demo safe, and local artifacts for reruns
 - `demo.sh` validates the AWS caller identity and runs Summon

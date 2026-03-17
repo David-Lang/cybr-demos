@@ -25,7 +25,7 @@ validate_safe_name() {
 
 set -a
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
-source "$demo_path/setup/vault/vars.env"
+source "$demo_path/setup/vars.env"
 set +a
 
 require_env "TENANT_ID"

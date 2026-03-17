@@ -28,13 +28,12 @@ render_secrets_file() {
     exit 1
   fi
 
-  if [ -z "${LAB_ID:-}" ]; then
-    printf "ERROR: LAB_ID is required to render the secrets file\n" >&2
+  if [ -z "${SAFE_NAME:-}" ]; then
+    printf "ERROR: SAFE_NAME is required to render the secrets file\n" >&2
     exit 1
   fi
 
-  local safe_name="${LAB_ID}-summon-aws-auth"
-  sed "s|{{ SAFE_NAME }}|$safe_name|g" "$template_file" > "$output_file"
+  sed "s|{{ SAFE_NAME }}|$SAFE_NAME|g" "$template_file" > "$output_file"
 }
 
 if [ ! -f "$INSTALL_SCRIPT" ]; then
@@ -51,6 +50,15 @@ if [ ! -x "$CONJUR_SETUP_SCRIPT" ]; then
   printf "ERROR: Conjur setup script not found or not executable: %s\n" "$CONJUR_SETUP_SCRIPT" >&2
   exit 1
 fi
+
+if [ ! -f "$SCRIPT_DIR/setup/vars.env" ]; then
+  printf "ERROR: Demo vars file not found: %s\n" "$SCRIPT_DIR/setup/vars.env" >&2
+  exit 1
+fi
+
+set -a
+source "$SCRIPT_DIR/setup/vars.env"
+set +a
 
 printf "[1/3] Installing Summon and summon-conjur provider...\n"
 bash "$INSTALL_SCRIPT"

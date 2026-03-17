@@ -58,7 +58,6 @@ get_role_path_from_arn() {
 set -a
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$demo_path/setup/vars.env"
-source "$demo_path/setup/vault/vars.env"
 set +a
 
 required_vars=(

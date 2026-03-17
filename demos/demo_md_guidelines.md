@@ -74,6 +74,7 @@ For `demo_setup.md`:
 - call out what is lab-specific
 - separate deployment context from runtime validation
 - explicitly state when shared environment such as `CYBR_DEMOS_PATH`, `LAB_ID`, and tenant variables are expected to already be set and ready to use
+- prefer a single demo-level `setup/vars.env` as the shared configuration file for all setup scripts
 
 For `demo_validation.md`, assume the demo is already installed.
 
@@ -94,9 +95,12 @@ In `demo_setup.md`, prioritize:
 - platform or lab context
 - required variables and prerequisites
 - pre-existing shared environment assumptions
+- the location of the demo's common `setup/vars.env` file
 - platform-specific naming constraints such as maximum safe name length
 - what gets deployed
 - setup troubleshooting
+
+When checking whether a demo is ready for a test deployment, verify that the expected code and documentation changes are present in the repository copy that will actually be used for the deployment target.
 
 In `demo_validation.md`, prioritize:
 
@@ -130,6 +134,24 @@ Most `demo_setup.md` files should follow this flow:
 5. Setup stages and the scripts that run.
 6. What gets deployed or configured.
 7. Setup troubleshooting.
+
+## Vars File Pattern
+
+Prefer one common vars file per demo:
+
+- `setup/vars.env`
+
+Use that file as the default source of demo-specific configuration for:
+
+- `setup.sh`
+- `setup/vault/setup.sh`
+- `setup/conjur/setup.sh`
+- `cleanup.sh`
+- any other setup or reset entrypoint for the demo
+
+This keeps the demo configuration in one place and avoids drift between multiple `vars.env` files in subdirectories.
+
+Only introduce additional vars files under subdirectories when there is a clear technical reason and document that exception explicitly in `demo_setup.md`.
 
 Most `demo_validation.md` files should follow this flow:
 
@@ -229,6 +251,16 @@ Prefer commands that prove something concrete, such as:
 - an API call succeeds
 
 When a variable like namespace or workload name is dynamic, source it from the demo’s env file when possible.
+
+## Deployment Readiness Checks
+
+Before declaring a demo ready for test deployment, validate:
+
+- the required scripts are executable
+- the expected setup and validation entrypoints exist
+- the configuration files match the intended deployment values
+- the latest local changes are visible in the repository copy that will be used for the test environment
+- any remote lab host has been updated if it uses its own checkout of the repo
 
 ## Path Guidance
 
