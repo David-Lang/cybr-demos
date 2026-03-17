@@ -22,6 +22,12 @@ Run the demo:
 ./demo.sh
 ```
 
+Or run the full non-interactive deployment-and-validation flow:
+
+```bash
+bash ./test_runner.sh
+```
+
 Success looks like this:
 
 - `aws sts get-caller-identity` returns the expected account and role
@@ -81,3 +87,4 @@ CyberArk behavior:
 - If `aws sts get-caller-identity` fails, fix the local AWS credential source before checking CyberArk.
 - If authentication fails, compare the returned IAM ARN with `AWS_CALLER_ARN` and `WORKLOAD_HOST_ID` in `conjur_authn_iam.env`.
 - If Summon authenticates but variable lookup fails, confirm the safe sync completed and that `account-ssh-user-1` exists in the demo safe.
+- If you want a clean rerun, execute `bash ./cleanup.sh` before the next deployment attempt.

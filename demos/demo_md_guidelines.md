@@ -94,6 +94,7 @@ In `demo_setup.md`, prioritize:
 - platform or lab context
 - required variables and prerequisites
 - pre-existing shared environment assumptions
+- platform-specific naming constraints such as maximum safe name length
 - what gets deployed
 - setup troubleshooting
 

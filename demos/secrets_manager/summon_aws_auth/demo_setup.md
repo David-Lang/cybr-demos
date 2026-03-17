@@ -2,11 +2,12 @@
 
 This demo shows Summon on Ubuntu or Linux authenticating to CyberArk Secrets Manager with AWS IAM instead of a rotated Conjur API key.
 
-The repo setup path has three stages:
+The repo setup path has four stages. `./setup.sh` orchestrates the deployment stages:
 
 1. `./setup.sh` installs Summon and the `summon-conjur` provider.
-2. `./setup/vault/setup.sh` creates the demo safe, adds `Conjur Sync`, and creates the sample account used by `secrets.yml`.
-3. `./setup/conjur/setup.sh` creates the Conjur workload policy for the AWS IAM role and writes `conjur_authn_iam.env` for the runtime session.
+2. `./setup.sh` runs `./setup/vault/setup.sh` to create the demo safe, add `Conjur Sync`, and create the sample account used by `secrets.yml`.
+3. `./setup.sh` runs `./setup/conjur/setup.sh` to create the Conjur workload policy for the AWS IAM role and write `conjur_authn_iam.env` for the runtime session.
+4. `./test_runner.sh` can run the full deployment and validation sequence non-interactively on a prepared lab host.
 
 ## Prerequisites
 
@@ -30,6 +31,8 @@ Set these in `setup/vars.env` before running the setup scripts:
 - `SAFE_NAME`
 - `AUTHN_IAM_SERVICE_ID`
 - `AWS_REGION`
+
+`SAFE_NAME` must not exceed 28 characters. Because this demo defaults to `${LAB_ID}-summon-aws-auth`, choose a `LAB_ID` value short enough to keep the final safe name within that limit.
 
 `setup/conjur/setup.sh` derives the AWS account and role path from:
 
@@ -57,23 +60,29 @@ host/data/workloads/aws-iam/123456789012/example-summon-role
 
 ## Deployment Flow
 
-Run the install step:
+Run the full setup:
 
 ```bash
 ./setup.sh
 ```
 
-Provision the safe and demo account:
+That script:
+
+- installs Summon and the provider
+- provisions the demo safe and sample account
+- provisions the Conjur workload
+- writes `conjur_authn_iam.env`
+
+After it finishes, load the runtime environment:
 
 ```bash
-bash ./setup/vault/setup.sh
+source ./conjur_authn_iam.env
 ```
 
-Provision the workload policy and runtime env file:
+For repeatable lab execution on a preconfigured host, run:
 
 ```bash
-bash ./setup/conjur/setup.sh
-source ./conjur_authn_iam.env
+bash ./test_runner.sh
 ```
 
 ## What Gets Configured
@@ -95,9 +104,18 @@ source ./conjur_authn_iam.env
 - grants the host access to the safe delegation group
 - writes `conjur_authn_iam.env`
 
+`test_runner.sh`:
+
+- runs `./setup.sh` as the single deployment entrypoint
+- captures logs under `artifacts/`
+- sources the generated runtime environment
+- runs `aws sts get-caller-identity`
+- executes `demo.sh` and checks for injected secrets
+
 ## Troubleshooting Setup
 
 - If `setup/vault/setup.sh` stalls waiting for synchronization, confirm the safe exists and `Conjur Sync` was added successfully.
 - If `setup/conjur/setup.sh` fails patching the IAM consumer group, verify the `authn-iam` service already exists and the `AUTHN_IAM_SERVICE_ID` value is correct.
 - If `setup/conjur/setup.sh` fails before policy creation, run `aws sts get-caller-identity` manually and confirm it returns an assumed-role or role ARN.
 - If Summon later fails to authenticate, compare the AWS caller ARN with `AWS_CALLER_ARN` and `WORKLOAD_HOST_ID` in `conjur_authn_iam.env`.
+- If you need to reset the lab state before a rerun, use `bash ./cleanup.sh`.

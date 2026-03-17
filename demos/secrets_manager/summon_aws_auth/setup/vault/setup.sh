@@ -14,6 +14,15 @@ require_env() {
   fi
 }
 
+validate_safe_name() {
+  local safe_name="$1"
+  local max_length=28
+  if [ "${#safe_name}" -gt "$max_length" ]; then
+    printf "ERROR: SAFE_NAME exceeds %s characters: %s\n" "$max_length" "$safe_name" >&2
+    exit 1
+  fi
+}
+
 set -a
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$demo_path/setup/vault/vars.env"
@@ -24,6 +33,7 @@ require_env "TENANT_SUBDOMAIN"
 require_env "CLIENT_ID"
 require_env "CLIENT_SECRET"
 require_env "SAFE_NAME"
+validate_safe_name "$SAFE_NAME"
 
 printf "\n========================================\n"
 printf "Provisioning Safe: %s\n" "$SAFE_NAME"

@@ -119,6 +119,7 @@ Add task-specific URLs here as needed. Prefer stable product docs, official repo
 - Example: `https://cyberark.github.io/summon/`
 - Example: `https://github.com/cyberark/summon`
 - Example: `https://github.com/cyberark/summon-conjur`
+- Example: `https://github.com/conjurdemos`
 
 ### AWS
 

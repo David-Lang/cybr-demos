@@ -14,6 +14,15 @@ require_env() {
   fi
 }
 
+validate_safe_name() {
+  local safe_name="$1"
+  local max_length=28
+  if [ "${#safe_name}" -gt "$max_length" ]; then
+    printf "ERROR: SAFE_NAME exceeds %s characters: %s\n" "$max_length" "$safe_name" >&2
+    exit 1
+  fi
+}
+
 ensure_file() {
   local file_path="$1"
   if [ ! -f "$file_path" ]; then
@@ -81,6 +90,7 @@ required_vars=(
 for var_name in "${required_vars[@]}"; do
   require_env "$var_name"
 done
+validate_safe_name "$SAFE_NAME"
 
 require_command "aws"
 require_command "jq"
