@@ -4,6 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+if [ -f /etc/profile.d/cyberark.sh ]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
+
 printf "==========================================\n"
 printf "Setup: Summon AWS Auth\n"
 printf "==========================================\n\n"

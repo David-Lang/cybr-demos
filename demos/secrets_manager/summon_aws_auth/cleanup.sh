@@ -6,6 +6,11 @@ demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/summon_aws_auth"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$script_dir"
 
+if [ -f /etc/profile.d/cyberark.sh ]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
+
 require_env() {
   local var_name="$1"
   if [ -z "${!var_name:-}" ]; then

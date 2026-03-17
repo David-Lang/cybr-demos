@@ -5,6 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$SCRIPT_DIR"
 ARTIFACTS_DIR="$DEMO_DIR/artifacts"
 
+if [ -f /etc/profile.d/cyberark.sh ]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
+
 mkdir -p "$ARTIFACTS_DIR"
 
 log_step() {
