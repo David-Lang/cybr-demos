@@ -1,0 +1,7 @@
+Category: "secrets_manager"
+Name: "Summon AWS Auth"
+Docs: "https://cyberark.github.io/summon/"
+DemoScript: "demo.sh"
+SetupScript: "setup.sh"
+Enabled: false
+IsSetup: false

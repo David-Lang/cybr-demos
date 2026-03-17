@@ -73,6 +73,7 @@ For `demo_setup.md`:
 - document the setup sequence explicitly
 - call out what is lab-specific
 - separate deployment context from runtime validation
+- explicitly state when shared environment such as `CYBR_DEMOS_PATH`, `LAB_ID`, and tenant variables are expected to already be set and ready to use
 
 For `demo_validation.md`, assume the demo is already installed.
 
@@ -92,6 +93,7 @@ In `demo_setup.md`, prioritize:
 - setup scripts and their sequence
 - platform or lab context
 - required variables and prerequisites
+- pre-existing shared environment assumptions
 - what gets deployed
 - setup troubleshooting
 
