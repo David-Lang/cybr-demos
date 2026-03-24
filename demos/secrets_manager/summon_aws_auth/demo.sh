@@ -75,8 +75,6 @@ for var_name in "${cloud_required_vars[@]}"; do
   fi
 done
 
-export CONJUR_CREDENTIAL_STORAGE="${CONJUR_CREDENTIAL_STORAGE:-none}"
-
 printf "==========================================\n"
 printf "Demo: Summon AWS Auth\n"
 printf "==========================================\n\n"
