@@ -45,6 +45,7 @@ Keep the file roles distinct.
 - What are the major use cases or integration patterns?
 - What commands prove the demo is working?
 - What is CyberArk doing behind the scenes?
+- What controls or policy decisions affect the result?
 - How does the user troubleshoot failures?
 
 ## Primary Goal
@@ -61,6 +62,7 @@ A good `demo_validation.md` should help a new user:
 
 - understand what was deployed
 - understand the CyberArk integration pattern being demonstrated
+- understand the request, policy, retrieval, and delivery flow end to end
 - validate the result with concrete commands
 - compare the important patterns in the demo
 - troubleshoot common failure points
@@ -105,8 +107,10 @@ When checking whether a demo is ready for a test deployment, verify that the exp
 In `demo_validation.md`, prioritize:
 
 - post-install validation
+- understanding how the CyberArk solution works
 - user understanding of the deployed resources
 - CyberArk authentication method
+- authorization or access control decisions
 - how secrets are delivered or consumed
 - what success looks like
 - how to inspect or troubleshoot failures
@@ -157,10 +161,12 @@ Most `demo_validation.md` files should follow this flow:
 
 1. Short intro explaining the purpose of the demo.
 2. Starting point that assumes the environment is already deployed.
-3. Quick validation that the core resources exist.
-4. One section per major integration pattern or use case.
-5. A comparison section if multiple patterns exist.
-6. A troubleshooting section.
+3. Short "About" section describing the CyberArk components involved.
+4. Workflow section showing the request and retrieval path.
+5. Quick validation that the core resources exist.
+6. One section per major integration pattern or use case.
+7. A comparison section if multiple patterns exist.
+8. A troubleshooting section.
 
 Keep both files practical. The user should be able to follow them live in a terminal.
 
@@ -170,6 +176,7 @@ For each major pattern in `demo_validation.md`, include:
 
 - what the pattern does
 - what CyberArk component or feature is involved
+- what policy, access control, or identity boundary matters
 - what the user should validate
 - concrete commands to validate it
 - what the result proves
@@ -225,13 +232,32 @@ For each pattern in `demo_validation.md`, clarify:
 - how authentication happens
 - what identity is used
 - how CyberArk maps that identity
+- what authorization or access controls are evaluated
 - where the secret is delivered
+- whether caching, brokering, sync, or retrieval intermediaries are involved
 - whether the delivery is init, sidecar, controller, API, or sync based
 
 The user should come away understanding both:
 
 - what they see in the platform
 - why CyberArk behaves that way
+
+When useful, make the flow explicit with a short sequence diagram, numbered request path, or compact workflow table. Prefer a Mermaid `sequenceDiagram` when the demo has a clear request path between an application, CyberArk component, and backend service. The diagram should be relevant to the actual demo flow and help the reader understand who initiates the request, where policy is enforced, and how the secret returns to the workload. The `demos/credential_providers/agent_ubuntu/README.md` example is a good model: it explains the component role, the access controls, the required configuration, the runtime request flow, and a concrete retrieval example.
+
+## Solution Understanding First
+
+Treat `demo_validation.md` as a guided explanation of the working solution, not just a checklist.
+
+Strong validation docs usually make these points obvious:
+
+- which CyberArk component receives the request
+- which identity or application context is presented
+- which policies, safe permissions, or application controls allow the request
+- how the secret is retrieved from CyberArk
+- whether the component caches, writes, injects, or proxies the secret
+- what the consuming application actually receives
+
+If the demo includes controls such as allowed machines, OS users, file path rules, workload identity bindings, safe membership, or namespace scoping, explain how to validate those controls and what failure would look like.
 
 ## Command Guidance
 
@@ -318,10 +344,12 @@ Before considering a new `demo_setup.md` complete, check that it answers:
 Before considering a new `demo_validation.md` complete, check that it answers:
 
 - What is this demo proving?
+- How does the request move through the CyberArk solution?
 - What should the user validate first?
 - What are the major patterns or flows?
 - What does each validation command prove?
 - How is CyberArk authenticating?
+- What authorization or access controls are involved?
 - Where do the secrets end up?
 - How does the user troubleshoot a broken flow?
 
@@ -368,6 +396,15 @@ Short description of the deployed demo.
 
 How to identify the target environment, namespace, project, application, or service.
 
+## About
+
+What CyberArk components are involved and what role each one plays.
+
+## Workflow
+
+Show how the request moves from the application or workload to CyberArk and back.
+Add a Mermaid `sequenceDiagram` when it helps explain the live flow.
+
 ## Core Validation
 
 Commands that prove the demo is present and healthy.
@@ -375,6 +412,7 @@ Commands that prove the demo is present and healthy.
 ## Pattern 1: <Name>
 
 What it does.
+What identity and access controls matter.
 What to validate.
 Commands.
 What the result proves.
@@ -383,6 +421,7 @@ CyberArk behavior.
 ## Pattern 2: <Name>
 
 What it does.
+What identity and access controls matter.
 What to validate.
 Commands.
 What the result proves.
