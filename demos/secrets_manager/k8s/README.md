@@ -20,6 +20,18 @@ The deployment automation is Rancher-first. The use-case patterns demonstrated b
 - `aws_eks.md`
   - AWS EKS helper commands and context setup notes
 
+## Official Documentation Links
+
+Current official CyberArk references:
+
+- [Secrets Manager SaaS Documentation](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/resources/_topnav/cc_home.htm)
+- [Secrets Manager Authentication Methods](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authn-lp.htm)
+
+Official repository reference for the Kubernetes provider patterns used in this demo:
+
+- [CyberArk Secrets Provider for Kubernetes](https://github.com/cyberark/secrets-provider-for-k8s)
+- [External Secrets Operator Documentation](https://external-secrets.io/latest/)
+
 ## Recommended Reading Order
 
 1. `demo_setup.md`
