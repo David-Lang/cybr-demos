@@ -12,6 +12,8 @@ The goal is to keep generated changes aligned with:
 
 Prefer sources that are current, authoritative, and specific to the task being implemented.
 
+When multiple official sources exist, prefer the most recent documentation that matches the deployed product and integration model.
+
 ## Source Priority
 
 Use sources in this order:
@@ -52,10 +54,13 @@ Use official CyberArk documentation for product behavior, APIs, authenticators, 
 
 Preferred sources:
 
-- CyberArk documentation portal
-- CyberArk GitHub repositories
-- CyberArk-maintained example repos
-- official product pages for Summon, Conjur, Secrets Manager, Credential Providers, and Secrets Hub
+- `https://docs.cyberark.com/` first
+- latest-version documentation under `docs.cyberark.com` before older versioned pages
+- CyberArk product documentation pages under `docs.cyberark.com`
+- CyberArk API documentation under `docs.cyberark.com`
+- CyberArk GitHub repositories only when the docs portal does not answer the question
+- CyberArk-maintained example repos only when the docs portal does not answer the question
+- open source product docs such as `cyberark.github.io` only as a last resort when the official docs portal is insufficient
 
 Use these sources for:
 
@@ -113,13 +118,17 @@ Use this section to maintain a concrete allowlist of URLs and domains that are a
 
 Add task-specific URLs here as needed. Prefer stable product docs, official repositories, and official vendor references.
 
+When adding a versioned documentation URL, prefer the latest or current supported version unless the task explicitly targets an older release.
+
 ### CyberArk
 
 - Add trusted CyberArk URLs here
-- Example: `https://cyberark.github.io/summon/`
+- Preferred: `https://docs.cyberark.com/`
+- Preferred: `https://docs.cyberark.com/api/`
 - Example: `https://github.com/cyberark/summon`
 - Example: `https://github.com/cyberark/summon-conjur`
 - Example: `https://github.com/conjurdemos`
+- Last resort only: `https://cyberark.github.io/summon/`
 
 ### AWS
 
@@ -178,12 +187,15 @@ Do not rely on these as primary sources:
 
 Community sources may help when debugging edge cases, but they should not define the implementation unless the official source is missing and the limitation is stated clearly.
 
+Open source CyberArk documentation sites and GitHub READMEs are lower trust than `docs.cyberark.com` for this repository. Use them only when the official docs portal does not cover the feature, workflow, or version detail you need, and state that limitation clearly when it affects the result.
+
 ## Usage Rules for LLM-Assisted Coding
 
 When using an LLM for coding or documentation:
 
 - cite or name the source category used for key decisions
 - prefer primary sources over summaries
+- prefer current docs over archived or older docs
 - verify time-sensitive details before implementing
 - do not invent API fields, CLI flags, environment variables, or policy structure
 - match repo patterns when the repo already has a working example
@@ -195,9 +207,9 @@ For new demo work:
 
 1. Inspect similar demos in this repo.
 2. Read repo guidance files that define documentation or setup expectations.
-3. Confirm product-specific behavior in official CyberArk docs.
+3. Confirm product-specific behavior in the latest applicable official CyberArk docs.
 4. Confirm platform-specific behavior in the official vendor docs.
-5. Use official source repos for concrete examples if the docs are thin.
+5. Use official CyberArk source repos or open source docs only if `docs.cyberark.com` is thin or missing the needed detail.
 6. Only then write or update code and documentation.
 
 ## Task-Specific Guidance
@@ -207,9 +219,11 @@ For new demo work:
 When writing `demo_setup.md` or `demo_validation.md`, prefer:
 
 - repo setup scripts
-- repo validation commands
 - CyberArk product docs
+- repo validation commands
 - official platform docs for commands and runtime behavior
+
+If a CyberArk open source page is used, prefer pairing it with a `docs.cyberark.com` source or explicitly note that the official docs portal did not cover that use case.
 
 ### Shell Scripts and Setup Automation
 
@@ -225,7 +239,7 @@ Prefer:
 Prefer:
 
 - existing repo policy examples
-- official CyberArk policy and authenticator docs
+- official CyberArk policy and authenticator docs from `docs.cyberark.com`
 - official CyberArk examples from maintained repositories
 
 ### Cloud Identity Integrations
@@ -240,6 +254,7 @@ Prefer:
 If two sources conflict:
 
 - prefer the more official source
+- prefer the more recent supported documentation
 - prefer the more specific source
 - prefer the source that matches the deployed product version or integration model
 - prefer the repo's existing pattern when multiple valid implementations exist
