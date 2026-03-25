@@ -4,6 +4,14 @@ Welcome to **cybr-demos** — a collection of hands-on demo scripts for [CyberAr
 
 Whether you are running secrets in Kubernetes, GitHub Actions, GitLab CI, Jenkins, HashiCorp Vault, or AWS Secrets Manager, there is a demo here for you.
 
+| Topic | Location |
+|--------|-----------|
+| How to write demo docs | [`AGENTS.md`](AGENTS.md), [`demos/demo_md_guidelines.md`](demos/demo_md_guidelines.md) |
+| MCP / lab automation docs | [`mcp-server/README.md`](mcp-server/README.md) |
+| Ubuntu / Windows VM setup | [`compute_init/ubuntu/setup.sh`](compute_init/ubuntu/setup.sh), [`compute_init/windows/setup.ps1`](compute_init/windows/setup.ps1) |
+| One-shot clone + Ubuntu init | [`init_cybr_demos.sh`](init_cybr_demos.sh) |
+| Bash lint (local + CI on `main`) | [`.shellcheckrc`](.shellcheckrc), [`.github/workflows/shellcheck.yml`](.github/workflows/shellcheck.yml) |
+
 ---
 
 ## Table of Contents
@@ -339,9 +347,11 @@ cd demos/credential_providers/server_windows
 |------|---------|
 | `identity_functions.sh` | Identity / OAuth helpers |
 | `conjur_functions.sh` | Conjur API helpers |
-| `priviledge_functions.sh` | Privilege Cloud / vault-style platform helpers (name matches the repo) |
+| `privilege_functions.sh` | Privilege Cloud / vault-style platform helpers |
 | `template_functions.sh` | Template rendering helpers |
 | `aws_functions.sh` | AWS helper utilities |
+
+The legacy filename `priviledge_functions.sh` remains as a thin shim for older scripts and docs; new work should use `privilege_functions.sh`.
 
 Supporting output/formatting helpers also live under `demos/utility/ubuntu/` (for example `ansi_colors.sh`, `demo_utility.sh`).
 
@@ -349,10 +359,13 @@ Supporting output/formatting helpers also live under `demos/utility/ubuntu/` (fo
 
 ## Code Quality
 
-Shell scripts should be kept shellcheck-clean where practical. Run [ShellCheck](https://www.shellcheck.net/) locally while iterating, for example:
+Shell scripts in `demos/`, `compute_init/`, and selected root/bootstrap paths are linted with [ShellCheck](https://www.shellcheck.net/).
+
+- **Local:** use [`.shellcheckrc`](.shellcheckrc) at the repo root (severity and sourcing hints).
+- **CI:** pushes and pull requests to `main` run [`.github/workflows/shellcheck.yml`](.github/workflows/shellcheck.yml).
+
+Example local check while iterating:
 
 ```bash
 shellcheck demos/**/*.sh compute_init/**/*.sh
 ```
-
-If the repository adds CI workflows later, they will complement (not replace) local validation before you run demos against real tenants.

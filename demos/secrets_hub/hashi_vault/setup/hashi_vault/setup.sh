@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Get Hashi Cert
 resolve_template "cert_request.tmpl.yaml" "cert_request.yaml"
 kubectl apply -f cert_request.yaml

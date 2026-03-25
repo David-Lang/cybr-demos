@@ -346,7 +346,7 @@ Quit and restart your MCP client.
 The new `provision_safe` tool depends on utility functions in:
 - `demos/setup_env.sh`
 - `demos/utility/ubuntu/identity_functions.sh`
-- `demos/utility/ubuntu/priviledge_functions.sh`
+- `demos/utility/ubuntu/privilege_functions.sh`
 - `demos/utility/ubuntu/conjur_functions.sh`
 
 These should already exist in your repo.

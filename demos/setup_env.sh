@@ -7,7 +7,7 @@ set -a
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/identity_functions.sh"
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/conjur_functions.sh"
-source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/priviledge_functions.sh"
+source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/privilege_functions.sh"
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/template_functions.sh"
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/aws_functions.sh"
 set +a

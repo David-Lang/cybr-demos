@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Lab Identifier
 # Used for generating unique safe names across lab environments
 export LAB_ID="${LAB_ID:-SET_LAB_ID}"

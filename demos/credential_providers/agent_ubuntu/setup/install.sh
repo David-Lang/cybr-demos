@@ -71,7 +71,7 @@ install_package() {
   cp -f $aimparms /var/tmp/aimparms
 
   identity_token=$(get_identity_token "$tenant_id" "$client_id" "$client_secret")
-  add_ip_to_privilege_cloud_allowList "$tenant_subdomain" "$identity_token"
+  add_ip_to_privilege_cloud_allowlist "$tenant_subdomain" "$identity_token"
 
   # Reset installer pwd to unlock re-enable special installer_user account
   echo "Reset installer pwd to unlock re-enable special installer_user account: $installer_id"

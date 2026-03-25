@@ -1,0 +1,26 @@
+name: ShellCheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+
+      - name: Lint Bash scripts
+        run: |
+          set -euo pipefail
+          # --severity=error: avoid failing on style/info until the tree is fully cleaned up
+          find demos compute_init -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
+          shellcheck --severity=error init_cybr_demos.sh mcp-server/setup.sh demos/utility/ubuntu/priviledge_functions.sh
