@@ -1,3 +1,5 @@
+.DS_Store
+
 .gitkeep
 bin/**
 # exception to the rule, keep folder not contents

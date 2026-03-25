@@ -144,7 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Options to create test SSH accounts in the safe
   - Options to wait for Conjur synchronization
   - Executes actual API calls (unlike `create_demo_safe` which generates scripts)
-  - Uses utility functions from `demos/utility/ubuntu/priviledge_functions.sh`
+  - Uses utility functions from `demos/utility/ubuntu/privilege_functions.sh`
   
 - **New Tool: `create_demo_safe`** - Generates safe setup scripts
   - Creates `setup/vault/` directory structure

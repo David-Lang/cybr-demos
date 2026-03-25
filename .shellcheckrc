@@ -1,0 +1,4 @@
+# Project-wide ShellCheck defaults (see https://github.com/koalaman/shellcheck/wiki/Directive)
+# SC1091: sourced paths are resolved at runtime (CYBR_DEMOS_PATH, etc.)
+# SC2153: intentional ALL_CAPS names aligned with platform env conventions
+disable=SC1091,SC2153

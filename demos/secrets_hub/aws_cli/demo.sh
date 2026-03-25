@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 export AWS_PROFILE=default
 
 aws sts get-caller-identity
