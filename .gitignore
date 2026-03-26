@@ -19,6 +19,7 @@ license.txt
 *.idea/*
 
 test_assets/*
-secret/*
-secrets/*
-video/*
+**/secret/*
+**/secrets/*
+**/video/*
+

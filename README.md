@@ -6,7 +6,7 @@ Whether you are running secrets in Kubernetes, GitHub Actions, GitLab CI, Jenkin
 
 | Topic | Location |
 |--------|-----------|
-| How to write demo docs | [`AGENTS.md`](AGENTS.md), [`demos/demo_md_guidelines.md`](demos/demo_md_guidelines.md) |
+| How to write demo docs | [`AGENTS.md`](AGENTS.md), [`demos/guidelines/demo_md_guidelines.md`](demos/guidelines/demo_md_guidelines.md) |
 | MCP / lab automation docs | [`mcp-server/README.md`](mcp-server/README.md) |
 | Ubuntu / Windows VM setup | [`compute_init/ubuntu/setup.sh`](compute_init/ubuntu/setup.sh), [`compute_init/windows/setup.ps1`](compute_init/windows/setup.ps1) |
 | One-shot clone + Ubuntu init | [`init_cybr_demos.sh`](init_cybr_demos.sh) |
@@ -57,7 +57,10 @@ cybr-demos/
 └── demos/
     ├── setup_env.sh        # Master bootstrap — sources shared helpers + tenant vars
     ├── tenant_vars.sh      # YOUR tenant credentials + LAB_ID (edit this first)
-    ├── demo_md_guidelines.md
+    ├── guidelines/
+    │   ├── demo_md_guidelines.md
+    │   ├── video_demo_guidelines.md
+    │   └── video_recording_assets_guidelines.md
     ├── utility/ubuntu/     # Shared helpers (Identity, Conjur, Privilege Cloud, templates, AWS)
     │
     ├── secrets_manager/    # Demos: retrieve secrets from CyberArk Secrets Manager
@@ -84,7 +87,7 @@ cybr-demos/
 
 ## Documentation Conventions
 
-Demo documentation under `demos/` should follow **`AGENTS.md`** and **`demos/demo_md_guidelines.md`**.
+Demo documentation under `demos/` should follow **`AGENTS.md`** and **`demos/guidelines/demo_md_guidelines.md`**.
 
 In short:
 

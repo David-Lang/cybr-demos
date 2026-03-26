@@ -36,7 +36,7 @@ Trusted repo sources include:
 - existing demos under `demos/`
 - shared utilities under `demos/utility/`
 - setup entry points such as `setup.sh`, `demo.sh`, and `setup/` scripts
-- repo guidance such as `demos/demo_md_guidelines.md`
+- repo guidance such as `demos/guidelines/demo_md_guidelines.md`
 - `AGENTS.md` instructions and skill guidance when present
 
 Use these sources to determine:
@@ -169,7 +169,7 @@ When adding a versioned documentation URL, prefer the latest or current supporte
 ### Repository-Local References
 
 - Add repo-local paths here when a file should be treated as a primary source
-- Example: `demos/demo_md_guidelines.md`
+- Example: `demos/guidelines/demo_md_guidelines.md`
 - Example: `demos/setup_env.sh`
 - Example: `demos/secrets_manager/`
 

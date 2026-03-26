@@ -282,8 +282,16 @@ Talk track:
 Prefer a simple, demo-local filename such as:
 
 - `video_demo_outline.md`
+- `video_recording_run_of_show.md`
+- `video_teleprompter_script.md`
 
-Place it in the relevant demo directory.
+Place video assets in a demo-local `video/` directory.
+
+Examples:
+
+- `demos/secrets_manager/summon_aws_auth/video/video_demo_outline.md`
+- `demos/secrets_manager/summon_aws_auth/video/video_recording_run_of_show.md`
+- `demos/secrets_manager/summon_aws_auth/video/video_teleprompter_script.md`
 
 ## Sources
 

@@ -10,7 +10,7 @@
 
 When creating or updating demo documentation under `demos/`, follow the guidance in:
 
-- `demos/demo_md_guidelines.md`
+- `demos/guidelines/demo_md_guidelines.md`
 
 Key expectation:
 
