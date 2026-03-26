@@ -6,6 +6,7 @@ import { requireOption } from "../lib/options.js";
 export async function runValidateReadme(options) {
   const filePath = requireOption(options, "file-path");
   const fullFilePath = path.join(getDemosBaseDir(), filePath);
+  const normalizedFilePath = filePath.replaceAll("\\", "/");
 
   try {
     await access(fullFilePath);
@@ -55,6 +56,30 @@ export async function runValidateReadme(options) {
     );
   }
 
+  if (normalizedFilePath.endsWith("/demo_validation.md")) {
+    const mermaidBlockRegex = /```mermaid\b[\s\S]*?```/m;
+
+    if (!mermaidBlockRegex.test(content)) {
+      score -= 40;
+      issues.push({
+        guideline: "Mermaid Diagram Required",
+        severity: "error",
+        count: 1,
+        message:
+          "demo_validation.md must include at least one Mermaid diagram showing the runtime flow",
+        locations: [
+          {
+            line: 1,
+            preview: normalizedFilePath,
+          },
+        ],
+      });
+      suggestions.push(
+        "Add at least one Mermaid sequenceDiagram or flowchart to demo_validation.md that shows the runtime request path.",
+      );
+    }
+  }
+
   return {
     filePath,
     passed: score >= 70,
@@ -63,8 +88,12 @@ export async function runValidateReadme(options) {
     suggestions,
     summary: {
       totalIssues: issues.length,
-      guidelinesChecked: 1,
-      guidelinesPassed: issues.length === 0 ? 1 : 0,
+      guidelinesChecked: normalizedFilePath.endsWith("/demo_validation.md")
+        ? 2
+        : 1,
+      guidelinesPassed:
+        (normalizedFilePath.endsWith("/demo_validation.md") ? 2 : 1) -
+        issues.length,
     },
   };
 }

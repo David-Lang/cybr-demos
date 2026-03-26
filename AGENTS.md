@@ -20,3 +20,4 @@ Key expectation:
 - Focus on post-install validation.
 - Explain both platform behavior and CyberArk behavior.
 - Organize walkthroughs around the major integration patterns in the demo.
+- Include at least one Mermaid flow diagram in every `demo_validation.md` that shows the runtime request path.

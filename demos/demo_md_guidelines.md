@@ -162,7 +162,7 @@ Most `demo_validation.md` files should follow this flow:
 1. Short intro explaining the purpose of the demo.
 2. Starting point that assumes the environment is already deployed.
 3. Short "About" section describing the CyberArk components involved.
-4. Workflow section showing the request and retrieval path.
+4. Workflow section showing the request and retrieval path, including at least one Mermaid flow diagram.
 5. Quick validation that the core resources exist.
 6. One section per major integration pattern or use case.
 7. A comparison section if multiple patterns exist.
@@ -242,7 +242,16 @@ The user should come away understanding both:
 - what they see in the platform
 - why CyberArk behaves that way
 
-When useful, make the flow explicit with a short sequence diagram, numbered request path, or compact workflow table. Prefer a Mermaid `sequenceDiagram` when the demo has a clear request path between an application, CyberArk component, and backend service. The diagram should be relevant to the actual demo flow and help the reader understand who initiates the request, where policy is enforced, and how the secret returns to the workload. The `demos/credential_providers/agent_ubuntu/README.md` example is a good model: it explains the component role, the access controls, the required configuration, the runtime request flow, and a concrete retrieval example.
+Make the flow explicit with at least one Mermaid diagram in every `demo_validation.md`. Use a Mermaid `sequenceDiagram` by default when the demo has a request path between an application, CyberArk component, controller, provider, or backend service. Use a Mermaid `flowchart` only when the runtime is easier to understand as branching infrastructure or delivery stages. The diagram must reflect the real demo flow and make these points obvious:
+
+- who initiates the request
+- which identity is presented
+- where CyberArk authentication happens
+- where authorization or policy is enforced
+- how the secret returns to the workload
+- where the secret ends up
+
+If the demo contains multiple delivery patterns, include one top-level Mermaid diagram for the shared authn and retrieval flow and add additional Mermaid diagrams for any pattern whose runtime path materially differs. The `demos/credential_providers/agent_ubuntu/README.md` example is a good model: it explains the component role, the access controls, the required configuration, the runtime request flow, and a concrete retrieval example.
 
 ## Solution Understanding First
 
@@ -329,6 +338,7 @@ Avoid these common mistakes:
 - focusing only on manifests instead of runtime behavior
 - ignoring the CyberArk authentication and delivery flow
 - mixing deployment guidance and validation guidance into one unclear document
+- omitting the Mermaid runtime flow diagram
 
 ## Minimal Quality Bar
 
@@ -345,6 +355,7 @@ Before considering a new `demo_validation.md` complete, check that it answers:
 
 - What is this demo proving?
 - How does the request move through the CyberArk solution?
+- Does the file include at least one Mermaid diagram that shows the runtime flow?
 - What should the user validate first?
 - What are the major patterns or flows?
 - What does each validation command prove?
@@ -403,7 +414,8 @@ What CyberArk components are involved and what role each one plays.
 ## Workflow
 
 Show how the request moves from the application or workload to CyberArk and back.
-Add a Mermaid `sequenceDiagram` when it helps explain the live flow.
+Include at least one Mermaid diagram that shows the live runtime flow.
+Prefer a Mermaid `sequenceDiagram` unless a `flowchart` is clearly easier to follow.
 
 ## Core Validation
 

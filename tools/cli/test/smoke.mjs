@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, cp, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, cp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -112,6 +112,48 @@ async function main() {
   assert.equal(validateResult.success, true);
   assert.equal(validateResult.command, "validate-readme");
   assert.equal(validateResult.data.passed, true);
+
+  await writeFile(
+    path.join(
+      tempRoot,
+      "demos",
+      "secrets_manager",
+      "sample_demo",
+      "demo_validation.md",
+    ),
+    "# Demo Validation\n\n## Workflow\n\nNo Mermaid here.\n",
+    "utf8",
+  );
+
+  const missingMermaidResult = await runCli(
+    [
+      "validate-readme",
+      "--file-path",
+      "secrets_manager/sample_demo/demo_validation.md",
+      "--json",
+    ],
+    env,
+  );
+  assert.equal(missingMermaidResult.success, true);
+  assert.equal(missingMermaidResult.data.passed, false);
+  assert.equal(
+    missingMermaidResult.data.issues[0].guideline,
+    "Mermaid Diagram Required",
+  );
+
+  const demoValidationResult = await runCli(
+    [
+      "validate-readme",
+      "--file-path",
+      "secrets_manager/k8s/demo_validation.md",
+      "--json",
+    ],
+    {
+      CYBR_DEMOS_REPO_ROOT: path.join(repoRoot),
+    },
+  );
+  assert.equal(demoValidationResult.success, true);
+  assert.equal(demoValidationResult.data.passed, true);
 
   const provisionError = await runCli(["provision-safe", "--json"], env);
   assert.equal(provisionError.success, false);
