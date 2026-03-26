@@ -18,7 +18,7 @@ They should help the audience understand:
 
 ## Default Scope
 
-Unless the use case requires otherwise, recorded demo outlines should focus on validation, not setup.
+Unless the use case requires otherwise, recorded demo outlines should focus on validation of a working environment.
 
 Assumptions:
 
@@ -26,7 +26,7 @@ Assumptions:
 - the environment is already reachable
 - the demo is shown through live runtime behavior
 
-Do not make setup or deployment the main story unless the demo is specifically about onboarding or provisioning.
+Keep the main story centered on runtime behavior unless the demo is specifically about onboarding or provisioning.
 
 ## Target Audience
 
@@ -101,7 +101,7 @@ Prefer showing:
 - the minimum live commands needed to prove the flow works
 - the output lines that prove identity, authorization, and secret delivery
 
-Avoid showing:
+Spend less time on:
 
 - long file edits
 - setup scripts unless the story is deployment-oriented
@@ -132,6 +132,7 @@ Use the validation guide to drive:
 - the troubleshooting language for predictable failures
 
 The video should show what success proves, not just that a command ran.
+Frame the scope positively. Prefer describing the focus areas of the demo rather than leading with a list of what it does not cover.
 
 ## Explain The CyberArk Flow
 
@@ -191,7 +192,7 @@ Prefer commands that prove:
 - the expected policy or mapping
 - the successful secret retrieval or injection
 
-Do not spend time on commands that do not improve the audience's understanding.
+Spend time on commands that improve the audience's understanding of identity, authorization, and delivery.
 
 ## Talk Track Guidance
 
@@ -205,7 +206,7 @@ Good talk track characteristics:
 - calls out what success means
 - connects user experience to security control
 
-Avoid:
+Prefer to avoid:
 
 - reading commands without interpretation
 - deep implementation detail that does not change the audience's understanding
@@ -221,6 +222,12 @@ Target length: <under 7 minutes>
 Audience: security teams and stakeholders
 
 Scope: validation only
+
+Focus areas:
+
+- runtime validation of a working environment
+- the CyberArk request and retrieval flow
+- the live proof points that matter to the audience
 
 ## Demo Goal
 

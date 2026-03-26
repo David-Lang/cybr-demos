@@ -38,6 +38,8 @@ Most recorded demos should have these files:
   - the presenter-facing spoken script for teleprompter tools such as Textream
 
 Do not create extra files unless they solve a real recording problem.
+Do not create duplicate teleprompter variants such as `video_teleprompter_script_clean.md` unless the user explicitly asks for that extra file.
+Frame the asset set positively. Prefer describing the standard files and what each one is for rather than leading with exclusions.
 
 ## Asset Roles
 
@@ -67,6 +69,7 @@ Keep the roles distinct.
 - silent cue markers such as `[SECTION]`, `[PAUSE]`, and `[RUN COMMAND]`
 - no long command blocks
 - no large chunks of explanatory text that sound unnatural when read aloud
+- the single default teleprompter version for the demo
 
 ## Teleprompter Guidance
 
@@ -79,12 +82,13 @@ Use:
 - explicit pause markers
 - explicit run-command markers
 
-Avoid:
+Prefer to avoid:
 
 - long paragraphs
 - raw command output
 - headings that sound like spoken narration
 - full documentation text copied into the teleprompter file
+- duplicate teleprompter files created only to remove cue markers unless explicitly requested
 
 ## Run Of Show Guidance
 
@@ -121,6 +125,7 @@ Before considering recording assets complete, check that:
 - the teleprompter script reads naturally out loud
 - section markers are visually obvious and not meant to be spoken
 - the assets help the presenter record in clean, editable sections
+- there is only one teleprompter script unless the user explicitly requested an additional variant
 
 ## Minimal Example
 
