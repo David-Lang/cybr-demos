@@ -112,15 +112,19 @@ TF_VARS=(
 )
 
 TF_APPLY_OUT=$(mktemp)
+set +e
 terraform apply -input=false -auto-approve "${TF_VARS[@]}" 2>&1 | tee "$TF_APPLY_OUT"
 TF_EXIT=${PIPESTATUS[0]}
+set -e
 
 # swa_server does not support in-place updates — auto-replace when detected
 if [ "$TF_EXIT" -ne 0 ] && grep -q "Update Not Supported" "$TF_APPLY_OUT" 2>/dev/null; then
   printf "\nINFO: swa_server cannot be updated in-place — replacing resource...\n"
   rm -f "$TF_APPLY_OUT"; TF_APPLY_OUT=$(mktemp)
+  set +e
   terraform apply -input=false -auto-approve -replace=swa_server.demo "${TF_VARS[@]}" 2>&1 | tee "$TF_APPLY_OUT"
   TF_EXIT=${PIPESTATUS[0]}
+  set -e
 fi
 
 if [ "$TF_EXIT" -ne 0 ]; then
