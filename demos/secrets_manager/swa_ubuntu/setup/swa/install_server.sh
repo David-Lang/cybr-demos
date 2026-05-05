@@ -87,7 +87,7 @@ sudo tee "$SWA_CONFIG_DIR/bootstrapConfig.yaml" > /dev/null <<EOF
 trustDomain:
   name: ${SWA_TRUST_DOMAIN_NAME}
 controlPlane:
-  url: ${CONJUR_URL}
+  url: ${CONJUR_URL}/api
   useVCP: false
   syncInterval: 15m
   auth:
