@@ -1,22 +1,20 @@
 #!/bin/bash
-# register_control_plane.sh — Register SWA trust domain, server group, server, and node group
-# with the CyberArk Secrets Manager control plane via Terraform.
+# register_control_plane.sh — Register SWA trust domain, server group, node group, and server
+# directly via the CyberArk SWA REST API (no Terraform).
 #
-# Run once before setup.sh (or re-run to update).
+# Run once before setup.sh (or re-run after deregister_control_plane.sh).
 # Outputs: setup/swa/swa_registered.env — sourced by setup.sh and install_server.sh
 #
 # Prerequisites:
 #   - CYBR_DEMOS_PATH set
-#   - SWA Terraform provider installed: bash setup/swa/install_tf_provider.sh
-#   - terraform in PATH
 #   - jq in PATH
+#   - openssl in PATH
 
 # shellcheck disable=SC2059
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-TF_DIR="$SCRIPT_DIR/terraform"
 OUT_ENV="$SCRIPT_DIR/swa_registered.env"
 
 # shellcheck disable=SC1091
@@ -28,14 +26,22 @@ source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
 source "$DEMO_DIR/setup/vars.env"
 
+# Derived resource names (same convention as the old Terraform config)
+SWA_SERVER_GROUP_NAME="${SWA_RESOURCE_PREFIX}-server-group"
+SWA_SERVER_NAME="${SWA_RESOURCE_PREFIX}-server"
+
+SWA_API="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api/swa"
+CONJUR_URL="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
+CA_CERT_PATH="$SCRIPT_DIR/x509pop_ca.pem"
+
 echo "=========================================="
 echo "SWA Control Plane Registration"
 echo "=========================================="
 echo ""
-echo "  Tenant:           $TENANT_SUBDOMAIN"
-echo "  Trust domain:     $SWA_TRUST_DOMAIN_NAME"
-echo "  Resource prefix:  $SWA_RESOURCE_PREFIX"
-echo "  Node group:       $SWA_NODE_GROUP_NAME"
+echo "  Tenant:       $TENANT_SUBDOMAIN"
+echo "  Trust domain: $SWA_TRUST_DOMAIN_NAME"
+echo "  Server group: $SWA_SERVER_GROUP_NAME"
+echo "  Node group:   $SWA_NODE_GROUP_NAME"
 echo ""
 
 # --- Validate required vars ---
@@ -49,21 +55,47 @@ for var_name in "${required_vars[@]}"; do
 done
 
 # --- Check dependencies ---
-for cmd in terraform jq openssl; do
+for cmd in jq openssl curl; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     printf "ERROR: '%s' not found in PATH\n" "$cmd" >&2
     exit 1
   fi
 done
 
-# --- Step 1: Authenticate to Conjur ---
-echo "[1/5] Authenticating to Conjur..."
+# --- Helper: SWA API call, exits on non-2xx unless caller passes allow_status ---
+# Usage: swa_call METHOD path [body_json]
+# Returns response body; HTTP status is checked and causes exit on failure.
+swa_call() {
+  local method="$1" path="$2" body="${3:-}"
+  local tmp_out; tmp_out=$(mktemp)
+  local http_status
+  if [ -n "$body" ]; then
+    http_status=$(curl -sS -o "$tmp_out" -w "%{http_code}" -X "$method" \
+      "${SWA_API}${path}" \
+      -H "Authorization: Token token=\"${conjur_token}\"" \
+      -H "Accept: application/x.secretsmgr.v2+json" \
+      -H "Content-Type: application/json" \
+      --data "$body")
+  else
+    http_status=$(curl -sS -o "$tmp_out" -w "%{http_code}" -X "$method" \
+      "${SWA_API}${path}" \
+      -H "Authorization: Token token=\"${conjur_token}\"" \
+      -H "Accept: application/x.secretsmgr.v2+json")
+  fi
+  local response; response=$(cat "$tmp_out"); rm -f "$tmp_out"
+  if [[ "$http_status" -lt 200 || "$http_status" -ge 300 ]]; then
+    printf "ERROR: SWA API %s %s returned HTTP %s\n" "$method" "$path" "$http_status" >&2
+    printf "Response: %s\n" "$response" >&2
+    return 1
+  fi
+  printf '%s' "$response"
+}
+
+# --- Step 1: Authenticate ---
+echo "[1/6] Authenticating to Conjur..."
 isp_token=$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")
 conjur_token=$(get_conjur_token "$TENANT_SUBDOMAIN" "$isp_token")
-CONJUR_URL="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
 
-# Decode the sub claim (UUID) from the ISP token — this is what Conjur sees as the JWT subject,
-# and it differs from CLIENT_ID (which is the username/email used to obtain the token).
 ISP_SUB=$(printf '%s' "$isp_token" | cut -d. -f2 | tr '_-' '/+' | \
   awk '{n=length($0)%4; if(n==2) print $0"=="; else if(n==3) print $0"="; else print $0}' | \
   base64 -d 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin)["sub"])' 2>/dev/null)
@@ -77,112 +109,127 @@ echo "      OK"
 echo ""
 
 # --- Step 2: Generate x509pop certs ---
-echo "[2/5] Generating x509pop CA and agent certs..."
+echo "[2/6] Generating x509pop CA and agent certs..."
 bash "$SCRIPT_DIR/gen_x509pop_ca.sh" "$SWA_NODE_GROUP_NAME"
 echo ""
 
-# --- Step 3: Install Terraform provider (idempotent) ---
-echo "[3/5] Installing SWA Terraform provider..."
-if [ -f "$SCRIPT_DIR/install_tf_provider.sh" ]; then
-  bash "$SCRIPT_DIR/install_tf_provider.sh"
-else
-  echo "      WARNING: install_tf_provider.sh not found — assuming provider is already installed"
-fi
+# --- Step 3: Create trust domain ---
+echo "[3/6] Creating trust domain: $SWA_TRUST_DOMAIN_NAME..."
+TD_BODY=$(jq -n \
+  --arg name "$SWA_TRUST_DOMAIN_NAME" \
+  '{
+    name: $name,
+    jwt: {
+      signature_algorithm: "RS256",
+      signing_key_type: "RSA_2048",
+      signing_key_ttl: 86400,
+      token_ttl: 600
+    }
+  }')
+swa_call POST "/trust-domains" "$TD_BODY" > /dev/null
+echo "      OK"
 echo ""
 
-# --- Step 4: Run Terraform ---
-echo "[4/5] Running Terraform (trust domain + server group + server + node group)..."
+# --- Step 4: Create server group (x509pop node attestation) ---
+echo "[4/6] Creating server group: $SWA_SERVER_GROUP_NAME..."
+CA_CERT_CONTENT=$(cat "$CA_CERT_PATH")
+SG_BODY=$(jq -n \
+  --arg name "$SWA_SERVER_GROUP_NAME" \
+  --arg ca_cert "$CA_CERT_CONTENT" \
+  '{
+    name: $name,
+    description: "",
+    node_attestation: {
+      x509pop: {
+        ca_certificates: $ca_cert
+      }
+    }
+  }')
+swa_call POST "/trust-domains/${SWA_TRUST_DOMAIN_NAME}/server-groups" "$SG_BODY" > /dev/null
+echo "      OK"
 echo ""
 
-cd "$TF_DIR"
-
-terraform init -input=false -upgrade 2>&1 | grep -E "(Initializing|provider|Warning|Error)" || true
+# --- Step 5: Create node group ---
+echo "[5/6] Creating node group: $SWA_NODE_GROUP_NAME..."
+NG_BODY=$(jq -n \
+  --arg name "$SWA_NODE_GROUP_NAME" \
+  '{
+    name: $name,
+    description: "",
+    workload_type: "unix",
+    workload_configuration: {
+      spiffe_id_template: "spiffe://{{ .trustdomain }}/{{ .nodegroup }}/workload/{{ .unix.user }}",
+      workload_registration_policies: ["unix.user != '\''root'\''"]
+    }
+  }')
+swa_call POST \
+  "/trust-domains/${SWA_TRUST_DOMAIN_NAME}/server-groups/${SWA_SERVER_GROUP_NAME}/node-groups" \
+  "$NG_BODY" > /dev/null
+echo "      OK"
 echo ""
 
-TF_VARS=(
-  -var="conjur_url=${CONJUR_URL}"
-  -var="conjur_token=${conjur_token}"
-  -var="trust_domain_name=${SWA_TRUST_DOMAIN_NAME}"
-  -var="resource_prefix=${SWA_RESOURCE_PREFIX}"
-  -var="node_group_name=${SWA_NODE_GROUP_NAME}"
-  -var="ca_certificate_path=${SCRIPT_DIR}/x509pop_ca.pem"
-  -var="tenant_id=${TENANT_ID}"
-  -var="client_id=${CLIENT_ID}"
-  -var="client_subject=${ISP_SUB}"
-)
+# --- Step 6: Register SWA server ---
+echo "[6/6] Registering SWA server: $SWA_SERVER_NAME..."
+SRV_BODY=$(jq -n \
+  --arg name "$SWA_SERVER_NAME" \
+  --arg sub "$ISP_SUB" \
+  --arg tenant_id "$TENANT_ID" \
+  '{
+    name: $name,
+    authentication: {
+      type: "JWT",
+      data: {
+        sub: $sub,
+        issuer: ("https://" + $tenant_id + ".id.cyberark.cloud/__idaptive_cybr_user_oidc/"),
+        jwks_uri: ("https://" + $tenant_id + ".id.cyberark.cloud/OAuth2/Keys/__idaptive_cybr_user_oidc"),
+        audience: "__idaptive_cybr_user_oidc"
+      }
+    }
+  }')
+SRV_RESPONSE=$(swa_call POST \
+  "/trust-domains/${SWA_TRUST_DOMAIN_NAME}/server-groups/${SWA_SERVER_GROUP_NAME}/components" \
+  "$SRV_BODY")
 
-TF_APPLY_OUT=$(mktemp)
-set +e
-terraform apply -input=false -auto-approve "${TF_VARS[@]}" 2>&1 | tee "$TF_APPLY_OUT"
-TF_EXIT=${PIPESTATUS[0]}
-set -e
-
-# swa_server does not support in-place updates — auto-replace when detected
-if [ "$TF_EXIT" -ne 0 ] && grep -q "Update Not Supported" "$TF_APPLY_OUT" 2>/dev/null; then
-  printf "\nINFO: swa_server cannot be updated in-place — replacing resource...\n"
-  rm -f "$TF_APPLY_OUT"; TF_APPLY_OUT=$(mktemp)
-  set +e
-  terraform apply -input=false -auto-approve -replace=swa_server.demo "${TF_VARS[@]}" 2>&1 | tee "$TF_APPLY_OUT"
-  TF_EXIT=${PIPESTATUS[0]}
-  set -e
-fi
-
-if [ "$TF_EXIT" -ne 0 ]; then
-  if grep -q "conjur_resource_already_exists\|already exists" "$TF_APPLY_OUT" 2>/dev/null; then
-    printf "\nERROR: Conjur JWT authenticator naming conflict (SWA provider cleanup bug).\n" >&2
-    printf "       SWA_RESOURCE_PREFIX is scoped to LAB_ID by default, so this usually means\n" >&2
-    printf "       the same lab was re-spun without running deregister_control_plane.sh first.\n" >&2
-    printf "       Run: bash setup/swa/deregister_control_plane.sh\n" >&2
-    printf "       Then: bash setup/swa/register_control_plane.sh\n" >&2
-  fi
-  rm -f "$TF_APPLY_OUT"
+SERVER_LOGIN_URL=$(printf '%s' "$SRV_RESPONSE" | jq -r '.login_url // empty')
+if [ -z "$SERVER_LOGIN_URL" ]; then
+  echo "ERROR: server registration response did not contain login_url" >&2
+  printf "Response: %s\n" "$SRV_RESPONSE" >&2
   exit 1
 fi
-rm -f "$TF_APPLY_OUT"
 
-echo ""
-
-# --- Step 5: Extract outputs and write swa_registered.env ---
-echo "[5/5] Extracting Terraform outputs and activating authenticator..."
-terraform output -json > /tmp/swa_tf_outputs.json
-
-TRUST_DOMAIN_ID=$(jq -r '.trust_domain_id.value'   /tmp/swa_tf_outputs.json)
-OIDC_ISSUER_URL=$(jq -r '.oidc_issuer_url.value'   /tmp/swa_tf_outputs.json)
-SERVER_LOGIN_URL=$(jq -r '.server_login_url.value'  /tmp/swa_tf_outputs.json)
-TD_NAME=$(jq -r '.trust_domain_name.value'          /tmp/swa_tf_outputs.json)
-NG_NAME=$(jq -r '.node_group_name.value'            /tmp/swa_tf_outputs.json)
-SPIFFE_PREFIX=$(jq -r '.spiffe_id_prefix.value'     /tmp/swa_tf_outputs.json)
-
-rm -f /tmp/swa_tf_outputs.json
-
-# Activate the swa-server Conjur JWT authenticator.
-# Terraform creates the authenticator policy and populates its variables, but
-# does NOT enable it — Conjur returns 400 until it is explicitly activated.
-SERVER_AUTH_SVC=$(echo "$SERVER_LOGIN_URL" | base64 -d 2>/dev/null | grep -o 'authn-jwt/[^/]*' | head -1)
+# Activate the Conjur JWT authenticator created by the server registration.
+# The SWA backend creates the policy and variables but does NOT enable it.
+SERVER_AUTH_SVC=$(printf '%s' "$SERVER_LOGIN_URL" | base64 -d 2>/dev/null | \
+  grep -o 'authn-jwt/[^/]*' | head -1)
 if [ -n "$SERVER_AUTH_SVC" ]; then
   activate_conjur_service "$TENANT_SUBDOMAIN" "$conjur_token" "$SERVER_AUTH_SVC" > /dev/null
-  echo "      Activated Conjur authenticator: $SERVER_AUTH_SVC   OK"
+  echo "      Activated Conjur authenticator: $SERVER_AUTH_SVC"
 else
   echo "      WARNING: could not extract authenticator service ID from login URL" >&2
 fi
+echo "      OK"
+echo ""
+
+# --- Write swa_registered.env ---
+OIDC_ISSUER_URL="https://api.venafi.cloud/swa/v1/issuers/${SWA_TRUST_DOMAIN_NAME}"
+SPIFFE_PREFIX="spiffe://${SWA_TRUST_DOMAIN_NAME}/${SWA_NODE_GROUP_NAME}"
 
 cat > "$OUT_ENV" <<EOF
 # Generated by register_control_plane.sh — do not edit manually
-export SWA_TRUST_DOMAIN_ID="${TRUST_DOMAIN_ID}"
-export SWA_TRUST_DOMAIN_NAME="${TD_NAME}"
+export SWA_TRUST_DOMAIN_ID="${SWA_TRUST_DOMAIN_NAME}"
+export SWA_TRUST_DOMAIN_NAME="${SWA_TRUST_DOMAIN_NAME}"
 export SWA_OIDC_ISSUER="${OIDC_ISSUER_URL}"
 export SWA_SERVER_LOGIN_URL="${SERVER_LOGIN_URL}"
-export SWA_NODE_GROUP_NAME="${NG_NAME}"
+export SWA_NODE_GROUP_NAME="${SWA_NODE_GROUP_NAME}"
 export SWA_SPIFFE_PREFIX="${SPIFFE_PREFIX}"
 export SWA_X509POP_CA_CERT="${SCRIPT_DIR}/x509pop_ca.pem"
 export SWA_X509POP_AGENT_CERT="${SCRIPT_DIR}/x509pop_agent.pem"
 export SWA_X509POP_AGENT_KEY="${SCRIPT_DIR}/x509pop_agent.key"
 EOF
 
-echo ""
-echo "  Trust domain ID:  $TRUST_DOMAIN_ID"
+echo "  Trust domain:     $SWA_TRUST_DOMAIN_NAME"
 echo "  OIDC issuer:      $OIDC_ISSUER_URL"
-echo "  Server login URL: $(echo "$SERVER_LOGIN_URL" | base64 -d 2>/dev/null || echo "$SERVER_LOGIN_URL")"
+echo "  Server login URL: $(printf '%s' "$SERVER_LOGIN_URL" | base64 -d 2>/dev/null || printf '%s' "$SERVER_LOGIN_URL")"
 echo "  SPIFFE prefix:    $SPIFFE_PREFIX"
 echo ""
 echo "  Written: $OUT_ENV"
@@ -190,5 +237,5 @@ echo ""
 echo "=========================================="
 echo "Registration complete."
 echo ""
-echo "Next: bash setup/swa/install_server.sh"
+echo "Next: bash setup.sh"
 echo "=========================================="
