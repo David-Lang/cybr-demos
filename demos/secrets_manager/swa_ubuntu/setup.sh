@@ -82,8 +82,9 @@ if [[ "$SWA_MODE" == "mock" ]]; then
 else
   # real mode
   if [[ "$SWA_OIDC_ISSUER" == "INPUT_REQUIRED" ]]; then
-    echo "ERROR: SWA_OIDC_ISSUER must be set in setup/vars.env when SWA_MODE=real" >&2
-    echo "       TODO(Q4): Confirm OIDC issuer URL format from SWA documentation." >&2
+    echo "ERROR: SWA_OIDC_ISSUER must be set when SWA_MODE=real." >&2
+    echo "       Run setup/swa/register_control_plane.sh first — it writes SWA_OIDC_ISSUER" >&2
+    echo "       to setup/swa/swa_registered.env which is sourced automatically." >&2
     exit 1
   fi
   echo "      Mode: real — configuring jwks-uri from SWA OIDC discovery"
@@ -98,7 +99,7 @@ apply_conjur_secret "$TENANT_SUBDOMAIN" "$conjur_token" \
   "${BASE}/token-app-property" "sub"
 
 apply_conjur_secret "$TENANT_SUBDOMAIN" "$conjur_token" \
-  "${BASE}/identity-path" "data/workloads/swa"
+  "${BASE}/identity-path" "$SWA_IDENTITY_PATH"
 
 apply_conjur_secret "$TENANT_SUBDOMAIN" "$conjur_token" \
   "${BASE}/audience" "conjur"

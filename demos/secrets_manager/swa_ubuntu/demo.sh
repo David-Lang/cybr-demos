@@ -14,6 +14,10 @@ source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/demo_utility.sh"
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/setup/vars.env"
+# Real mode: source swa_registered.env for SWA_SPIFFE_PREFIX and SWA_OIDC_ISSUER
+REGISTERED_ENV="$SCRIPT_DIR/setup/swa/swa_registered.env"
+# shellcheck disable=SC1090
+[ -f "$REGISTERED_ENV" ] && source "$REGISTERED_ENV"
 
 # --- Validate required variables ---
 required_vars=(TENANT_SUBDOMAIN CONJUR_ACCOUNT CONJUR_JWT_SERVICE_ID SWA_WORKLOAD_ID SWA_AGENT_BIN)
@@ -111,7 +115,7 @@ print_line
 # =============================================================================
 printf "${BCyan}[4/8]${Color_Off} Workload identity policy in Conjur...\n\n"
 
-print_prompt "curl .../resources/conjur/host/data/workloads/swa/${SWA_WORKLOAD_ID}"
+print_prompt "curl .../resources/conjur/host/${SWA_IDENTITY_PATH}/${SWA_WORKLOAD_ID}"
 echo ""
 
 # shellcheck disable=SC1091
@@ -122,18 +126,30 @@ source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/conjur_functions.sh"
 identity_token=$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")
 conjur_token=$(get_conjur_token "$TENANT_SUBDOMAIN" "$identity_token")
 
+ENCODED_HOST_PATH=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${SWA_IDENTITY_PATH}/${SWA_WORKLOAD_ID}', safe=''))")
+
 host_check=$(curl --silent \
-  "https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api/resources/conjur/host/data%2Fworkloads%2Fswa%2F${SWA_WORKLOAD_ID}" \
+  "https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api/resources/conjur/host/${ENCODED_HOST_PATH}" \
   --header "Authorization: Token token=\"${conjur_token}\"")
 
-if echo "$host_check" | grep -q "data/workloads/swa/${SWA_WORKLOAD_ID}"; then
-  printf "  Identity:   spiffe://${SWA_DOMAIN#spiffe://}/${SWA_WORKLOAD_ID}\n"
-  printf "  Host:       data/workloads/swa/${SWA_WORKLOAD_ID}\n"
+if echo "$host_check" | grep -q "${SWA_IDENTITY_PATH}/${SWA_WORKLOAD_ID}"; then
+  if [[ "$SWA_MODE" == "mock" ]]; then
+    printf "  Identity:   spiffe://${SWA_DOMAIN#spiffe://}/${SWA_WORKLOAD_ID}\n"
+  else
+    printf "  Identity:   ${SWA_SPIFFE_PREFIX:-<auto-managed>}/workload/${SWA_WORKLOAD_ID}\n"
+  fi
+  printf "  Host:       ${SWA_IDENTITY_PATH}/${SWA_WORKLOAD_ID}\n"
   printf "  Secret:     ${DEMO_SECRET_ID}\n"
   printf "  Permission: ${Green}read   OK${Color_Off}\n"
 else
-  printf "  ${Red}ERROR:${Color_Off} Workload host not found in Conjur.\n"
-  printf "  Run setup.sh to load workload identity policy.\n"
+  printf "  ${Red}ERROR:${Color_Off} Workload host not found: ${SWA_IDENTITY_PATH}/${SWA_WORKLOAD_ID}\n"
+  if [[ "$SWA_MODE" == "real" ]]; then
+    printf "  In real mode SWA auto-creates the host on first attestation.\n"
+    printf "  Verify the agent has attested, then check SWA_IDENTITY_PATH and SWA_WORKLOAD_ID\n"
+    printf "  in setup/vars.env match the auto-created Conjur host path.\n"
+  else
+    printf "  Run setup.sh to load workload identity policy.\n"
+  fi
   exit 1
 fi
 
