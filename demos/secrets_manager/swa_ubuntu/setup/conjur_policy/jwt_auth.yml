@@ -1,0 +1,59 @@
+# metadata
+# mode: append-policy
+---
+# JWT authenticator for CyberArk Secure Workload Access (SWA)
+# Applied to branch: conjur/authn-jwt
+- !policy
+  id: swa1
+  body:
+  - !webservice
+
+  # public-keys: used in mock/dev mode — embeds RSA public key directly in Conjur.
+  # Switch to jwks-uri when SWA binaries are available and SWA_MODE=real.
+  - !variable
+    id: public-keys
+  # - !variable
+  #   id: jwks-uri
+
+  # Which JWT claim maps to the Conjur host identity.
+  # Value: "sub" — the workload ID issued by SWA.
+  # TODO(Q4/needs-info): Confirm SWA JWT claim name with binaries/docs.
+  - !variable
+    id: token-app-property
+
+  # Conjur policy path containing the host identities for this authenticator.
+  - !variable
+    id: identity-path
+
+  # The expected "iss" claim value in the JWT.
+  - !variable
+    id: issuer
+
+  # The expected "aud" claim value in the JWT.
+  - !variable
+    id: audience
+
+  - !group
+    id: consumers
+
+  - !permit
+    role: !group consumers
+    privilege: [ read, authenticate ]
+    resource: !webservice
+
+  - !webservice
+    id: status
+    annotations:
+      description: Status check for the SWA JWT authenticator
+
+  - !group
+    id: operators
+
+  - !permit
+    role: !group operators
+    privilege: [ read ]
+    resource: !webservice status
+
+  - !grant
+    role: !group consumers
+    member: !group /data/authenticator/consumers

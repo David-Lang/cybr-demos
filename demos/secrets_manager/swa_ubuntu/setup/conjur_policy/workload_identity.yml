@@ -1,0 +1,32 @@
+# metadata
+# mode: append-policy
+---
+# Workload identity for SWA Hello World demo
+# Applied to branch: data
+#
+# Host path: data/workloads/swa/swa-hello-world
+# JWT claim: sub = "swa-hello-world"
+# TODO(needs-info): Confirm JWT sub claim format from real SWA token when binaries arrive.
+
+- !policy
+  id: workloads/swa
+  body:
+  - !host
+    id: swa-hello-world
+    annotations:
+      authn-jwt/swa1/sub: swa-hello-world
+
+  - !grant
+    role: !group /data/authenticator/consumers
+    member: !host swa-hello-world
+
+- !policy
+  id: demo
+  body:
+  - !variable
+    id: db_password
+
+- !permit
+  role: !host workloads/swa/swa-hello-world
+  privilege: [ read, execute ]
+  resource: !variable demo/db_password
