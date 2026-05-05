@@ -120,6 +120,20 @@ echo "      OK"
 printf "  Deleting trust domain: %s..." "$SWA_TRUST_DOMAIN_NAME"
 swa_delete "/trust-domains/${SWA_TRUST_DOMAIN_NAME}"
 echo "      OK"
+
+# 2f. Clean up orphaned Conjur trust domain policy.
+# The SWA backend leaves the Conjur policy at data/swa/trust-domains/{name} behind
+# on DELETE, causing 409 on re-registration with the same trust domain name.
+printf "  Cleaning Conjur trust domain policy: data/swa/trust-domains/%s..." "$SWA_TRUST_DOMAIN_NAME"
+TD_PATCH_RESULT=$(patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "data/swa/trust-domains" \
+  "- !delete
+  record: !policy ${SWA_TRUST_DOMAIN_NAME}" 2>/dev/null || echo "FAILED")
+if echo "$TD_PATCH_RESULT" | grep -q "FAILED\|error\|Error"; then
+  printf "\n      WARNING: could not delete Conjur trust domain policy (may need manual cleanup)\n" >&2
+  printf "      Delete 'data/swa/trust-domains/%s' from: Secrets Manager → Secure Workload Access\n" "$SWA_TRUST_DOMAIN_NAME" >&2
+else
+  echo "      OK"
+fi
 echo ""
 
 rm -f "$REGISTERED_ENV"
