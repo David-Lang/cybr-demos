@@ -136,14 +136,16 @@ SyslogIdentifier=swa-server
 WantedBy=multi-user.target
 EOF
 
-# Write credentials to a secure env file so systemd doesn't mangle special chars in ExecStart
-sudo tee /etc/swa/refresh.env > /dev/null <<EOF
-TENANT_ID=${TENANT_ID}
-CLIENT_ID=${CLIENT_ID}
-CLIENT_SECRET=${CLIENT_SECRET}
-CYBR_DEMOS_PATH=${CYBR_DEMOS_PATH}
-SWA_TOKEN_FILE=${SWA_TOKEN_FILE}
-EOF
+# Write credentials to a secure env file — values are single-quoted so systemd
+# EnvironmentFile does not truncate at '#' or other special characters.
+# (systemd treats unquoted '#' as a comment delimiter; single-quoted values are literal.)
+{
+  printf 'TENANT_ID=%s\n'         "${TENANT_ID}"
+  printf 'CLIENT_ID=%s\n'         "${CLIENT_ID}"
+  printf "CLIENT_SECRET='%s'\n"   "${CLIENT_SECRET}"
+  printf 'CYBR_DEMOS_PATH=%s\n'   "${CYBR_DEMOS_PATH}"
+  printf 'SWA_TOKEN_FILE=%s\n'    "${SWA_TOKEN_FILE}"
+} | sudo tee /etc/swa/refresh.env > /dev/null
 sudo chmod 600 /etc/swa/refresh.env
 
 # Token refresh timer — ISP tokens expire in ~15 min; refresh every 10 min to stay ahead

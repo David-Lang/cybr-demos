@@ -150,15 +150,26 @@ sudo systemctl restart swa-server
 
 ### 5. Special characters in `CLIENT_SECRET` are mangled in systemd unit files
 
-**Symptom:** Token refresh timer runs but produces an invalid token; password contains
-`\`, `%`, `<`, `>`, `|`, `(`, `)` or similar.
+**Symptom:** Token refresh timer runs but `get_identity_token` returns an empty/invalid
+token. Password contains `\`, `#`, `%`, `<`, `>`, `|`, `(`, `)` or similar.
 
-**Cause:** systemd silently drops unknown backslash escape sequences (e.g., `\p → p`)
-when parsing `ExecStart=` values in unit files. This corrupts passwords with backslashes.
+**Cause (two variants):**
+
+1. **Backslash in `ExecStart=`**: systemd silently drops unknown backslash escape
+   sequences (e.g., `\p → p`) when parsing `ExecStart=` lines in unit files.
+
+2. **`#` in `EnvironmentFile=`**: systemd treats unquoted `#` as a comment delimiter
+   in env files — everything from `#` to end-of-line is silently stripped. A secret
+   ending in `...ZmY#&-r` becomes `...ZmY` when loaded unquoted.
 
 **Fix already applied:** `install_server.sh` writes credentials to `/etc/swa/refresh.env`
-(mode `0600`) and loads them via `EnvironmentFile=`. systemd never parses the credential
-values — they are expanded by the shell at runtime.
+(mode `0600`) via `printf` with `CLIENT_SECRET` single-quoted:
+```
+CLIENT_SECRET='<actual-secret>'
+```
+Single-quoted values in systemd EnvironmentFile are treated literally — backslashes,
+`#`, and all other special characters are preserved. The shell then expands
+`${CLIENT_SECRET}` to the full value at runtime.
 
 ---
 
