@@ -136,23 +136,34 @@ SyslogIdentifier=swa-server
 WantedBy=multi-user.target
 EOF
 
-# Token refresh timer — refreshes the ISP token every 30 min (tokens expire in 1h)
+# Write credentials to a secure env file so systemd doesn't mangle special chars in ExecStart
+sudo tee /etc/swa/refresh.env > /dev/null <<EOF
+TENANT_ID=${TENANT_ID}
+CLIENT_ID=${CLIENT_ID}
+CLIENT_SECRET=${CLIENT_SECRET}
+CYBR_DEMOS_PATH=${CYBR_DEMOS_PATH}
+SWA_TOKEN_FILE=${SWA_TOKEN_FILE}
+EOF
+sudo chmod 600 /etc/swa/refresh.env
+
+# Token refresh timer — ISP tokens expire in ~15 min; refresh every 10 min to stay ahead
 sudo tee /etc/systemd/system/swa-token-refresh.service > /dev/null <<EOF
 [Unit]
 Description=Refresh SWA Server ISP token
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'source ${CYBR_DEMOS_PATH}/demos/utility/ubuntu/identity_functions.sh && source ${CYBR_DEMOS_PATH}/demos/tenant_vars.sh && get_identity_token "${TENANT_ID}" "${CLIENT_ID}" "${CLIENT_SECRET}" > ${SWA_TOKEN_FILE} && chmod 600 ${SWA_TOKEN_FILE}'
+EnvironmentFile=/etc/swa/refresh.env
+ExecStart=/bin/bash -c 'source \${CYBR_DEMOS_PATH}/demos/utility/ubuntu/identity_functions.sh && get_identity_token "\${TENANT_ID}" "\${CLIENT_ID}" "\${CLIENT_SECRET}" > \${SWA_TOKEN_FILE} && chmod 600 \${SWA_TOKEN_FILE}'
 EOF
 
 sudo tee /etc/systemd/system/swa-token-refresh.timer > /dev/null <<EOF
 [Unit]
-Description=Refresh SWA Server ISP token every 30 minutes
+Description=Refresh SWA Server ISP token every 10 minutes
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=30min
+OnBootSec=1min
+OnUnitActiveSec=10min
 
 [Install]
 WantedBy=timers.target
