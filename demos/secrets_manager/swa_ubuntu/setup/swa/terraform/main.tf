@@ -50,7 +50,7 @@ resource "swa_server" "demo" {
 
   auth = {
     type     = "JWT"
-    subject  = var.client_id
+    subject  = var.client_subject
     audience = "__idaptive_cybr_user_oidc"
     jwks_uri = "https://${var.tenant_id}.id.cyberark.cloud/OAuth2/Keys/__idaptive_cybr_user_oidc"
     issuer   = "https://${var.tenant_id}.id.cyberark.cloud/__idaptive_cybr_user_oidc/"

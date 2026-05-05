@@ -61,6 +61,18 @@ echo "[1/5] Authenticating to Conjur..."
 isp_token=$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")
 conjur_token=$(get_conjur_token "$TENANT_SUBDOMAIN" "$isp_token")
 CONJUR_URL="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
+
+# Decode the sub claim (UUID) from the ISP token — this is what Conjur sees as the JWT subject,
+# and it differs from CLIENT_ID (which is the username/email used to obtain the token).
+ISP_SUB=$(printf '%s' "$isp_token" | cut -d. -f2 | tr '_-' '/+' | \
+  awk '{n=length($0)%4; if(n==2) print $0"=="; else if(n==3) print $0"="; else print $0}' | \
+  base64 -d 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin)["sub"])' 2>/dev/null)
+
+if [ -z "$ISP_SUB" ]; then
+  echo "ERROR: could not decode sub claim from ISP token" >&2
+  exit 1
+fi
+echo "      ISP token sub: $ISP_SUB"
 echo "      OK"
 echo ""
 
@@ -96,7 +108,8 @@ if ! terraform apply -input=false -auto-approve \
   -var="node_group_name=${SWA_NODE_GROUP_NAME}" \
   -var="ca_certificate_path=${SCRIPT_DIR}/x509pop_ca.pem" \
   -var="tenant_id=${TENANT_ID}" \
-  -var="client_id=${CLIENT_ID}" 2>&1 | tee "$TF_APPLY_OUT"; then
+  -var="client_id=${CLIENT_ID}" \
+  -var="client_subject=${ISP_SUB}" 2>&1 | tee "$TF_APPLY_OUT"; then
 
   if grep -q "conjur_resource_already_exists\|already exists" "$TF_APPLY_OUT" 2>/dev/null; then
     printf "\nERROR: Conjur JWT authenticator naming conflict (SWA provider cleanup bug).\n" >&2

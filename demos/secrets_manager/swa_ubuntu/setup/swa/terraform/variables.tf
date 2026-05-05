@@ -35,6 +35,11 @@ variable "tenant_id" {
 }
 
 variable "client_id" {
-  description = "ISP service account client ID — used as the JWT subject for SWA Server authentication"
+  description = "ISP service account client ID (username/email)"
+  type        = string
+}
+
+variable "client_subject" {
+  description = "JWT sub claim from the ISP token — the UUID of the service account (differs from client_id)"
   type        = string
 }
