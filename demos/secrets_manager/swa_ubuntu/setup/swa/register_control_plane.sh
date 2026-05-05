@@ -178,12 +178,10 @@ SRV_BODY=$(jq -n \
     name: $name,
     authentication: {
       type: "JWT",
-      data: {
-        sub: $sub,
-        issuer: ("https://" + $tenant_id + ".id.cyberark.cloud/__idaptive_cybr_user_oidc/"),
-        jwks_uri: ("https://" + $tenant_id + ".id.cyberark.cloud/OAuth2/Keys/__idaptive_cybr_user_oidc"),
-        audience: "__idaptive_cybr_user_oidc"
-      }
+      sub: $sub,
+      issuer: ("https://" + $tenant_id + ".id.cyberark.cloud/__idaptive_cybr_user_oidc/"),
+      jwks_uri: ("https://" + $tenant_id + ".id.cyberark.cloud/OAuth2/Keys/__idaptive_cybr_user_oidc"),
+      audience: "__idaptive_cybr_user_oidc"
     }
   }')
 SRV_RESPONSE=$(swa_call POST \
