@@ -14,6 +14,10 @@ source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/conjur_functions.sh"
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/setup/vars.env"
+# shellcheck disable=SC1091
+if [[ -f "$SCRIPT_DIR/setup/swa/swa_registered.env" ]]; then
+  source "$SCRIPT_DIR/setup/swa/swa_registered.env"
+fi
 
 echo "=========================================="
 echo "Setup: SWA Ubuntu"
