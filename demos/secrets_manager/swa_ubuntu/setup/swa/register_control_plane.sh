@@ -22,6 +22,8 @@ OUT_ENV="$SCRIPT_DIR/swa_registered.env"
 # shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/identity_functions.sh"
 # shellcheck disable=SC1091
+source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/conjur_functions.sh"
+# shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
 source "$DEMO_DIR/setup/vars.env"
@@ -54,9 +56,10 @@ for cmd in terraform jq openssl; do
   fi
 done
 
-# --- Step 1: Get ISP token ---
+# --- Step 1: Authenticate to Conjur ---
 echo "[1/5] Authenticating to Conjur..."
 isp_token=$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")
+conjur_token=$(get_conjur_token "$TENANT_SUBDOMAIN" "$isp_token")
 CONJUR_URL="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
 echo "      OK"
 echo ""
@@ -84,15 +87,29 @@ cd "$TF_DIR"
 terraform init -input=false -upgrade 2>&1 | grep -E "(Initializing|provider|Warning|Error)" || true
 echo ""
 
-terraform apply -input=false -auto-approve \
+TF_APPLY_OUT=$(mktemp)
+if ! terraform apply -input=false -auto-approve \
   -var="conjur_url=${CONJUR_URL}" \
-  -var="conjur_token=${isp_token}" \
+  -var="conjur_token=${conjur_token}" \
   -var="trust_domain_name=${SWA_TRUST_DOMAIN_NAME}" \
   -var="resource_prefix=${SWA_RESOURCE_PREFIX}" \
   -var="node_group_name=${SWA_NODE_GROUP_NAME}" \
   -var="ca_certificate_path=${SCRIPT_DIR}/x509pop_ca.pem" \
   -var="tenant_id=${TENANT_ID}" \
-  -var="client_id=${CLIENT_ID}"
+  -var="client_id=${CLIENT_ID}" 2>&1 | tee "$TF_APPLY_OUT"; then
+
+  if grep -q "conjur_resource_already_exists\|already exists" "$TF_APPLY_OUT" 2>/dev/null; then
+    printf "\nERROR: Conjur JWT authenticator naming conflict (SWA provider cleanup bug).\n" >&2
+    printf "       The previous server's authenticator was not removed when terraform destroyed it.\n" >&2
+    printf "       Options:\n" >&2
+    printf "         1. Change SWA_RESOURCE_PREFIX in setup/vars.env (e.g. swa-demo2) to use a fresh name.\n" >&2
+    printf "         2. Manually delete the stale authenticator in the CyberArk admin console,\n" >&2
+    printf "            then re-run: bash setup/swa/register_control_plane.sh\n" >&2
+  fi
+  rm -f "$TF_APPLY_OUT"
+  exit 1
+fi
+rm -f "$TF_APPLY_OUT"
 
 echo ""
 
@@ -125,7 +142,7 @@ EOF
 echo ""
 echo "  Trust domain ID:  $TRUST_DOMAIN_ID"
 echo "  OIDC issuer:      $OIDC_ISSUER_URL"
-echo "  Server login URL: $SERVER_LOGIN_URL"
+echo "  Server login URL: $(echo "$SERVER_LOGIN_URL" | base64 -d 2>/dev/null || echo "$SERVER_LOGIN_URL")"
 echo "  SPIFFE prefix:    $SPIFFE_PREFIX"
 echo ""
 echo "  Written: $OUT_ENV"

@@ -4,10 +4,19 @@
 
 set -euo pipefail
 
+TF_PLUGIN_BASE="${HOME}/.terraform.d/plugins/registry.terraform.io/cyberark/swa"
+
+# Skip install if any version is already present
+if find "$TF_PLUGIN_BASE" -name "terraform-provider-swa_v*" -type f 2>/dev/null | grep -q .; then
+  echo "      SWA Terraform provider already installed — skipping"
+  find "$TF_PLUGIN_BASE" -name "terraform-provider-swa_v*" -type f | head -1
+  exit 0
+fi
+
 RELEASE_DIR="${SWA_RELEASE_DIR:-}"
 
-if [ -z "$RELEASE_DIR" ]; then
-  echo "ERROR: SWA_RELEASE_DIR is not set." >&2
+if [ -z "$RELEASE_DIR" ] || [[ "$RELEASE_DIR" == "INPUT_REQUIRED" ]]; then
+  echo "ERROR: SWA Terraform provider not installed and SWA_RELEASE_DIR is not set." >&2
   echo "       Set it to the path of the extracted swa-release-*.* directory." >&2
   echo "       e.g. export SWA_RELEASE_DIR=~/swa-release-1.0.0" >&2
   exit 1

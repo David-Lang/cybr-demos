@@ -28,6 +28,7 @@ resource "swa_trust_domain" "demo" {
 resource "swa_server_group" "demo" {
   name              = "${var.resource_prefix}-server-group"
   trust_domain_name = swa_trust_domain.demo.name
+  description       = ""
 
   node_attestation = {
     x509pop = {
@@ -50,9 +51,9 @@ resource "swa_server" "demo" {
   auth = {
     type     = "JWT"
     subject  = var.client_id
-    audience = "conjur"
-    jwks_uri = "https://${var.tenant_id}.id.cyberark.cloud/oauth2/keys"
-    issuer   = "https://${var.tenant_id}.id.cyberark.cloud"
+    audience = "__idaptive_cybr_user_oidc"
+    jwks_uri = "https://${var.tenant_id}.id.cyberark.cloud/OAuth2/Keys/__idaptive_cybr_user_oidc"
+    issuer   = "https://${var.tenant_id}.id.cyberark.cloud/__idaptive_cybr_user_oidc/"
   }
 }
 
@@ -65,7 +66,7 @@ resource "swa_node_group" "demo" {
   server_group_name = swa_server_group.demo.name
   workload_type     = "unix"
 
-  workload_configuration {
+  workload_configuration = {
     spiffe_id_template = "spiffe://{{ .trustdomain }}/{{ .nodegroup }}/workload/{{ .unix.user }}"
     workload_registration_policies = [
       "unix.user != 'root'"

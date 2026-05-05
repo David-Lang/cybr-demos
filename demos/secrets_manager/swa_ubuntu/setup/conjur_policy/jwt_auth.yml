@@ -8,16 +8,15 @@
   body:
   - !webservice
 
-  # public-keys: used in mock/dev mode — embeds RSA public key directly in Conjur.
-  # Switch to jwks-uri when SWA binaries are available and SWA_MODE=real.
+  # mock mode: public-keys embeds the RSA public key JSON (JWKS format) directly in Conjur.
+  # real mode: jwks-uri points to the SWA trust domain OIDC JWKS endpoint.
+  # setup.sh sets the appropriate variable based on SWA_MODE; the other is left unset.
   - !variable
     id: public-keys
-  # - !variable
-  #   id: jwks-uri
+  - !variable
+    id: jwks-uri
 
-  # Which JWT claim maps to the Conjur host identity.
-  # Value: "sub" — the workload ID issued by SWA.
-  # TODO(Q4/needs-info): Confirm SWA JWT claim name with binaries/docs.
+  # JWT claim that maps to the Conjur host identity (sub = SPIFFE ID or workload ID).
   - !variable
     id: token-app-property
 

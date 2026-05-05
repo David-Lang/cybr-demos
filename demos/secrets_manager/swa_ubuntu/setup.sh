@@ -120,26 +120,21 @@ apply_conjur_secret "$TENANT_SUBDOMAIN" "$conjur_token" \
 echo "      Demo secret created   OK"
 echo ""
 
-# --- Step 6: SWA binary installation placeholder ---
+# --- Step 6: SWA binary installation ---
 echo "[6/6] SWA binary installation..."
 if [[ "$SWA_MODE" == "mock" ]]; then
   echo "      Mode: mock — skipping SWA binary install"
   echo "      Mock agent: $SCRIPT_DIR/setup/swa/mock_agent.sh"
   echo "      Set SWA_AGENT_BIN=$SCRIPT_DIR/setup/swa/mock_agent.sh in your environment"
 else
-  echo ""
-  echo "  TODO: Install SWA binaries manually before continuing."
-  echo ""
-  echo "  Required steps (complete when binaries are available):"
-  echo "    1. Copy swa-server to /opt/swa/bin/swa-server"
-  echo "    2. Copy swa-agent  to /opt/swa/bin/swa-agent"
-  echo "    3. chmod +x /opt/swa/bin/swa-server /opt/swa/bin/swa-agent"
-  echo "    4. Configure setup/swa/server.conf  (see needs-info #16)"
-  echo "    5. Configure setup/swa/agent.conf   (see needs-info #17)"
-  echo "    6. Start SWA Server: sudo systemctl start swa-server"
-  echo "    7. Start SWA Agent:  sudo systemctl start swa-agent"
-  echo "    8. Verify agent attestation before running demo.sh"
-  echo ""
+  if [ ! -f "$SCRIPT_DIR/setup/swa/swa_registered.env" ]; then
+    echo ""
+    echo "  ERROR: swa_registered.env not found." >&2
+    echo "  Run setup/swa/register_control_plane.sh first." >&2
+    exit 1
+  fi
+  bash "$SCRIPT_DIR/setup/swa/install_server.sh"
+  bash "$SCRIPT_DIR/setup/swa/install_agent.sh"
 fi
 
 echo "=========================================="
@@ -148,6 +143,10 @@ echo ""
 echo "Next steps:"
 if [[ "$SWA_MODE" == "mock" ]]; then
   echo "  export SWA_AGENT_BIN=$SCRIPT_DIR/setup/swa/mock_agent.sh"
+  echo "  export SWA_MODE=mock"
+else
+  echo "  export SWA_AGENT_BIN=/opt/swa/bin/swa-agent"
+  echo "  export SWA_MODE=real"
 fi
 echo "  bash ./demo.sh"
 echo "=========================================="

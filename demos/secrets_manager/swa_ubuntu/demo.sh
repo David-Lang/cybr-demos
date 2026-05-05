@@ -144,10 +144,21 @@ print_line
 # =============================================================================
 printf "${BCyan}[5/8]${Color_Off} Fetching JWT SVID from SWA Agent...\n\n"
 
-print_prompt "${SWA_AGENT_BIN} api fetch jwt --audience conjur"
-echo ""
-
-JWT=$("$SWA_AGENT_BIN" api fetch jwt --audience conjur)
+if [[ "$SWA_MODE" == "mock" ]]; then
+  print_prompt "${SWA_AGENT_BIN} api fetch jwt --audience conjur"
+  echo ""
+  JWT=$("$SWA_AGENT_BIN" api fetch jwt --audience conjur)
+else
+  print_prompt "${SWA_AGENT_BIN} api fetch jwt --audience conjur --socketPath ${SWA_SOCKET_PATH}"
+  echo ""
+  # Real agent returns JSON: [{"svid":{"token":"eyJ..."},...}]
+  JWT_JSON=$("$SWA_AGENT_BIN" api fetch jwt \
+    --audience conjur \
+    --socketPath "$SWA_SOCKET_PATH" \
+    --output json 2>/dev/null)
+  JWT=$(printf '%s' "$JWT_JSON" | python3 -c \
+    "import sys,json; svids=json.load(sys.stdin); print(svids[0]['svid']['token'])" 2>/dev/null || true)
+fi
 
 if [ -z "$JWT" ]; then
   printf "  ${Red}ERROR:${Color_Off} No JWT returned from SWA Agent.\n"
