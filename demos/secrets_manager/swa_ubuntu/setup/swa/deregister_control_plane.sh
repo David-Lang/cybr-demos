@@ -37,6 +37,9 @@ echo "[1/2] Authenticating to Conjur..."
 isp_token=$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")
 conjur_token=$(get_conjur_token "$TENANT_SUBDOMAIN" "$isp_token")
 CONJUR_URL="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
+ISP_SUB=$(printf '%s' "$isp_token" | cut -d. -f2 | tr '_-' '/+' | \
+  awk '{n=length($0)%4; if(n==2) print $0"=="; else if(n==3) print $0"="; else print $0}' | \
+  base64 -d 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin)["sub"])' 2>/dev/null || echo "")
 echo "      OK"
 echo ""
 
@@ -65,8 +68,9 @@ else
     -var="node_group_name=${SWA_NODE_GROUP_NAME}" \
     -var="ca_certificate_path=${CA_CERT}" \
     -var="tenant_id=${TENANT_ID}" \
-    -var="client_id=${CLIENT_ID}" 2>&1 || \
-    echo "  NOTE: Destroy completed with warnings — some resources may not have been deleted."
+    -var="client_id=${CLIENT_ID}" \
+    -var="client_subject=${ISP_SUB:-}" 2>&1 || \
+    echo "  NOTE: Destroy completed with warnings — some Conjur resources may remain (known SWA provider cleanup bug)."
 fi
 
 rm -f "$OUT_ENV"

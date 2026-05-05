@@ -42,4 +42,5 @@ variable "client_id" {
 variable "client_subject" {
   description = "JWT sub claim from the ISP token — the UUID of the service account (differs from client_id)"
   type        = string
+  default     = ""
 }
