@@ -6,7 +6,6 @@
 #
 # Host path: data/workloads/swa/swa-hello-world
 # JWT claim: sub = "swa-hello-world"
-# TODO(needs-info): Confirm JWT sub claim format from real SWA token when binaries arrive.
 
 - !policy
   id: workloads/swa
@@ -16,15 +15,15 @@
     annotations:
       authn-jwt/swa1/sub: swa-hello-world
 
-  - !grant
-    role: !group /data/authenticator/consumers
-    member: !host swa-hello-world
-
 - !policy
   id: demo
   body:
   - !variable
     id: db_password
+
+- !grant
+  role: !group authenticator/consumers
+  member: !host workloads/swa/swa-hello-world
 
 - !permit
   role: !host workloads/swa/swa-hello-world

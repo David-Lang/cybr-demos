@@ -42,8 +42,7 @@ printf "${BCyan}[1/8]${Color_Off} Checking workload script for hardcoded credent
 print_prompt "grep -E '(password|api_key|secret|token)\\s*=' demo.sh"
 echo ""
 
-if grep -Ei "(password|api_key|secret|token)\s*=" "$SCRIPT_DIR/demo.sh" \
-     | grep -v "SECRET_URL\|DEMO_SECRET\|conjur_token\|session_token\|COLOR_Off" \
+if grep -Ei "(password|api_key|secret|token)\s*=\s*['\"]" "$SCRIPT_DIR/demo.sh" \
      > /dev/null 2>&1; then
   printf "  ${Red}FAIL:${Color_Off} Credentials found in workload script.\n"
   exit 1
@@ -61,7 +60,6 @@ printf "${BCyan}[2/8]${Color_Off} SWA Server status (${SWA_SERVER_HOST}:8081)...
 print_prompt "curl -s http://${SWA_SERVER_HOST}:8081/health"
 echo ""
 
-# TODO(needs-info #13): Confirm SWA Server health check endpoint format when binaries arrive.
 if [[ "$SWA_MODE" == "mock" ]]; then
   printf "  Mode:     ${Yellow}mock${Color_Off} (SWA Server not running — skipped)\n"
   printf "  Domain:   ${SWA_DOMAIN}\n"
