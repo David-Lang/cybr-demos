@@ -205,6 +205,38 @@ bash setup.sh
 bash demo.sh
 ```
 
+#### SWA on Kubernetes (`demos/secrets_manager/swa_k8s/`)
+
+**What it shows:** A side-by-side attack/defend Kubernetes demo where `giftapp-hardcoded` exposes API and database credentials through Kubernetes Secrets, while `giftapp-swa` retrieves the same secrets at runtime with a SPIFFE JWT-SVID from CyberArk Secure Workload Access.
+
+**Supported cluster path:** Single-node Rancher/RKE2 lab VM.
+
+**Where to read:** Start at `demos/secrets_manager/swa_k8s/README.md`, then follow **`demo_setup.md`** → **`demo_validation.md`**.
+
+**Quick command flow:**
+
+```bash
+cd demos/secrets_manager/swa_k8s
+
+# 1) Configure
+vi setup/vars.env
+
+# 2) Set up
+bash setup.sh
+
+# 3) Validate
+bash validate.sh
+
+# 4) Demo / explore
+bash demo.sh
+```
+
+For unattended setup plus validation with captured logs:
+
+```bash
+bash test_runner.sh
+```
+
 #### GitHub Actions (`demos/secrets_manager/github.com/`)
 
 **What it shows:** A GitHub Actions workflow uses OIDC to authenticate to CyberArk and retrieve a secret during CI — without storing CyberArk credentials in GitHub.

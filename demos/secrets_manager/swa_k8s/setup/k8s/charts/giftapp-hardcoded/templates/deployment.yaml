@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "giftapp-hardcoded.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "giftapp-hardcoded.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "giftapp-hardcoded.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "giftapp-hardcoded.fullname" . }}
+    spec:
+      serviceAccountName: giftapp-hardcoded-sa
+      containers:
+        - name: {{ include "giftapp-hardcoded.fullname" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SSL_CERT_PATH
+              value: "/certs/giftapp.pem"
+            - name: SSL_KEY_PATH
+              value: "/certs/giftapp.key"
+          ports:
+            - containerPort: 8443
+              protocol: TCP
+          volumeMounts:
+            - name: secret-volume
+              mountPath: /etc/secrets
+              readOnly: true
+            - name: giftapp-certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: secret-volume
+          secret:
+            secretName: giftapp-hardcoded-secrets
+        - name: giftapp-certs
+          secret:
+            secretName: giftapp-tls-secret
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
