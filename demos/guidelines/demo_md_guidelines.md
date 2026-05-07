@@ -241,6 +241,7 @@ Before a demo update is committed, verify the staged content is suitable for the
 For every demo change:
 
 - Confirm all required demo files are staged, including scripts, chart templates, app source, docs, and small required assets.
+- Confirm staged `.sh` files are executable. Use `git diff --cached --name-only --diff-filter=ACM | awk '/\.sh$/ {print}' | while read -r f; do git ls-files -s -- "$f"; done` and verify each shell script is mode `100755`.
 - Confirm no generated runtime artifacts are staged, such as `artifacts/`, Terraform state, `.terraform/`, provider caches, kubeconfigs, logs, or temporary env files generated during setup.
 - Search the staged diff for real credentials, tenant-specific values, access tokens, private keys, public lab hosts, personal paths, and one-off troubleshooting notes.
 - Remove specific validation hosts from docs. Prefer wording such as "validated on a fresh Ubuntu EC2 lab host" instead of recording a real hostname or public IP.
@@ -255,6 +256,7 @@ git status --short
 git diff --cached --stat
 git diff --cached --check
 git diff --cached --name-only
+git diff --cached --name-only --diff-filter=ACM | awk '/\.sh$/ {print}' | while read -r f; do git ls-files -s -- "$f"; done
 git ls-files --others --exclude-standard demos/<path>
 git status --ignored --short -- demos/<path>
 ```

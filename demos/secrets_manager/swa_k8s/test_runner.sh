@@ -17,10 +17,10 @@ log_step() {
 }
 
 log_step "1/3" "Run demo setup"
-./setup.sh | tee "$ARTIFACTS_DIR/setup.log"
+bash ./setup.sh | tee "$ARTIFACTS_DIR/setup.log"
 
 log_step "2/3" "Validate deployed demo"
-./validate.sh | tee "$ARTIFACTS_DIR/validate.log"
+bash ./validate.sh | tee "$ARTIFACTS_DIR/validate.log"
 
 log_step "3/3" "Capture Kubernetes artifacts"
 set -a

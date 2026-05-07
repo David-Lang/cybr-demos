@@ -45,6 +45,7 @@ Minimum checks:
 - Run `git status --short` and confirm the staged file list matches the intended change.
 - Run `git diff --cached --stat` and `git diff --cached --check`.
 - Review `git diff --cached --name-only` for generated output, caches, machine-local files, and unrelated edits.
+- Check staged shell scripts for executable mode with `git diff --cached --name-only --diff-filter=ACM | awk '/\.sh$/ {print}' | while read -r f; do git ls-files -s -- "$f"; done` and confirm each `.sh` file uses mode `100755`.
 - Search the staged diff for credentials, tokens, private keys, local paths, personal identifiers, and temporary lab hosts.
 - Check ignored and untracked files near the changed area with `git ls-files --others --exclude-standard <path>` and `git status --ignored --short -- <path>`.
 
