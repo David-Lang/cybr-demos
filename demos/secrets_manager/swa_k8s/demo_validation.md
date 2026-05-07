@@ -8,6 +8,12 @@ For the fastest machine-checkable validation, run:
 bash validate.sh
 ```
 
+By default, `validate.sh` restarts only `giftapp-swa` before the final health check. That forces a fresh SWA JWT-SVID and Conjur authentication so the run produces a current audit event for the workload SPIFFE ID. For a non-disruptive health-only check, run:
+
+```bash
+FORCE_FRESH_SWA_AUTH=false bash validate.sh
+```
+
 For full setup plus validation with captured logs and Kubernetes artifacts, run:
 
 ```bash
@@ -131,6 +137,14 @@ kubectl logs -n "${SWA_NAMESPACE:-swa-system}" deploy/swa-server --tail=30
 **Confirm app fetched secrets at startup (logs show successful Conjur auth):**
 ```bash
 kubectl logs -n "$NAMESPACE_SWA" deploy/giftapp-swa --tail=30
+```
+
+To force a fresh audit event, restart the defended app and then check the logs:
+
+```bash
+kubectl rollout restart -n "$NAMESPACE_SWA" deploy/giftapp-swa
+kubectl rollout status -n "$NAMESPACE_SWA" deploy/giftapp-swa --timeout=180s
+kubectl logs -n "$NAMESPACE_SWA" deploy/giftapp-swa --tail=80
 ```
 
 **Confirm app health reports SWA readiness:**
