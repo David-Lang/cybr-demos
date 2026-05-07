@@ -5,6 +5,7 @@
 - **Top-level overview and quick start:** [`README.md`](README.md)
 - **VM / lab bootstrap (clone + Ubuntu `compute_init`):** [`init_cybr_demos.sh`](init_cybr_demos.sh)
 - **Shared demo bootstrap:** `demos/setup_env.sh` (requires `CYBR_DEMOS_PATH` and `demos/tenant_vars.sh`)
+- **Optional disposable lab tooling:** [`CYBR_LAB_TOOLING.md`](CYBR_LAB_TOOLING.md)
 
 ## Demo Documentation
 
@@ -21,6 +22,19 @@ Key expectation:
 - Explain both platform behavior and CyberArk behavior.
 - Organize walkthroughs around the major integration patterns in the demo.
 - Include at least one Mermaid flow diagram in every `demo_validation.md` that shows the runtime request path.
+
+## Lab Tooling
+
+`CYBR_LAB_TOOLING.md` documents an optional way to create disposable lab infrastructure for demo setup, validation, or end-to-end testing. Use it when a fresh lab is needed and suitable infrastructure is not already available.
+
+Key expectations:
+
+- Treat `cybr-lab-*` as an optional infrastructure creation path, not a required path for every demo.
+- Use the shared `cybr-lab-*` commands from the `spin_cfn` tooling instead of copying lab spin scripts into this repo when this optional path is appropriate.
+- Keep real lab configuration in `~/.cybr-labs/config.env`, not in this repo.
+- Keep generated lab artifacts under `~/.cybr-labs/artifacts/`, not under `cybr-demos`.
+- Do not commit one-off lab IDs, EC2 hostnames, public IPs, SSH key paths, workflow branch names, or environment names.
+- When documenting validation, describe the reusable command flow and refer to `cybr-lab-output` for current connection details.
 
 ## Git Commit Hygiene
 
