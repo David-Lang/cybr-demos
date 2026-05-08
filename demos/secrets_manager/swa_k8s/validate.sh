@@ -59,7 +59,7 @@ NS_HARDCODED="${NAMESPACE_HARDCODED:?NAMESPACE_HARDCODED is not set}"
 NS_SWA="${NAMESPACE_SWA:?NAMESPACE_SWA is not set}"
 SWA_NS="${SWA_NAMESPACE:-swa-system}"
 FORCE_FRESH_SWA_AUTH="${FORCE_FRESH_SWA_AUTH:-true}"
-EXPECTED_SPIFFE_SUB="${SWA_SPIFFE_PREFIX:?SWA_SPIFFE_PREFIX is not set}/workload/1000"
+EXPECTED_SPIFFE_SUB="${SWA_WORKLOAD_SPIFFE_ID:?SWA_WORKLOAD_SPIFFE_ID is not set}"
 
 step "1/8" "Check Kubernetes connectivity"
 kubectl version --client >/dev/null
@@ -123,8 +123,19 @@ if [[ -z "$swa_pod" || "$swa_pod" == "null" ]]; then
   exit 1
 fi
 
-health_json=$(kubectl exec -n "$NS_SWA" "pod/$swa_pod" -- \
-  wget -qO- --no-check-certificate https://127.0.0.1:8443/healthz)
+health_json=""
+for _ in {1..30}; do
+  if health_json=$(kubectl exec -n "$NS_SWA" "pod/$swa_pod" -- \
+    wget -qO- --no-check-certificate https://127.0.0.1:8443/healthz 2>/dev/null); then
+    break
+  fi
+  sleep 2
+done
+
+if [[ -z "$health_json" ]]; then
+  echo "[FAIL] giftapp-swa health endpoint did not become available" >&2
+  exit 1
+fi
 
 printf '%s\n' "$health_json" | jq -e '
   .mode == "swa" and

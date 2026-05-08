@@ -19,8 +19,14 @@ case "$ARCH" in
 esac
 
 IMAGE_TAG="${SWA_IMAGE_VERSION}-${IMAGE_ARCH}"
-IMAGE_DIR="${SWA_IMAGE_CACHE_DIR:-/tmp/swa-container-images}"
 S3_BASE="${SWA_CONTAINER_IMAGES_S3%/}"
+if [[ -n "${SWA_IMAGE_CACHE_DIR:-}" ]]; then
+  IMAGE_DIR="$SWA_IMAGE_CACHE_DIR"
+elif [[ -n "${SWA_RELEASE_S3:-}" ]]; then
+  IMAGE_DIR="/tmp/${SWA_RELEASE_S3##*/}/container-images"
+else
+  IMAGE_DIR="/tmp/swa-container-images"
+fi
 
 mkdir -p "$IMAGE_DIR"
 

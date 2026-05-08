@@ -11,7 +11,7 @@ source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 source "$DEMO_DIR/setup/vars.env"
 set +a
 
-PROVIDER_VERSION="0.1.0-SNAPSHOT"
+PROVIDER_VERSION="${SWA_TF_PROVIDER_VERSION:-0.1.0-8a2d93bd-631}"
 
 ARCH=$(uname -m)
 case "$ARCH" in

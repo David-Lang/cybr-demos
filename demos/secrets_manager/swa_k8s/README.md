@@ -72,7 +72,6 @@ SWA (Secure Workload Access) is CyberArk's SPIFFE/SPIRE-compatible workload iden
 
 - Single-node RKE2 cluster on the demo VM
 - `kubectl`, `helm`, `terraform`, AWS CLI, and RKE2 `ctr` on the demo VM
-- Access to SWA container images in `s3://mis-cybr-demos/pm/swa-container-images/`
-- Vendored SWA Helm charts under `setup/swa/charts/`
+- AWS CLI access to the SWA 1.0.3 release bundle in `s3://mis-cybr-demos/pm/swa-release-1-0-3/`
 - Docker access on the demo VM to build local GiftApp images, or a container registry with `giftapp-hardcoded` and `giftapp-swa` images pushed
 - CyberArk Privilege Cloud tenant + service account (`demos/tenant_vars.sh`)

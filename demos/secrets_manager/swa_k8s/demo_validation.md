@@ -199,9 +199,9 @@ Verify:
 - Helm set `nodeAttestor.k8s_psat.audience=spire-server`.
 - The RKE2 agent image tag includes the architecture suffix, for example `0.0.0-SNAPSHOT-amd64`.
 
-If logs show process inspection failures such as `readlink /proc/<pid>/exe: permission denied`, the lab SWA Agent must run as root/privileged so the unix workload attestor can inspect host PID processes.
+If logs show policy errors such as `no such attribute(s): unix`, the node group is using an old unix selector. This demo uses Kubernetes workload attributes, matching the `giftapp-swa` namespace and service account.
 
-If logs show policy errors such as `no such key: user`, the node group is using the wrong unix selector. This demo uses `unix.uid`, not `unix.user`.
+If logs show Kubernetes attribute mismatches, confirm `NAMESPACE_SWA` and `GIFTAPP_SWA_SERVICE_ACCOUNT` match the deployed `giftapp-swa` pod.
 
 **Conjur authentication failure in giftapp-swa:**
 ```bash
@@ -221,7 +221,7 @@ The JWT-SVID claims logged by `giftapp-swa` should show:
 ```text
 aud=[conjur]
 iss=https://<tenant>.secretsmgr.cyberark.cloud/api/swa/trust-domains/<trust-domain>
-sub=spiffe://<trust-domain>/<node-group>/workload/1000
+sub=spiffe://<trust-domain>/<node-group>/workload/<namespace>/giftapp-swa-sa
 ```
 
 **GiftApp image pull failures:**

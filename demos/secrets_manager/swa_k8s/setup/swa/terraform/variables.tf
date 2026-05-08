@@ -53,3 +53,13 @@ variable "server_jwt_subject" {
   description = "Kubernetes service account subject for the SWA Server pod."
   type        = string
 }
+
+variable "workload_namespace" {
+  description = "Kubernetes namespace allowed to receive the demo workload SPIFFE ID."
+  type        = string
+}
+
+variable "workload_service_account" {
+  description = "Kubernetes service account allowed to receive the demo workload SPIFFE ID."
+  type        = string
+}

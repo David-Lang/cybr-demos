@@ -35,6 +35,8 @@ if [[ -d "$TF_DIR" ]]; then
     -var="k8s_issuer=$K8S_ISSUER" \
     -var="k8s_jwks_uri=$K8S_JWKS_URI" \
     -var="server_jwt_subject=$JWT_SWA_SERVER_SUBJECT" \
+    -var="workload_namespace=$NAMESPACE_SWA" \
+    -var="workload_service_account=$GIFTAPP_SWA_SERVICE_ACCOUNT" \
     -auto-approve || true
 fi
 

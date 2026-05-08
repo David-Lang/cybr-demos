@@ -42,8 +42,11 @@ Review `setup/vars.env`. Most values default from `LAB_ID` and can be left uncha
 |----------|-------------|
 | `GIFTAPP_REGISTRY` | Optional registry/repo prefix for `giftapp-hardcoded` and `giftapp-swa`; when unset, images are built locally and imported into RKE2 |
 | `GIFTAPP_IMAGE_TAG` | GiftApp image tag; defaults to `latest` |
-| `SWA_CONTAINER_IMAGES_S3` | S3 prefix for SWA image tarballs |
-| `SWA_TF_PROVIDER_S3` | S3 prefix for the SWA Terraform provider |
+| `SWA_RELEASE_S3` | S3 prefix for the SWA release bundle; defaults to `s3://mis-cybr-demos/pm/swa-release-1-0-3` |
+| `SWA_CONTAINER_IMAGES_S3` | S3 prefix for SWA image tarballs; defaults to `$SWA_RELEASE_S3/container-images` |
+| `SWA_TF_PROVIDER_S3` | S3 prefix for the SWA Terraform provider; defaults to `$SWA_RELEASE_S3/terraform-provider` |
+| `SWA_HELM_CHARTS_S3` | S3 prefix for the SWA Helm chart archives; defaults to `$SWA_RELEASE_S3/helm` |
+| `SWA_TF_PROVIDER_VERSION` | SWA Terraform provider version; defaults to the 1.0.3 bundle provider |
 | `SWA_TRUST_DOMAIN_NAME` | SWA trust domain name; defaults from `$LAB_ID` |
 | `SWA_NODE_GROUP_NAME` | SWA unix node group name; defaults from `$LAB_ID` |
 | `SWA_SOCKET_PATH` | SWA Agent socket path; defaults to `/tmp/swa-agent/public/api.sock` |
@@ -75,8 +78,7 @@ External registries are still supported. To use one, publish `giftapp-hardcoded`
 
 The demo VM needs:
 
-- AWS CLI access to `s3://mis-cybr-demos/pm/swa-container-images/`
-- AWS CLI access to `s3://mis-cybr-demos/pm/terraform-provider/`
+- AWS CLI access to `s3://mis-cybr-demos/pm/swa-release-1-0-3/`
 - `kubectl`
 - `helm`
 - Terraform
@@ -122,14 +124,14 @@ Extracts the Kubernetes cluster's OIDC public keys and writes them into `setup/v
 1. Installs the SWA Terraform provider
 2. Downloads/imports SWA container image tarballs from S3
 3. Uses Terraform to create the trust domain, k8s_psat server group, SWA server, and unix workload node group
-4. Installs SWA Server and SWA Agent with the vendored release Helm charts
+4. Installs SWA Server and SWA Agent with Helm chart archives from the SWA release bundle
 
 Important lab-specific behavior:
 
 - SWA image tarballs import into RKE2/containerd through `/run/k3s/containerd/containerd.sock`.
 - SWA Agent Helm install sets `nodeAttestor.k8s_psat.audience=spire-server`; the default `swa-server` audience fails TokenReview in this lab.
 - SWA Agent runs as root/privileged in this single-node lab so the unix workload attestor can inspect workload processes through host PID.
-- The workload node group uses `unix.uid` and issues `spiffe://<trust-domain>/<node-group>/workload/1000` to `giftapp-swa`.
+- The workload node group uses Kubernetes workload attributes and issues `spiffe://<trust-domain>/<node-group>/workload/<namespace>/giftapp-swa-sa` to `giftapp-swa`.
 - `swa_registered.env` records the tenant SWA issuer URL: `https://<tenant>.secretsmgr.cyberark.cloud/api/swa/trust-domains/<trust-domain>`.
 
 ### Step 4 — Conjur JWT authenticator for giftapp-swa (`setup/sm/setup_swa_auth.sh`)

@@ -2,7 +2,7 @@ terraform {
   required_providers {
     swa = {
       source  = "registry.terraform.io/cyberark/swa"
-      version = "0.1.0-SNAPSHOT"
+      version = "0.1.0-8a2d93bd-631"
     }
   }
 }
@@ -60,12 +60,13 @@ resource "swa_node_group" "demo" {
   name              = var.node_group_name
   trust_domain_name = swa_trust_domain.demo.name
   server_group_name = swa_server_group.demo.name
-  workload_type     = "unix"
+  workload_type     = "kubernetes"
 
   workload_configuration = {
-    spiffe_id_template = "spiffe://{{ .trustdomain }}/{{ .nodegroup }}/workload/{{ .unix.uid }}"
+    spiffe_id_template = "spiffe://{{ .trustdomain }}/{{ .nodegroup }}/workload/{{ .k8s.ns }}/{{ .k8s.sa }}"
     workload_registration_policies = [
-      "unix.uid == 1000",
+      "k8s.ns == \"${var.workload_namespace}\"",
+      "k8s.sa == \"${var.workload_service_account}\"",
     ]
   }
 }

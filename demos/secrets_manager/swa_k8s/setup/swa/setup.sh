@@ -12,9 +12,10 @@ set +a
 
 required_vars=(
   TENANT_SUBDOMAIN TENANT_ID CLIENT_ID CLIENT_SECRET
-  SWA_CONTAINER_IMAGES_S3 SWA_TF_PROVIDER_S3
+  SWA_CONTAINER_IMAGES_S3 SWA_TF_PROVIDER_S3 SWA_HELM_CHARTS_S3
   SWA_TRUST_DOMAIN_NAME SWA_RESOURCE_PREFIX SWA_NODE_GROUP_NAME
   SWA_CLUSTER_NAME SWA_NAMESPACE JWT_SWA_SERVER_SUBJECT
+  NAMESPACE_SWA GIFTAPP_SWA_SERVICE_ACCOUNT
 )
 for var_name in "${required_vars[@]}"; do
   if [[ -z "${!var_name:-}" ]] || [[ "${!var_name}" == SET_* ]]; then
@@ -37,12 +38,30 @@ chmod +x \
 
 helm_chart() {
   local name="$1"
-  if [[ -f "$SCRIPT_DIR/charts/${name}-0.1.0.tgz" ]]; then
-    printf '%s\n' "$SCRIPT_DIR/charts/${name}-0.1.0.tgz"
+  local chart_name="${name}-0.1.0.tgz"
+  local cache_dir
+  if [[ -n "${SWA_HELM_CHARTS_CACHE_DIR:-}" ]]; then
+    cache_dir="$SWA_HELM_CHARTS_CACHE_DIR"
+  elif [[ -n "${SWA_RELEASE_S3:-}" ]]; then
+    cache_dir="/tmp/${SWA_RELEASE_S3##*/}/helm"
   else
-    echo "[ERROR] missing vendored Helm chart: $SCRIPT_DIR/charts/${name}-0.1.0.tgz" >&2
+    cache_dir="/tmp/swa-helm-charts"
+  fi
+  local cached_chart="$cache_dir/$chart_name"
+
+  if [[ -z "${SWA_HELM_CHARTS_S3:-}" ]]; then
+    echo "[ERROR] SWA_HELM_CHARTS_S3 is required; set SWA_RELEASE_S3 or SWA_HELM_CHARTS_S3" >&2
     exit 1
   fi
+
+  mkdir -p "$cache_dir"
+  if [[ ! -f "$cached_chart" ]]; then
+    echo "[INFO] downloading Helm chart $chart_name from ${SWA_HELM_CHARTS_S3%/}" >&2
+    aws s3 cp --no-progress "${SWA_HELM_CHARTS_S3%/}/$chart_name" "$cached_chart" >&2
+  else
+    echo "[INFO] Helm chart already exists: $cached_chart" >&2
+  fi
+  printf '%s\n' "$cached_chart"
 }
 
 echo "[INFO] installing SWA Terraform provider"
@@ -64,7 +83,7 @@ conjur_url="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api"
 control_plane_url="https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud"
 
 echo "[INFO] applying SWA control-plane Terraform"
-terraform -chdir="$TF_DIR" init
+terraform -chdir="$TF_DIR" init -upgrade
 terraform -chdir="$TF_DIR" apply \
   -var="conjur_url=$conjur_url" \
   -var="conjur_token=$conjur_token" \
@@ -77,6 +96,8 @@ terraform -chdir="$TF_DIR" apply \
   -var="k8s_issuer=$K8S_ISSUER" \
   -var="k8s_jwks_uri=$K8S_JWKS_URI" \
   -var="server_jwt_subject=$JWT_SWA_SERVER_SUBJECT" \
+  -var="workload_namespace=$NAMESPACE_SWA" \
+  -var="workload_service_account=$GIFTAPP_SWA_SERVICE_ACCOUNT" \
   -auto-approve
 
 bash "$SCRIPT_DIR/write_registration_env.sh"

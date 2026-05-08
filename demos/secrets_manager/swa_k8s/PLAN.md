@@ -9,12 +9,12 @@ Attack-vs-defend K8s demo showing CyberArk SWA Secure Workload Access:
 
 ## Current Architecture
 
-The demo follows the `swa-release-1.0.0` Kubernetes deployment model:
+The demo follows the `swa-release-1-0-3` Kubernetes deployment model:
 
-- SWA container image tarballs are downloaded from `s3://mis-cybr-demos/pm/swa-container-images/`.
+- SWA container image tarballs are downloaded from `s3://mis-cybr-demos/pm/swa-release-1-0-3/container-images/`.
 - Images are imported into RKE2/containerd.
 - The SWA Terraform provider registers the trust domain, server group, server, and unix workload node group.
-- `swa-server` and `swa-agent` are installed with vendored release Helm charts from `setup/swa/charts/`.
+- `swa-server` and `swa-agent` are installed with Helm chart archives from `s3://mis-cybr-demos/pm/swa-release-1-0-3/helm/`.
 - `swa-agent` runs as a DaemonSet and exposes `/tmp/swa-agent/public/api.sock` through a hostPath.
 - `giftapp-swa` mounts `/tmp/swa-agent` and uses `SPIFFE_ENDPOINT_SOCKET=unix:///tmp/swa-agent/public/api.sock`.
 
@@ -32,7 +32,7 @@ The demo follows the `swa-release-1.0.0` Kubernetes deployment model:
   5. install `swa-server` and `swa-agent` with Helm.
 - Helm install sets `nodeAttestor.k8s_psat.audience=spire-server`; without this, SWA Agent attestation fails with a TokenReview audience mismatch.
 - SWA Agent runs as root/privileged in this single-node lab so the unix workload attestor can inspect workload processes through host PID.
-- Workload node group uses `unix.uid` and mints `spiffe://<trust-domain>/<node-group>/workload/1000` for `giftapp-swa`.
+- Workload node group uses Kubernetes namespace and service account attributes and mints `spiffe://<trust-domain>/<node-group>/workload/<namespace>/giftapp-swa-sa` for `giftapp-swa`.
 - `swa_registered.env` uses the tenant SWA issuer URL, for example `https://<tenant>.secretsmgr.cyberark.cloud/api/swa/trust-domains/<trust-domain>`.
 - Rewrote `setup/swa/remove.sh` to uninstall Helm releases and destroy Terraform resources.
 - Updated `giftapp-swa` socket settings back to the release chart path.
@@ -115,4 +115,4 @@ bash test_runner.sh
 
 - The SWA image tarball names are `swa-server-0.0.0-SNAPSHOT-<arch>.tar` and `swa-agent-0.0.0-SNAPSHOT-<arch>.tar`.
 - `amd64` and `arm64v8` are the architecture suffixes used by the release image tarballs.
-- `giftapp-swa` runs as UID `1000`, matching `SWA_WORKLOAD_SPIFFE_ID`.
+- `giftapp-swa` runs under the `giftapp-swa-sa` Kubernetes service account, matching `SWA_WORKLOAD_SPIFFE_ID`.
