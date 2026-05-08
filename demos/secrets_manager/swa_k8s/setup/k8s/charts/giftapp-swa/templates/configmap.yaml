@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "giftapp-swa.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "giftapp-swa.labels" . | nindent 4 }}
+data:
+  CONJUR_APPLIANCE_URL: {{ .Values.conjur.applianceUrl | quote }}
+  CONJUR_ACCOUNT: {{ .Values.conjur.account | quote }}
+  CONJUR_AUTHENTICATOR_ID: {{ .Values.conjur.authenticatorId | quote }}
+  GIFTAPP_API_KEY_SECRET_ID: {{ .Values.conjur.apiKeySecretId | quote }}
+  DB_PASS_SECRET_ID: {{ .Values.conjur.dbPassSecretId | quote }}
+  SPIFFE_ENDPOINT_SOCKET: {{ .Values.swa.socketPath | quote }}

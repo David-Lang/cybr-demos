@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mysql-hardcoded.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mysql-hardcoded.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "mysql-hardcoded.fullname" . }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}

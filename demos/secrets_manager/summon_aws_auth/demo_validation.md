@@ -81,7 +81,7 @@ Read the diagram left to right:
 Confirm the runtime variables are loaded:
 
 ```bash
-env | grep -E '^(CONJUR|AUTHN_IAM|WORKLOAD_HOST_ID|AWS_)' | sort
+env | grep -E '^(CONJUR_APPLIANCE_URL|CONJUR_ACCOUNT|CONJUR_AUTHN_TYPE|CONJUR_SERVICE_ID)' | sort
 ```
 
 Confirm the active AWS principal:

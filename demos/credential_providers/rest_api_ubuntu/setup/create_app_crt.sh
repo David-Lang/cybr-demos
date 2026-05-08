@@ -9,7 +9,8 @@ openssl req \
     -days 365 \
     -nodes \
     -x509 \
-    -subj "/C=CA/ST=Cybr/L=Demos/O=CCP/CN=cybr-demos" \
+    -subj "${CERT_SUBJECT:-/C=CA/ST=Cybr/L=Demos/O=CCP/CN=cybr-demos}" \
+    -addext "subjectAltName=DNS:${CERT_SAN_DNS:-cybr-demos-rest-api.local},URI:${CERT_SAN_URI:-spiffe://cybr-demos/credential-providers/rest-api-ubuntu}" \
     -keyout app.key \
     -out app.crt
 

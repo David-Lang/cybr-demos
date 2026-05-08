@@ -1,0 +1,5 @@
+# mode: append-policy
+---
+- !policy
+  id: swa-workloads
+  owner: !group /Conjur_Cloud_Admins

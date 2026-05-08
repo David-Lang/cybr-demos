@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-hardcoded-initdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mysql-hardcoded.labels" . | nindent 4 }}
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS {{ .Values.mysql.database }};
+
+    GRANT ALL PRIVILEGES ON {{ .Values.mysql.database }}.* TO '{{ .Values.mysql.appUser }}'@'%' IDENTIFIED BY '{{ .Values.mysql.appPassword }}';
+    GRANT ALL PRIVILEGES ON {{ .Values.mysql.database }}.* TO '{{ .Values.mysql.appUser }}'@'localhost' IDENTIFIED BY '{{ .Values.mysql.appPassword }}';
+    FLUSH PRIVILEGES;
+
+    USE {{ .Values.mysql.database }};
+
+    CREATE TABLE IF NOT EXISTS records (
+        id      INT AUTO_INCREMENT PRIMARY KEY,
+        first   VARCHAR(30) NOT NULL,
+        last    VARCHAR(30) NOT NULL,
+        vendor  VARCHAR(30) NOT NULL,
+        cardnum VARCHAR(30) NOT NULL,
+        balance DECIMAL(10, 2) NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id       INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL
+    );
+
+    INSERT IGNORE INTO users (username, password)
+    VALUES ('gift-admin01', '$2b$12$udkd13aCCjXuGoPKtQV2Pe8t17.syHjsOhbjRU10sSOLqJT.5v9M2');
+
+    INSERT IGNORE INTO records (id, first, last, vendor, cardnum, balance) VALUES
+    (1,  'Alice',  'Johnson', 'Amazon',       'AMZ123456789', 150.50),
+    (2,  'Bob',    'Smith',   'Starbucks',    'SBX987654321',  75.25),
+    (3,  'Carol',  'Williams','Walmart',      'WMT246810121', 200.00),
+    (4,  'David',  'Brown',   'Target',       'TGT135791113', 125.75),
+    (5,  'Eve',    'Davis',   'Apple',        'APL112233445', 300.00),
+    (6,  'Frank',  'Miller',  'Google Play',  'GOO556677889',  50.00),
+    (7,  'Grace',  'Wilson',  'Chipotle',     'CHP998877665',  60.40),
+    (8,  'Henry',  'Moore',   'Panera Bread', 'PBR223344556',  45.90),
+    (9,  'Ivy',    'Taylor',  'REI',          'REI667788990', 120.00),
+    (10, 'Jack',   'Anderson','Airbnb',       'AIR101010101', 500.00);

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "giftapp-swa.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "giftapp-swa.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "giftapp-swa.fullname" . }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        app: {{ include "giftapp-swa.fullname" . }}
+    spec:
+      serviceAccountName: giftapp-swa-sa
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+      containers:
+        - name: {{ include "giftapp-swa.fullname" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SSL_CERT_PATH
+              value: "/certs/giftapp.pem"
+            - name: SSL_KEY_PATH
+              value: "/certs/giftapp.key"
+          envFrom:
+            - configMapRef:
+                name: {{ include "giftapp-swa.fullname" . }}-config
+          ports:
+            - containerPort: 8443
+              protocol: TCP
+          volumeMounts:
+            - name: secret-volume
+              mountPath: /etc/secrets
+              readOnly: true
+            - name: giftapp-certs
+              mountPath: /certs
+              readOnly: true
+            - name: swa-socket
+              mountPath: {{ .Values.swa.socketHostPath }}
+              readOnly: true
+      volumes:
+        - name: secret-volume
+          secret:
+            secretName: giftapp-swa-secrets
+        - name: giftapp-certs
+          secret:
+            secretName: giftapp-tls-secret
+        - name: swa-socket
+          hostPath:
+            path: {{ .Values.swa.socketHostPath }}
+            type: DirectoryOrCreate
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

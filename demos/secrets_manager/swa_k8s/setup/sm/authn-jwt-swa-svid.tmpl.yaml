@@ -1,0 +1,54 @@
+# mode: append-policy
+---
+- !policy
+  id: {{ .SWA_SM_SERVICE_NAME }}
+  body:
+    - !webservice
+      annotations:
+        description: JWT authenticator for giftapp-swa using SWA-issued JWT-SVIDs
+
+    - !variable
+      id: jwks-uri
+      annotations:
+        description: SWA OIDC JWKS URI
+
+    - !variable
+      id: token-app-property
+      annotations:
+        description: JWT claim used as workload identity key
+
+    - !variable
+      id: identity-path
+      annotations:
+        description: Conjur policy path where workload host identities are defined
+
+    - !variable
+      id: issuer
+      annotations:
+        description: Expected SWA JWT-SVID issuer
+
+    - !variable
+      id: audience
+      annotations:
+        description: Expected JWT audience claim
+
+    - !group
+      id: apps
+      annotations:
+        description: Workloads allowed to authenticate with this authenticator
+
+    - !permit
+      role: !group apps
+      privilege: [read, authenticate]
+      resource: !webservice
+
+    - !webservice
+      id: status
+
+    - !group
+      id: operators
+
+    - !permit
+      role: !group operators
+      privilege: [read]
+      resource: !webservice status

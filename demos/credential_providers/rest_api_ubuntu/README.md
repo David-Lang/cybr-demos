@@ -1,5 +1,11 @@
 # Demo: CCP (Central Credential Provider)
 
+## Demo Guides
+
+- [Setup](demo_setup.md)
+- [Validation and running the demo](demo_validation.md)
+- [Certificate attribute authentication notes](cert_attributes_auth.md)
+
 ### About: 
 
  - Installed on a Windows server, CCP allows applications to call an API to securely retrieve their credentials from the Vault during run-time. 
@@ -47,17 +53,17 @@ sequenceDiagram
 pas_base_url="$PAS_BASE_URL"
 app_id="ccp-app1"
 safe="safe1"
-user_name="account-01"
+user_name="ssh-user-1"
 curl -sk "$pas_base_url/AIMWebService/api/Accounts?AppID=$app_id&Safe=$safe&UserName=$user_name" | jq .
 ```
 ```json
 {
   "Content": "superSecret1",
   "CreationMethod": "PVWA",
-  "Address": "10.10.10.101",
+  "Address": "196.168.0.1",
   "Safe": "safe1",
-  "UserName": "account-01",
-  "Name": "Operating System-UnixSSH-10.10.10.101-account-01",
+  "UserName": "ssh-user-1",
+  "Name": "account-ssh-user-1",
   "PolicyID": "UnixSSH",
   "DeviceType": "Operating System",
   "CPMDisabled": "No Reason",
@@ -65,4 +71,3 @@ curl -sk "$pas_base_url/AIMWebService/api/Accounts?AppID=$app_id&Safe=$safe&User
   "PasswordChangeInProcess": "False"
 }
 ```
-

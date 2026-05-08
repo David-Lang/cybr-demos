@@ -1,0 +1,11 @@
+# mode: append-policy
+---
+- !policy
+  id: swa-workloads
+  body:
+    - !host
+      id: "{{ .SWA_WORKLOAD_SPIFFE_ID }}"
+      annotations:
+        description: giftapp-swa SPIFFE workload identity
+        authn-jwt/{{ .SWA_SM_SERVICE_NAME }}/sub: "{{ .SWA_WORKLOAD_SPIFFE_ID }}"
+        authn/api-key: true

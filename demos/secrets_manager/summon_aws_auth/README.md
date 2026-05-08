@@ -7,6 +7,16 @@ Use the repo-standard docs for deployment and validation:
 - `demo_setup.md`
 - `demo_validation.md`
 
+Official CyberArk references for this use case:
+
+- [Secrets Manager authentication methods](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authn-lp.htm)
+- [Set up AWS IAM authentication](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authenticate-awsiam-config.htm)
+- [Set up AWS workloads for authentication](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authenticate-awsiam-appid.htm)
+
+Open source reference, only if you need Summon client specifics not covered in the docs portal:
+
+- [Summon by CyberArk](https://cyberark.github.io/summon/)
+
 ## About
 
 - `Summon` starts a child process and injects secrets as environment variables.
