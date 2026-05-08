@@ -245,9 +245,9 @@ SWA Kubernetes Demo
 This walkthrough assumes setup and deployment are already complete.
 
 Namespaces:
-  SWA system:   $SWA_NS
-  Attack app:   $NS_HARDCODED
-  Defended app: $NS_SWA
+  SWA system:    $SWA_NS
+  Vulnerable app: $NS_HARDCODED
+  Secured app:    $NS_SWA
 
 Interactive mode: $INTERACTIVE
 Browser host:     $demo_host
@@ -255,48 +255,128 @@ EOF
 
 pause
 
+# ── Part 1: The Vulnerable App ───────────────────────────────────────────────
+
 run_cmd "1. Check Deployment Status" \
   "kubectl get pods -n '$SWA_NS' && kubectl get pods -n '$NS_HARDCODED' && kubectl get pods -n '$NS_SWA'"
 
 run_cmd "2. Query The Vulnerable App" \
   "curl -sk '$hardcoded_url' | jq ."
 
-run_cmd "3. Show Secrets Mounted In The Vulnerable Pod" \
+show_instruction "3. How The Vulnerable App Gets Its Secrets" \
+  "The deployment declares a volume backed by a Kubernetes Secret:
+
+    volumes:
+      - name: secret-volume
+        secret:
+          secretName: giftapp-hardcoded-secrets   # All credentials stored in etcd
+
+    volumeMounts:
+      - name: secret-volume
+        mountPath: /etc/secrets                   # Every key becomes a file here
+        readOnly: true
+
+  The Kubernetes Secret contains: DB_USER, DB_PASS, DB_HOST, DB_PORT, DB_NAME, GIFTAPP_API_KEY.
+  All values are base64-encoded in etcd and readable by anyone with access to the pod
+  or the Secret object."
+
+run_cmd "4. Read Credentials From Inside The Vulnerable Pod" \
   "kubectl exec -n '$NS_HARDCODED' deploy/giftapp-hardcoded -- sh -c 'printf \"API KEY: \"; cat /etc/secrets/GIFTAPP_API_KEY; echo; printf \"DB PASS: \"; cat /etc/secrets/DB_PASS; echo'"
 
-run_cmd "4. Show The Vulnerable Service Account Can Read The Kubernetes Secret" \
+run_cmd "5. Read The Kubernetes Secret Directly Via The Pod Service Account Token" \
   "SA_TOKEN=\$(kubectl exec -n '$NS_HARDCODED' deploy/giftapp-hardcoded -- cat /var/run/secrets/kubernetes.io/serviceaccount/token); kubectl get secret giftapp-hardcoded-secrets -n '$NS_HARDCODED' --token=\"\$SA_TOKEN\" -o jsonpath='{.data}' | jq 'to_entries[] | \"\\(.key): \\(.value | @base64d)\"' -r"
 
-run_cmd "5. Query The Defended App" \
-  "curl -sk '$swa_url' | jq ."
+show_instruction "6. Why The Service Account Can Do That" \
+  "The deployment's RBAC grants the service account get/list on the Secret:
 
-run_cmd "6. Show The Defended Pod Has No Sensitive Secret Files" \
-  "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- ls /etc/secrets/ && kubectl get secret giftapp-swa-secrets -n '$NS_SWA' -o json | jq '.data | keys'"
+    kind: Role
+    rules:
+      - resources: [\"secrets\"]
+        resourceNames: [\"giftapp-hardcoded-secrets\"]
+        verbs: [\"get\", \"list\"]
 
-run_cmd "7. Show The SWA Workload API Socket" \
+  That grant exists because the app needs the secret at startup — but it also means any
+  process that steals the pod's service account token can read the credentials directly
+  from the Kubernetes API, without ever touching the pod filesystem."
+
+# ── Part 2: Volume Architecture Comparison ───────────────────────────────────
+
+show_instruction "7. How The Secured App Gets Its Secrets — Volume Architecture" \
+  "The SWA deployment replaces the sensitive secret volume with a socket:
+
+  Vulnerable app                         Secured app
+  ─────────────────────────────────────  ──────────────────────────────────────────
+  volumes:                               volumes:
+    - name: secret-volume                  - name: secret-volume
+      secret:                                secret:
+        secretName:                            secretName:
+          giftapp-hardcoded-secrets              giftapp-swa-secrets  # no passwords
+                                           - name: swa-socket         # NEW
+                                             hostPath:
+                                               path: /tmp/swa-agent/public
+  volumeMounts:                          volumeMounts:
+    - name: secret-volume                  - name: secret-volume
+      mountPath: /etc/secrets                mountPath: /etc/secrets
+                                           - name: swa-socket         # NEW
+                                             mountPath: /tmp/swa-agent/public
+                                             readOnly: true
+
+  The swa-socket hostPath exposes the SWA agent Unix socket from the node into the
+  container. Instead of reading a file for sensitive credentials, the app calls the
+  socket at runtime to prove its identity and fetch the secrets from Conjur."
+
+run_cmd "8. Show What Is In The Secured App Kubernetes Secret" \
+  "kubectl get secret giftapp-swa-secrets -n '$NS_SWA' -o json | jq '.data | keys'"
+
+show_instruction "9. What Is Missing From The Secured App Kubernetes Secret And Why" \
+  "The SWA Kubernetes Secret contains only non-sensitive connection config:
+    DB_USER, DB_HOST, DB_PORT, DB_NAME
+
+  DB_PASS and GIFTAPP_API_KEY are absent. They are never stored in Kubernetes.
+  The app fetches them at runtime through the SWA socket using a SPIFFE JWT-SVID."
+
+run_cmd "10. Confirm No Sensitive Files At /etc/secrets In The Secured Pod" \
+  "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- ls -1 /etc/secrets/"
+
+run_cmd "11. Show The SWA Socket Mounted In The Secured Pod" \
   "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- ls -l '${SWA_SOCKET_PATH:-/tmp/swa-agent/public/api.sock}'"
 
-run_cmd "8. Show SWA Agent And Server Are Running" \
+# ── Part 3: The SWA Runtime Flow ─────────────────────────────────────────────
+
+run_cmd "12. Show SWA Agent And Server Are Running" \
   "kubectl get deployment swa-server -n '$SWA_NS' && kubectl get daemonset swa-agent -n '$SWA_NS' && kubectl get pods -n '$SWA_NS'"
 
-run_cmd "9. Force Fresh SWA Authentication" \
-  "kubectl rollout restart deployment/giftapp-swa -n '$NS_SWA' && kubectl rollout status deployment/giftapp-swa -n '$NS_SWA' --timeout=180s"
-
-run_cmd "10. Show SWA Health And Secret Retrieval" \
-  "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- wget -qO- --no-check-certificate https://127.0.0.1:8443/healthz | jq ."
-
-run_func "11. Fetch A Fresh JWT-SVID From The Workload API Socket" \
+run_func "13. Fetch A Fresh JWT-SVID From The Workload API Socket" \
   "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- grpcurl -H 'workload.spiffe.io: true' unix:///tmp/swa-agent/public/api.sock SpiffeWorkloadAPI/FetchJWTSVID | jq ." \
   fetch_fresh_jwt_svid
 
-run_cmd "12. Show The SPIFFE Authentication Result In The App Logs" \
+run_cmd "14. Show The SPIFFE Authentication Result In The App Logs" \
   "kubectl logs -n '$NS_SWA' deploy/giftapp-swa --tail=80 | grep -E 'jwt-svid claims|loaded secrets through SWA'"
 
-show_instruction "13. Wrap Up" \
-  "The comparison is:
+run_cmd "15. Force Fresh SWA Authentication Without A Pod Restart" \
+  "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- wget -qO- --no-check-certificate --post-data='' https://127.0.0.1:8443/refresh | jq ."
 
-  giftapp-hardcoded stores secrets in Kubernetes and exposes them to pod exec and Kubernetes API reads.
-  giftapp-swa uses a Kubernetes-attested SPIFFE JWT-SVID from SWA, authenticates to Conjur, and keeps sensitive values out of Kubernetes Secret mounts."
+run_cmd "16. Query The Secured App" \
+  "curl -sk '$swa_url' | jq ."
+
+run_cmd "17. Show SWA Health And Live Secret Retrieval" \
+  "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- wget -qO- --no-check-certificate https://127.0.0.1:8443/healthz | jq ."
+
+# ── Part 4: Summary ──────────────────────────────────────────────────────────
+
+show_instruction "18. Summary" \
+  "The core difference is in how volumes deliver credentials:
+
+  giftapp-hardcoded
+    secret-volume → giftapp-hardcoded-secrets (Kubernetes Secret in etcd)
+    Contains: DB_PASS, GIFTAPP_API_KEY, and all connection config
+    Attack surface: pod exec reads files, SA token reads Secret via Kubernetes API
+
+  giftapp-swa
+    secret-volume → giftapp-swa-secrets (non-sensitive config only, no passwords)
+    swa-socket    → hostPath to SWA agent Unix socket on the node
+    Sensitive values never touch etcd. The app proves its identity with a SPIFFE
+    JWT-SVID and Conjur delivers the credentials at runtime through the socket."
 
 if [[ "$OPEN_K9S" == "true" ]]; then
   require_tool k9s

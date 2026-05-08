@@ -58,6 +58,15 @@ func main() {
 		}
 		writeJSON(w, state)
 	})
+	mux.HandleFunc("/refresh", func(w http.ResponseWriter, r *http.Request) {
+		if mode != "swa" {
+			http.Error(w, "refresh only available in swa mode", http.StatusBadRequest)
+			return
+		}
+		state.LastError = ""
+		loadWithSWA(context.Background(), state)
+		writeJSON(w, state)
+	})
 
 	certPath := getenv("SSL_CERT_PATH", "/certs/giftapp.pem")
 	keyPath := getenv("SSL_KEY_PATH", "/certs/giftapp.key")
