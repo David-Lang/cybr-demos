@@ -23,3 +23,7 @@ test_assets/*
 **/secrets/*
 **/video/*
 
+# Cloud credentials (never commit)
+**/aws_credentials.env
+**/azure_credentials.env
+**/gcp_credentials.env

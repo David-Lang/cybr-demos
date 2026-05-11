@@ -1,5 +1,22 @@
 # swa_k8s Demo — Implementation Status
 
+## Latest Update (Current Session)
+
+**Simplified AWS SPIFFE Integration** - Replaced complex Summon + PAM safe credential flow with simple `.env` files:
+
+- ✅ Created pre-filled credential templates: `aws_credentials.env`, `azure_credentials.env`, `gcp_credentials.env`
+- ✅ All credential files are gitignored
+- ✅ Removed Summon dependency and authn-iam requirement
+- ✅ Updated `setup.sh` to source credentials directly from `.env` files
+- ✅ Created comprehensive documentation:
+  - `QUICKSTART_AWS.md` - 5-minute quick start guide
+  - `setup/cloud/README.md` - Cloud setup details
+  - Updated `AWS_TESTING.md`, `LAB_CHECKLIST.md`, `IMPLEMENTATION_SUMMARY.md`
+
+**User workflow now:** Fill in two `.env` files → Run `bash setup.sh --aws` → Test
+
+**Status:** Ready for lab testing!
+
 ## Goal
 
 Attack-vs-defend K8s demo showing CyberArk SWA Secure Workload Access:
@@ -90,7 +107,104 @@ External registry path:
 2. Set `GIFTAPP_REGISTRY` and `GIFTAPP_IMAGE_TAG` to match that registry.
 3. Run `bash setup.sh`.
 
-## Next Steps
+## Multi-Cloud SPIFFE Extension (In Progress)
+
+This session added a multi-cloud JWT-SVID federation demo: `giftapp-swa` uses its SPIFFE JWT-SVID to authenticate directly to AWS S3, Azure Blob Storage, and GCP Cloud Storage — no cloud SDKs, pure stdlib HTTP.
+
+### What Was Done This Session
+
+**demo.sh rework**
+- Renamed "Defended app" → "Secured app" throughout
+- Restructured into 4 parts / 18 steps with volume architecture comparison as the focal point
+- Step 7: side-by-side YAML showing hardcoded secret (6 keys incl. DB_PASS, GIFTAPP_API_KEY) vs. SWA secret (4 non-sensitive keys only)
+- Step 15: changed from `kubectl rollout restart` to `/refresh` endpoint call
+
+**GiftApp code changes**
+- `main.go`: Added `/refresh` POST endpoint — forces fresh SWA auth without pod restart
+- `cmd/giftapp/csp.go`: New file — complete `/csp-test?cloud=<aws|azure|gcp>` implementation:
+  - `fetchSVID(ctx, socket, audience)` — fetches JWT-SVID for specified audience
+  - `awsS3Test`: STS AssumeRoleWithWebIdentity → manual SigV4 S3 GET
+  - `azureBlobTest`: client_credentials + JWT assertion → Bearer blob GET
+  - `gcpStorageTest`: STS token exchange → generateAccessToken SA impersonation → Bearer GCS GET
+  - Manual AWS SigV4 implementation (no SDK)
+  - Returns `cspTestResult{Cloud, SpiffeID, Audience, Source, Content, Error}` as JSON
+
+**compute_init/ubuntu**
+- `install_azurecli.sh`: New — installs Azure CLI via Microsoft apt repo
+- `install_gcpcli.sh`: New — installs Google Cloud CLI via Google apt repo
+- `setup.sh`: Added `install_azurecli.sh` and `install_gcpcli.sh` to scripts array
+- `setup_rancher.sh`: Added `install_docker.sh`, `install_terraform.sh`, `install_azurecli.sh`, `install_gcpcli.sh` to root_scripts
+
+**Cloud setup scripts** (`setup/cloud/`)
+- `vars.env`: New — cloud provider inputs + Conjur/Summon auth config
+- `aws/setup.sh`: New — idempotent AWS bootstrap (OIDC provider, IAM role, S3 bucket, test file upload). Writes `aws_registered.env`.
+- `aws/secrets.tmpl.yml`: New — Summon template for AWS credentials from CyberArk safe
+- `azure/setup.sh`: New — idempotent Azure bootstrap (resource group, managed identity, federated credential, storage account, container, RBAC, test blob). Writes `azure_registered.env`.
+- `azure/secrets.tmpl.yml`: New — Summon template for Azure SP credentials
+- `gcp/setup.sh`: New — idempotent GCP bootstrap (workload identity pool, OIDC provider, SA, IAM binding, GCS bucket, test file). Writes `gcp_registered.env`.
+- `gcp/secrets.tmpl.yml`: New — Summon template for GCP SA JSON key (`!var:file`)
+
+**setup.sh (top-level)**
+- Added `--aws`, `--azure`, `--gcp` flags
+- Exports `SETUP_AWS`, `SETUP_AZURE`, `SETUP_GCP` (survives docker-group re-exec)
+- Cloud section: loads `cloud/vars.env` and `cloud/*_credentials.env`, calls per-cloud setup scripts
+- Simplified: no Summon, no PAM safe, direct credential loading from .env files
+
+### Completed Tasks for AWS Testing
+
+1. **✅ Registered `/csp-test` in main.go**
+   - Added endpoint handler to mux registration block
+
+2. **✅ Updated `giftapp-swa` deployment.yaml**
+   - Added optional ConfigMap ref to `envFrom` in `setup/k8s/charts/giftapp-swa/templates/deployment.yaml`
+
+3. **✅ Updated AWS setup script to write K8s ConfigMap**
+   - `setup/cloud/aws/setup.sh` now creates/updates `giftapp-cloud-spiffe` ConfigMap
+   - Automatically restarts `giftapp-swa` deployment after ConfigMap update
+
+### Ready for Testing
+
+The AWS integration is now ready to test. Spin up a fresh lab and:
+
+1. Fill in `setup/cloud/vars.env` with AWS account ID and region
+2. Fill in `setup/cloud/aws_credentials.env` with AWS access key and secret
+3. Run `bash setup.sh --aws`
+4. Test the endpoint: `kubectl exec -n <namespace> <giftapp-swa-pod> -- curl -sk "https://localhost:8443/csp-test?cloud=aws"`
+
+**Quick Start:** See [`QUICKSTART_AWS.md`](QUICKSTART_AWS.md) for a 5-minute setup guide.
+
+### Pending Azure/GCP Tasks (deferred)
+
+- Azure and GCP implementations exist in `csp.go` but are not being tested in this phase
+- ConfigMap creation logic exists in Azure/GCP setup scripts (needs same update as AWS)
+- All multi-cloud infrastructure is in place but untested
+
+### CSP Bootstrap Credential Flow (Simplified)
+
+```
+User fills *_credentials.env → setup.sh sources credentials → cloud setup script creates resources
+```
+
+**Credential Files** (all gitignored, pre-created templates):
+- `aws_credentials.env`: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+- `azure_credentials.env`: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+- `gcp_credentials.env`: GOOGLE_APPLICATION_CREDENTIALS_JSON
+
+**Note:** For production, use IAM roles, managed identities, or secrets managers instead of static credentials.
+
+### CSP Authentication Flow (giftapp-swa runtime)
+
+```
+giftapp-swa → SWA socket → JWT-SVID → cloud STS/OIDC exchange → cloud access token → storage read
+```
+
+- AWS: audience `sts.amazonaws.com`, env vars `AWS_SPIFFE_ROLE_ARN`, `AWS_SPIFFE_BUCKET`, `AWS_SPIFFE_REGION`
+- Azure: audience `api://AzureADTokenExchange`, env vars `AZURE_SPIFFE_CLIENT_ID`, `AZURE_SPIFFE_TENANT_ID`, `AZURE_SPIFFE_STORAGE_ACCOUNT`, `AZURE_SPIFFE_CONTAINER`
+- GCP: audience = pool audience string, env vars `GCP_SPIFFE_POOL_AUDIENCE`, `GCP_SPIFFE_SA_EMAIL`, `GCP_SPIFFE_BUCKET`, `GCP_SPIFFE_PROJECT_ID`
+
+Env vars come from `giftapp-cloud-spiffe` ConfigMap (optional, sourced from `*_registered.env` files written by cloud setup scripts).
+
+## Next Steps (Original)
 
 For a fresh run:
 

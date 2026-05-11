@@ -33,6 +33,8 @@ scripts=(
   "install_docker.sh"
   "install_terraform.sh"
   "install_awscli.sh"
+  "install_azurecli.sh"
+  "install_gcpcli.sh"
   "install_kubectl.sh"
   "install_k9s.sh"
   "install_helm.sh"
