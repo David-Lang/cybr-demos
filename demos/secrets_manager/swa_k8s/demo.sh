@@ -151,6 +151,26 @@ detect_demo_host() {
   fi
 }
 
+aws_edit_and_fetch() {
+  local creds_file="$SCRIPT_DIR/setup/cloud/aws_credentials.env"
+  local bucket region key_id secret
+
+  bucket="$(kubectl get configmap giftapp-cloud-spiffe -n "$NS_SWA" \
+    -o jsonpath='{.data.AWS_SPIFFE_BUCKET}')"
+  region="$(kubectl get configmap giftapp-cloud-spiffe -n "$NS_SWA" \
+    -o jsonpath='{.data.AWS_SPIFFE_REGION}')"
+  key_id="$(grep AWS_ACCESS_KEY_ID "$creds_file" | cut -d'"' -f2)"
+  secret="$(grep AWS_SECRET_ACCESS_KEY "$creds_file" | cut -d'"' -f2)"
+
+  echo "updated by demo - $(date -u +%H:%M:%SZ)" \
+    | AWS_ACCESS_KEY_ID="$key_id" AWS_SECRET_ACCESS_KEY="$secret" \
+      AWS_DEFAULT_REGION="$region" \
+      aws s3 cp - "s3://$bucket/test.txt"
+
+  kubectl exec -n "$NS_SWA" deploy/giftapp-swa -- \
+    wget -qO- --no-check-certificate "https://127.0.0.1:8443/csp-test?cloud=aws" | jq .
+}
+
 fetch_fresh_jwt_svid() {
   local pod
   pod="$(kubectl get pods -n "$NS_SWA" -l app=giftapp-swa \
@@ -362,9 +382,45 @@ run_cmd "16. Query The Secured App" \
 run_cmd "17. Show SWA Health And Live Secret Retrieval" \
   "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- wget -qO- --no-check-certificate https://127.0.0.1:8443/healthz | jq ."
 
-# ── Part 4: Summary ──────────────────────────────────────────────────────────
+# ── Part 4: Cloud Federation with SPIFFE JWT-SVIDs ───────────────────────────
 
-show_instruction "18. Summary" \
+AWS_ROLE_ARN=""
+if kubectl get configmap giftapp-cloud-spiffe -n "$NS_SWA" &>/dev/null; then
+  AWS_ROLE_ARN="$(kubectl get configmap giftapp-cloud-spiffe -n "$NS_SWA" \
+    -o jsonpath='{.data.AWS_SPIFFE_ROLE_ARN}' 2>/dev/null || true)"
+fi
+
+if [[ -n "$AWS_ROLE_ARN" ]]; then
+  show_instruction "18. Cloud Federation — SPIFFE Identity as an AWS Credential" \
+    "The same JWT-SVID used to authenticate to Conjur can also federate with AWS IAM.
+  No AWS credentials are ever stored in the cluster.
+
+  Flow:
+    1. giftapp-swa fetches a JWT-SVID from the SWA Agent (audience: sts.amazonaws.com)
+    2. AWS STS validates the JWT signature via the SWA Server's OIDC discovery endpoint
+    3. STS checks the JWT claims match the IAM role trust policy (issuer + subject)
+    4. STS returns temporary AWS credentials (valid ~1 hour)
+    5. The app uses those credentials to sign an S3 GetObject request (SigV4, no AWS SDK)
+
+  The IAM role trust policy pins to the exact SPIFFE ID of giftapp-swa:
+    Condition: StringEquals
+      \${OIDC_ISSUER}:sub: spiffe://.../.../giftapp-swa-sa
+      \${OIDC_ISSUER}:aud: sts.amazonaws.com
+
+  AWS role: $AWS_ROLE_ARN"
+
+  run_cmd "19. Test AWS S3 Access via SPIFFE JWT-SVID" \
+    "kubectl exec -n '$NS_SWA' deploy/giftapp-swa -- \
+wget -qO- --no-check-certificate 'https://127.0.0.1:8443/csp-test?cloud=aws' | jq ."
+
+  run_func "20. Edit The S3 File To Prove It Is A Live Fetch" \
+    "echo 'updated by demo - \$(date -u)' | aws s3 cp - s3://<bucket>/test.txt && curl /csp-test?cloud=aws" \
+    aws_edit_and_fetch
+fi
+
+# ── Part 5: Summary ───────────────────────────────────────────────────────────
+
+show_instruction "$( [[ -n "$AWS_ROLE_ARN" ]] && echo "21" || echo "18" ). Summary" \
   "The core difference is in how volumes deliver credentials:
 
   giftapp-hardcoded

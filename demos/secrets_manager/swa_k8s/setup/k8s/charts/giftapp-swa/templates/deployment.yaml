@@ -33,6 +33,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "giftapp-swa.fullname" . }}-config
+            - configMapRef:
+                name: giftapp-cloud-spiffe
+                optional: true
           ports:
             - containerPort: 8443
               protocol: TCP
