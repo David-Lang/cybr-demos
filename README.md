@@ -24,6 +24,7 @@ Whether you are running secrets in Kubernetes, GitHub Actions, GitLab CI, Jenkin
 - [Configuration](#configuration)
 - [Demo Walk-Throughs](#demo-walk-throughs)
   - [Machine Identity Portfolio](#machine-identity-portfolio-demo)
+  - [Secure AI Agents](#secure-ai-agents-demos)
   - [Secrets Manager](#secrets-manager-demos)
   - [Secrets Hub](#secrets-hub-demos)
   - [Credential Providers](#credential-provider-demos)
@@ -79,6 +80,11 @@ cybr-demos/
     │       ├── setup/           #   vault, sm, secrets_hub, sia, vcert, cert_manager, sai
     │       └── demo.sh          #   ISPSS → Conjur → 3 cert options → Secrets Hub → SIA → SCA → SAI
     │
+    ├── secure_ai_agents/   # Demos: AI agent identity & vaulted secrets
+    │   └── spiffe_conjur/       # SPIFFE/SPIRE → Conjur Cloud authn-jwt:
+    │       ├── setup/           #   spire, workloads, oidc (cloudflared), conjur
+    │       └── demo.sh          #   BEFORE (key in env) → SPIRE attest → JWT-SVID → vaulted secret → live revoke
+    │
     └── credential_providers/
         ├── agent_ubuntu/       # CP agent on Linux (incl. access-control scenarios)
         ├── agent_windows/      # CP agent on Windows
@@ -98,7 +104,7 @@ In short:
 - Use **`demo_validation.md`** for post-install validation walkthroughs.
 - Prefer linking readers from a short `README.md` into those files instead of duplicating long procedures in multiple places.
 
-The Kubernetes demo is the reference pattern: see `demos/secrets_manager/k8s/README.md` for the documentation index.
+The Kubernetes demo is the reference pattern: see `demos/secrets_manager/k8s/README.md` for the documentation index, **`eso/`** / **`eso-reloader/`** sub-demos, and related operational notes.
 
 ---
 
@@ -145,6 +151,7 @@ bash init_cybr_demos.sh
 | `agent_ubuntu` | CyberArk CP installer package in S3 |
 | `agent_windows` | Windows Server + CyberArk CP installer |
 | `server_windows` | Windows Server + Central Credential Provider install path used by the demo |
+| `spiffe_conjur` | Local Docker + minikube + cloudflared. Conjur Cloud service user with `Authn_Admins` (or `Conjur_Cloud_Admins`) role. |
 
 ---
 
@@ -230,6 +237,46 @@ bash demo.sh
 
 ---
 
+### Secure AI Agents Demos
+
+#### SPIFFE / SPIRE → Conjur Cloud (`demos/secure_ai_agents/spiffe_conjur/`)
+
+**What it shows:** An AI agent pod authenticates to **CyberArk Conjur Cloud**
+using a SPIFFE JWT-SVID (`authn-jwt`) and retrieves a vaulted secret. The
+demo is built as a side-by-side: a `vulnerable-agent` pod with a hardcoded
+API key in env, and an `attested-agent` pod with zero credentials in its
+spec. A live revocation step (delete one `ClusterSPIFFEID`) cuts both SPIRE
+and Conjur access in seconds.
+
+**What you see:**
+
+| Step | What happens |
+|---|---|
+| 1 | Inspect the BEFORE pod — key in pod spec, etcd, and env |
+| 2 | Architecture: K8s Pod → SPIRE → JWT-SVID → Conjur authn-jwt → vaulted secret |
+| 3 | SPIRE attests the workload, mints an X.509 SVID for the pod |
+| 4 | Fetch the JWT-SVID, decode payload, see `sub` claim that maps to a Conjur host |
+| 5 | Live POST: agent presents JWT-SVID to Conjur Cloud, receives 8-min access token |
+| 6 | Use access token to fetch the vaulted secret — no env, no Secret, no etcd |
+| 7 | Live revoke: delete one ClusterSPIFFEID, both SPIRE and Conjur reject within seconds |
+| 8 | Side-by-side comparison + portfolio positioning (Conjur, Secrets Hub, Discovery, AI Gateway) |
+
+**Prerequisites:** local Docker, `minikube`, `kubectl`, `helm`, `cloudflared`,
+`envsubst`. CyberArk Conjur Cloud tenant with a service user that has
+`Authn_Admins` or `Conjur_Cloud_Admins`.
+
+```bash
+cd demos/secure_ai_agents/spiffe_conjur
+vi setup/vars.env       # adjust LAB_ID-derived defaults if needed
+./setup.sh              # SPIRE on minikube → workloads → cloudflared → Conjur authn-jwt
+./demo.sh               # interactive ~12-min walkthrough
+./cleanup.sh            # tears down minikube + Conjur policies
+```
+
+**Where to read:** `demo_setup.md` → `demo_validation.md`
+
+---
+
 ### Secrets Manager Demos
 
 Secrets Manager lets workloads retrieve secrets using their platform identity (Kubernetes service account, GitHub Actions OIDC token, GitLab CI token, etc.) — no hard-coded secrets in the platform configuration.
@@ -240,7 +287,7 @@ Secrets Manager lets workloads retrieve secrets using their platform identity (K
 
 **Supported clusters:** AWS EKS, OpenShift (OCP), Rancher/RKE2
 
-**Where to read:** Start at `demos/secrets_manager/k8s/README.md`, then follow **`demo_setup.md`** → **`demo_validation.md`** → **`kubectl_commands.md`** (and `aws_eks.md` if you need EKS helpers).
+**Where to read:** Start at `demos/secrets_manager/k8s/README.md`, then follow **`demo_setup.md`** → **`demo_validation.md`** → **`kubectl_commands.md`** (and `aws_eks.md` if you need EKS helpers). The same `k8s/README.md` summarizes the **`eso/`** and **`eso-reloader/`** sub-demos (15s ESO refresh, Stakater Reloader, manifest namespaces, and the **`eso-rotation` → `eso-reloader`** folder rename).
 
 **Quick command flow:**
 

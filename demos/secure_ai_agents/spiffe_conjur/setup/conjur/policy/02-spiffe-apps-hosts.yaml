@@ -1,0 +1,24 @@
+# Workload (host) policy: declares which SPIFFE-attested workloads may
+# authenticate via the spiffe-auth authenticator.
+#
+# Loaded at branch:  data
+# Result:            data/spiffe-apps/{group, host}
+#
+# The host id MUST match the JWT-SVID's `sub` claim exactly. This is what the
+# authn-jwt authenticator checks against the `authn-jwt/<service>/sub`
+# annotation on the host.
+
+- !policy
+  id: spiffe-apps
+  body:
+    - !group
+
+    - !host
+      id: ${SPIFFE_HOST_ID}
+      annotations:
+        authn-jwt/${CONJUR_AUTHN_SERVICE_ID}/sub: ${SPIFFE_HOST_ID}
+        description: "AI agent attested by SPIRE in the cybr-demos spiffe_conjur lab"
+
+    - !grant
+      role: !group
+      member: !host ${SPIFFE_HOST_ID}

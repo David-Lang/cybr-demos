@@ -31,7 +31,7 @@ metadata:
   name: conjur
   namespace: {{ .Values.namespace }}
 spec:
-  refreshInterval: 1m
+  refreshInterval: 15s
   secretStoreRef:
     # This name must match the metadata.name in the `SecretStore`
     name: conjur

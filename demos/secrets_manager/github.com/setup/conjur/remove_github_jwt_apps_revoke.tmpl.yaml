@@ -1,0 +1,7 @@
+# metadata
+# mode: append-policy
+# Branch: conjur/authn-jwt/github
+---
+- !revoke
+  role: !group apps
+  member: !host /data/github-apps/{{ .GITHUB_WORKFLOW }}

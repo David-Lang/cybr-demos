@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rotation-demo-app
+  namespace: eso-reloader
+  labels:
+    app: rotation-demo-app
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rotation-demo-app
+  template:
+    metadata:
+      labels:
+        app: rotation-demo-app
+    spec:
+      serviceAccountName: eso-reloader-sa
+      containers:
+        - name: app
+          image: alpine/curl
+          command: ["sleep", "infinity"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+          volumeMounts:
+            - name: db-creds-vol
+              mountPath: /etc/secrets
+              readOnly: true
+      volumes:
+        - name: db-creds-vol
+          secret:
+            secretName: db-credentials

@@ -26,3 +26,16 @@ secrets/*
 demos/tenant_vars.sh
 demos/tenant_vars.ps1
 **/vars.env
+**/vars.env.bak
+**/settings_variables.env
+jwks.json
+
+# Rendered Conjur policy (use *.tmpl.yaml + setup scripts)
+demos/secrets_manager/github.com/setup/conjur/workload1.yaml
+demos/secrets_manager/github.com/setup/conjur/github_apps_vault_grant.yaml
+demos/secrets_manager/github.com/setup/conjur/github_jwt_apps_grant.yaml
+
+# secure_ai_agents/spiffe_conjur runtime artifacts
+demos/secure_ai_agents/spiffe_conjur/setup/.oidc.env
+demos/secure_ai_agents/spiffe_conjur/setup/oidc/state/
+demos/secure_ai_agents/spiffe_conjur/setup/workloads/manifests/40-attested-agent.rendered.yaml

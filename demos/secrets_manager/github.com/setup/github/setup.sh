@@ -2,12 +2,12 @@
 # shellcheck disable=SC2059
 set -euo pipefail
 
-source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
+source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 
 main() {
   set_variables
 
-  printf "\n\nresolve_template workload1.tmpl.yaml workload1.yaml\n"
+  printf "\n\nresolve_template settings_variables.tmpl.env settings_variables.env\n"
   resolve_template "settings_variables.tmpl.env" "settings_variables.env"
 
   printf "\n\nIn the github repo to be used configure these variables:\n"

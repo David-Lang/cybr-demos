@@ -1,0 +1,13 @@
+# Policy branch: conjur/authn-jwt
+# mode: append-policy
+#
+# Adds the sidecar workload host to the zg-eso JWT authenticator apps group.
+---
+- !policy
+  id: zg-eso
+  body:
+  - !grant
+    roles:
+      - !group apps
+    members:
+      - !host /data/poc-workloads/system:serviceaccount:sp-sidecar:sp-sidecar-sa

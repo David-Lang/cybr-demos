@@ -1,0 +1,7 @@
+Category: "Secure AI Agents"
+Name: "SPIFFE / SPIRE -> Conjur Cloud (authn-jwt)"
+Docs: "https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authenticate-ai-spiffe.htm"
+DemoScript: "demo.sh"
+SetupScript: "setup.sh"
+Enabled: false
+IsSetup: false

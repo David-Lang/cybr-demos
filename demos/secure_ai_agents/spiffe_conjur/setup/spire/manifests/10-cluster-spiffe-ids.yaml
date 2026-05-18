@@ -1,0 +1,40 @@
+# ClusterSPIFFEID — the policy that maps Kubernetes pods to SPIFFE identities.
+# spire-controller-manager watches these and pushes registration entries to the
+# SPIRE Server datastore.
+#
+# SPIFFE ID template variables:
+#   {{ .TrustDomain }}                            -> set per lab via helm install --set
+#   {{ .PodMeta.Namespace }}
+#   {{ .PodSpec.ServiceAccountName }}
+#   {{ index .PodMeta.Labels "app" }}
+#
+# Resulting per-pod SPIFFE ID:
+#   spiffe://<trust-domain>/ns/<namespace>/sa/<sa>/app/<app>
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: workloads-default
+spec:
+  # The hardened chart's controller-manager only acts on CRs that match this class.
+  # Default class is "<release-namespace>-spire" -> "spire-mgmt-spire".
+  className: spire-mgmt-spire
+  spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}/app/{{ index .PodMeta.Labels \"app\" }}"
+  podSelector:
+    matchLabels:
+      spiffe.io/spiffe-id: "true"
+  namespaceSelector:
+    matchLabels:
+      name: workloads
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:{{ .PodSpec.ServiceAccountName }}"
+    - "k8s:pod-label:app:{{ index .PodMeta.Labels \"app\" }}"
+  # DNS SANs for legacy TLS clients (curl, nginx, java) that rely on hostname
+  # verification; SPIFFE-aware libraries don't need this -- they verify by URI SAN.
+  dnsNameTemplates:
+    - "{{ index .PodMeta.Labels \"app\" }}.{{ .PodMeta.Namespace }}.svc.cluster.local"
+    - "{{ index .PodMeta.Labels \"app\" }}.{{ .PodMeta.Namespace }}.svc"
+    - "{{ index .PodMeta.Labels \"app\" }}"
+  autoPopulateDNSNames: true

@@ -1,0 +1,2 @@
+# spire-crds: registers the SPIFFE CRDs that spire-controller-manager watches.
+# No knobs needed for the standard install.

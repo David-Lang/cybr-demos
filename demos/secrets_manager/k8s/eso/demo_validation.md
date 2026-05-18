@@ -132,7 +132,7 @@ kubectl get externalsecret -n external-secrets conjur
 kubectl describe externalsecret -n external-secrets conjur
 ```
 
-Look for `Status: SecretSynced` and a recent `Last Synced Time`. The refresh interval of `1m` means ESO re-fetches every 60 seconds.
+Look for `Status: SecretSynced` and a recent `Last Synced Time`. The refresh interval of `15s` matches the eso-reloader demo — ESO re-fetches at most every 15 seconds.
 
 **K8s Secret contents:**
 
@@ -177,7 +177,7 @@ Password changes in Privilege Cloud propagate automatically:
 
 1. Password changed or rotated in Privilege Cloud.
 2. Conjur Synchronizer picks up the change (typically within seconds).
-3. On the next ESO refresh interval (1 minute), ESO re-authenticates and fetches the updated value.
+3. On the next ESO refresh interval (15 seconds), ESO re-authenticates and fetches the updated value.
 4. ESO updates the K8s Secret in place — no pod restart, no redeployment.
 
 Verify the refresh interval:
@@ -233,7 +233,7 @@ k9s -n external-secrets
 2. `:externalsecrets` — show `SecretSynced` status with `LAST SYNC` timer.
 3. `:secrets` — highlight `conjur-secrets`, press `x` to decode values live.
 
-This three-view sequence tells the full story in about 60 seconds.
+This three-view sequence tells the full story in about a minute.
 
 ### Rotation Demo with k9s
 
@@ -241,7 +241,7 @@ For maximum visual impact:
 
 1. Open k9s to `:secrets` and decode `conjur-secrets` with `x`.
 2. In a second terminal or browser tab, change the password in Privilege Cloud.
-3. Watch k9s. Within 60 seconds the secret value updates in the decoded view.
+3. Watch k9s. Within about one refresh interval (15s) plus Conjur sync latency, the secret value updates in the decoded view.
 4. No pod restart, no redeployment — the audience sees it happen live.
 
 ## Troubleshooting

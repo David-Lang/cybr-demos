@@ -1,0 +1,91 @@
+# SPIRE Helm values — values_file portion only.
+#
+# Trust domain, cluster name, and jwtIssuer are passed via `helm install --set`
+# from setup/spire/setup.sh so a single values file works across labs.
+#
+# Verified against spiffe/spire chart 0.28.4 (the hardened parent chart re-exports
+# each subchart at the top level).
+
+global:
+  spire:
+    caSubject:
+      country: US
+      organization: cyberark-cybr-demos
+      commonName: spiffe-conjur.local
+  installAndUpgradeHooks:
+    enabled: false
+  deleteHooks:
+    enabled: false
+
+spire-server:
+  replicaCount: 1
+  controllerManager:
+    enabled: true
+    # Disable the chart's default ClusterSPIFFEIDs -- we ship our own.
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          enabled: false
+        oidc-discovery-provider:
+          enabled: false
+        test-keys:
+          enabled: false
+        spike-keeper:
+          enabled: false
+        spike-nexus:
+          enabled: false
+        spike-bootstrap:
+          enabled: false
+        spike-pilot:
+          enabled: false
+
+  # CA TTL extended so the JWKS published to Conjur Cloud is stable across
+  # multiple demo sessions. Workload SVID TTLs stay short for visible rotation.
+  caTTL: 720h
+  defaultX509SvidTTL: 10m
+  defaultJwtSvidTTL: 5m
+
+  dataStore:
+    sql:
+      databaseType: sqlite3
+  persistence:
+    type: pvc
+    size: 1Gi
+
+spire-agent:
+  nodeAttestor:
+    k8sPSAT:
+      enabled: true
+  workloadAttestors:
+    k8s:
+      enabled: true
+      disableContainerSelectors: false
+      useNewContainerLocator: true
+      verboseContainerLocatorLogs: false
+
+spiffe-csi-driver:
+  enabled: true
+
+# OIDC Discovery Provider — exposes JWKS and .well-known/openid-configuration
+# so external systems (Conjur Cloud authn-jwt) can validate JWT-SVID signatures.
+# setup/oidc/setup.sh tunnels the in-cluster ClusterIP service through cloudflared.
+spiffe-oidc-discovery-provider:
+  enabled: true
+  config:
+    listenPort: 8080
+    acme:
+      enabled: false
+    insecureScheme:
+      enabled: true
+  service:
+    type: ClusterIP
+
+# Subcharts we don't need
+tornjak-frontend:
+  enabled: false
+spike-keeper:
+  enabled: false
+spike-nexus:
+  enabled: false
+spike-pilot:
+  enabled: false

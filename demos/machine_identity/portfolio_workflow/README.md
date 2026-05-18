@@ -7,6 +7,7 @@ Single end-to-end demo covering the full CyberArk Machine Identity portfolio.
 - `demo_setup.md` — How to deploy this demo
 - `demo_validation.md` — Post-install walkthrough and runtime behavior
 - `talk_track.md` — Presenter narrative with three delivery formats (full, abbreviated, executive)
+- `setup/sai/sai_documentation_overview.md` — SAI architecture, workflows, security principles, and CyberArk docs reference
 - `setup/sai/dp_tenant_preparations.md` — SAI/AI Gateway tenant prerequisites (roles, SIA MCP creation, known issues)
 
 ## Recommended Reading Order

@@ -1,64 +1,92 @@
-**DP Tenant Preparations**
+# DP Tenant Preparations
 
-**Docs**  
-[https://docs.cyberark.com/early-release/secure-ai-agents/content/secureai/introduction.htm](https://docs.cyberark.com/early-release/secure-ai-agents/content/secureai/introduction.htm)
+## Docs
 
-**Roles**  
+<https://docs.cyberark.com/early-release/secure-ai-agents/content/secureai/introduction.htm>
+
+## Roles
+
 There are 2 roles:
 
-1. Secure AI Admins  
-2. Secure AI Builders
+1. **Secure AI Admins**
+2. **Secure AI Builders**
 
-If SAI was already installed on the tenant it won’t have the “Secure AI Builders” role.  
-Please re-install SAI **or** run this api:
+If SAI was already installed on the tenant it won't have the "Secure AI Builders" role.
+Re-install SAI **or** run this API:
 
-POST https://{identity-id}.id.cyberark.cloud/roles/storerole  
-body:  
-{  
-  "Name": "Secure AI Builders",  
-  "Description": "This role gives rights to Secure AI Gateway Builders"  
+```http
+POST https://{identity-id}.id.cyberark.cloud/roles/storerole
+```
+
+```json
+{
+  "Name": "Secure AI Builders",
+  "Description": "This role gives rights to Secure AI Gateway Builders"
 }
+```
 
-* You can ask us for the Identity ID if needed
+> You can ask us for the Identity ID if needed.
 
-**Create SIA Mcp**  
-In order to use SIA you would need to create it using API only.   
-This is the api you should run:
+## Create SIA MCP
 
-POST https://{tenant-name}-aigw.cyberark.cloud/api/targets/mcp-servers  
-Accept: application/x.targets.beta+json  
-body:  
-{  
-      "name": "SIA\_DB\_MCP\_SERVER",  
-      "description": "SIA DB Mcp",  
-      "category": "DATABASES\_AND\_DATA\_STORES",  
-      "source": {        "type": "CUSTOM"  
-      },  
-      "upstream": {  
-        "url": "https://us-east-1-sia-db-mcp.adb.cyberark.cloud/mcp"  
-      },  
-      "authMethod": {  
-        "type": "OAUTH2.1"  
-      }  
-    }
+SIA must be created via API only. Run:
 
-**MCP Inventory**  
-Until entry will be shown in the left side under administration section, it is possible to enter the MCP inventory via the url: [https://{tenant-name}.cyberark.cloud/adminportal/aigw/mcp/inventory](https://{tenant-name}.cyberark.cloud/adminportal/aigw/mcp/inventory)  
-eg: [https://aigw-poc.cyberark.cloud/adminportal/aigw/mcp/inventory](https://aigw-poc.cyberark.cloud/adminportal/aigw/mcp/inventory)
+```http
+POST https://{tenant-name}-aigw.cyberark.cloud/api/targets/mcp-servers
+Accept: application/x.targets.beta+json
+```
 
-**Mcp Servers for testing**
+```json
+{
+  "name": "SIA_DB_MCP_SERVER",
+  "description": "SIA DB Mcp",
+  "category": "DATABASES_AND_DATA_STORES",
+  "source": {
+    "type": "CUSTOM"
+  },
+  "upstream": {
+    "url": "https://us-east-1-sia-db-mcp.adb.cyberark.cloud/mcp"
+  },
+  "authMethod": {
+    "type": "OAUTH2.1"
+  }
+}
+```
 
-1. Passthrough   
-   1. Context7 \- [https://mcp.context7.com/mcp/oauth](https://mcp.context7.com/mcp/oauth)  
-   2. Snowflake \-   
-2. MCP Servers with no authentication method (with CyberArk as IDP)  
-   1. [https://mcp.context7.com/mcp](https://mcp.context7.com/mcp) (choose “None”)  
-3. SIA  
-   1. Use the API above in order to create it.
+> `setup.sh` automates this when `SAI_AIGW_SIA_MCP_URL` is set in `vars.env`.
 
-**Known issues**
+## MCP Inventory
 
-1. No “MCP servers” entry in the left sidebar.  
-2. MCP Inventory filter doesn’t work  
-3. Pre-Defined list doesn’t exist (will be there very soon).  
-4. Context7 \+ OAUTH in Claude AI (Desktop/Web) isn’t working.
+Until the entry appears in the left sidebar under Administration, access the MCP inventory directly:
+
+```
+https://{tenant-name}.cyberark.cloud/adminportal/aigw/mcp/inventory
+```
+
+Example: <https://aigw-poc.cyberark.cloud/adminportal/aigw/mcp/inventory>
+
+## MCP Servers for Testing
+
+### Passthrough
+
+| Server | URL |
+|--------|-----|
+| Context7 | `https://mcp.context7.com/mcp/oauth` |
+| Snowflake | *(TBD)* |
+
+### No Authentication (CyberArk as IDP)
+
+| Server | URL | Auth |
+|--------|-----|------|
+| Context7 | `https://mcp.context7.com/mcp` | Choose "None" |
+
+### SIA
+
+Use the API above to create the SIA DB MCP server.
+
+## Known Issues
+
+- No "MCP servers" entry in the left sidebar.
+- MCP Inventory filter doesn't work.
+- Pre-defined list doesn't exist (coming soon).
+- Context7 + OAuth in Claude AI (Desktop/Web) isn't working.

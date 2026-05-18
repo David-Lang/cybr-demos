@@ -142,6 +142,7 @@ sequenceDiagram
 - **MCP inventory URL**: `https://{tenant-name}.cyberark.cloud/adminportal/aigw/mcp/inventory` (not yet in left sidebar — access via direct URL)
 - **MCP servers for testing**: Context7 passthrough (`https://mcp.context7.com/mcp/oauth`), Context7 no-auth (`https://mcp.context7.com/mcp`), SIA DB MCP (created via API)
 - **Tenant prep reference**: See [`setup/sai/dp_tenant_preparations.md`](setup/sai/dp_tenant_preparations.md) for role creation API, SIA MCP creation API, and known issues
+- **Architecture & workflows**: See [`setup/sai/sai_documentation_overview.md`](setup/sai/sai_documentation_overview.md) for the full SAI architecture, onboarding sequence, MCP server connection steps, and CyberArk docs links
 
 ### Summary Table
 - All 9 components with what was demonstrated

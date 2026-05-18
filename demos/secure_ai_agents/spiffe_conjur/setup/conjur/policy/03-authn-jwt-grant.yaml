@@ -1,0 +1,9 @@
+# Grant the spiffe-apps group permission to use the spiffe-auth authenticator.
+#
+# Loaded at branch:  conjur/authn-jwt/<CONJUR_AUTHN_SERVICE_ID>
+# Result:            members of /data/spiffe-apps can read + authenticate
+#                    against the conjur/authn-jwt/<service-id> webservice.
+
+- !grant
+  role: !group apps
+  member: !group /data/spiffe-apps

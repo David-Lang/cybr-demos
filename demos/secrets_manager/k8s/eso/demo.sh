@@ -160,7 +160,7 @@ cat <<'TALK'
   Now go to Privilege Cloud and change the password for
   account-ssh-user-1 in the k8s-eso safe.
 
-  ESO will detect the change on the next sync cycle (≤1 min).
+  ESO will detect the change on the next sync cycle (≤15s).
   This script will poll every 10 seconds and show you the
   moment the K8s secret updates — live, no restart required.
 

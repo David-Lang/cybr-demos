@@ -139,7 +139,7 @@ cert-manager uses the same `VCERT_API_KEY` or `VCERT_TPP_*` credentials to confi
 | `Secure AI Admins` | Full SAI administration |
 | `Secure AI Builders` | Agent registration and gateway configuration |
 
-> If SAI was previously installed on the tenant and is missing the `Secure AI Builders` role, either reinstall SAI or create the role via `POST /roles/storerole`. See [`setup/sai/dp_tenant_preparations.md`](setup/sai/dp_tenant_preparations.md) for full tenant prep steps including SIA MCP creation via API and known issues.
+> If SAI was previously installed on the tenant and is missing the `Secure AI Builders` role, either reinstall SAI or create the role via `POST /roles/storerole`. See [`setup/sai/dp_tenant_preparations.md`](setup/sai/dp_tenant_preparations.md) for full tenant prep steps including SIA MCP creation via API and known issues. For the full SAI architecture, onboarding workflow, and MCP server connection steps, see [`setup/sai/sai_documentation_overview.md`](setup/sai/sai_documentation_overview.md).
 
 ## What Gets Deployed
 

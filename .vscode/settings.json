@@ -1,0 +1,21 @@
+{
+  "yaml.customTags": [
+    "!policy mapping",
+    "!policy scalar",
+    "!host mapping",
+    "!host scalar",
+    "!group mapping",
+    "!group scalar",
+    "!grant mapping",
+    "!revoke mapping",
+    "!permit mapping",
+    "!delete mapping",
+    "!delete scalar",
+    "!variable mapping",
+    "!variable scalar",
+    "!webservice mapping",
+    "!webservice scalar",
+    "!layer mapping",
+    "!member mapping"
+  ]
+}

@@ -1,0 +1,8 @@
+# metadata
+# mode: append-policy
+# Load under branch: conjur/authn-jwt/github
+---
+# Allow the GitHub workload host to authenticate via this JWT authenticator.
+- !grant
+  role: !group apps
+  member: !host /data/github-apps/{{ .GITHUB_WORKFLOW }}

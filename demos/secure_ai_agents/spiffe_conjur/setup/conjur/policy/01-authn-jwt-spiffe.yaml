@@ -1,0 +1,40 @@
+# Conjur Cloud authn-jwt authenticator policy for SPIFFE JWT-SVIDs.
+#
+# Loaded at branch:  conjur/authn-jwt
+# Result:            conjur/authn-jwt/<CONJUR_AUTHN_SERVICE_ID>/{webservice, status, ...}
+#
+# CyberArk doc this implements:
+#   https://docs.cyberark.com/secrets-manager-saas/latest/en/content/operations/authn/authenticate-ai-spiffe.htm
+#
+# Variables (set after policy load by setup/conjur/setup.sh):
+#   jwks-uri            -> https://<cloudflared-url>/keys
+#   issuer              -> https://<cloudflared-url>            (matches JWT-SVID iss claim)
+#   token-app-property  -> sub                                  (the SPIFFE ID claim)
+#   identity-path       -> ${CONJUR_HOSTS_BRANCH}               (data/spiffe-apps)
+
+- !policy
+  id: ${CONJUR_AUTHN_SERVICE_ID}
+  body:
+    - !webservice
+
+    # Mapping variables for the JWT authenticator
+    - !variable jwks-uri
+    - !variable token-app-property
+    - !variable identity-path
+    - !variable issuer
+
+    # Group of workloads allowed to authenticate
+    - !group apps
+    - !permit
+        role: !group apps
+        privilege: [ read, authenticate ]
+        resource: !webservice
+
+    # Status webservice + operators
+    - !webservice
+        id: status
+    - !group operators
+    - !permit
+        role: !group operators
+        privilege: [ read, update ]
+        resource: !webservice

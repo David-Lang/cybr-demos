@@ -1,0 +1,74 @@
+# vulnerable-agent — the BEFORE state for the demo: a typical AI agent shipping today.
+#
+# What's wrong:
+#   - OPENAI_API_KEY is in the pod's env via a Kubernetes Secret reference.
+#   - That Secret is base64 (NOT encrypted) in etcd.
+#   - Anyone with `kubectl exec` rights into this pod can read the key.
+#   - Anyone with `kubectl get secret -o yaml` rights can read the key.
+#   - Compromise the pod = key exfil = full access to whatever the key opens.
+#   - Rotation = redeploy + every consumer of the Secret needs a restart.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vulnerable-agents
+  labels:
+    name: vulnerable-agents
+    purpose: spiffe-conjur-demo
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openai-credentials
+  namespace: vulnerable-agents
+type: Opaque
+stringData:
+  # Fake key for the demo. This is the kind of string you'll find in the env
+  # of every AI agent pod that hasn't graduated to vaulted secrets yet.
+  api-key: "sk-PLAINTEXT-IN-ETCD-rotate-me-never-7q9zABCDEFGHIJK"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vulnerable-agent
+  namespace: vulnerable-agents
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vulnerable-agent
+  namespace: vulnerable-agents
+  labels:
+    app: vulnerable-agent
+    demo: "before"
+spec:
+  serviceAccountName: vulnerable-agent
+  restartPolicy: Always
+  containers:
+    - name: agent
+      image: alpine:3.20
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -eu
+          apk add --no-cache curl jq >/dev/null 2>&1 || true
+          echo "[vulnerable-agent] running with API key in env"
+          echo "[vulnerable-agent] OPENAI_API_KEY=${OPENAI_API_KEY}"
+          echo "[vulnerable-agent] this string is also in the pod spec, in etcd, and in any logs that print env"
+          while true; do
+            echo "[vulnerable-agent] $(date -u +%FT%TZ) — calling 'API' with the hardcoded key..."
+            sleep 60
+          done
+      env:
+        - name: AGENT_NAME
+          value: "vulnerable-customer-support-bot"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-credentials
+              key: api-key

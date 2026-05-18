@@ -1,0 +1,47 @@
+# metadata
+# mode: append-policy
+---
+# JWT authenticator for GitHub Actions (Secrets Manager SaaS pattern).
+# See: https://docs.cyberark.com/secrets-manager-saas/latest/en/content/integrations/github-actions.htm
+- !policy
+  id: github
+  body:
+  - !webservice
+
+  - !variable
+    id: jwks-uri
+
+  - !variable
+    id: token-app-property
+
+  - !variable
+    id: identity-path
+
+  - !variable
+    id: issuer
+
+  - !variable
+    id: enforced-claims
+
+  - !group
+    id: apps
+
+  - !permit
+    role: !group apps
+    privilege: [ read, authenticate ]
+    resource: !webservice
+
+  - !webservice
+    id: status
+    annotations:
+      description: Status service to check that the authenticator is configured correctly
+
+  - !group
+    id: operators
+    annotations:
+      description: Group of users who can manage the authenticator and check status
+
+  - !permit
+    role: !group operators
+    privilege: [ read, update ]
+    resource: !webservice

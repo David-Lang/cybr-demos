@@ -1,0 +1,14 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Defines the Secrets Provider sidecar host identity under poc-workloads.
+# The host's "sub" annotation must match the K8s service account JWT sub claim.
+---
+- !policy
+  id: poc-workloads
+  body:
+  - !host
+    id: system:serviceaccount:sp-sidecar:sp-sidecar-sa
+    annotations:
+      authn-jwt/zg-eso/sub: system:serviceaccount:sp-sidecar:sp-sidecar-sa
+      authn/api-key: true

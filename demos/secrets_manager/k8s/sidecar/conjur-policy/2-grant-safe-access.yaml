@@ -1,0 +1,13 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Grants the sidecar workload host consumer access to the k8s-eso safe.
+---
+- !policy
+  id: vault
+  body:
+    - !grant
+      roles:
+        - !group k8s-eso/delegation/consumers
+      members:
+        - !host /data/poc-workloads/system:serviceaccount:sp-sidecar:sp-sidecar-sa

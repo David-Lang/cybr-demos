@@ -36,6 +36,8 @@ scripts=(
   "install_kubectl.sh"
   "install_k9s.sh"
   "install_helm.sh"
+  "install_minikube.sh"
+  "install_cloudflared.sh"
 )
 
 # 3. Execute scripts and log output
