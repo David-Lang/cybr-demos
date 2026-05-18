@@ -48,6 +48,20 @@ This demo includes these main patterns:
 - K8s Secrets FetchAll
 - Push To File
 - Push To File FetchAll
+- ESO auto-rotation with sample app (sub-demo)
+- direct `curl` authentication and retrieval
+
+### Sub-Demos
+
+| Directory | Pattern | Entry Point |
+|---|---|---|
+| `eso-reloader/` | ESO 15s refresh + volume/env consumption + Stakater Reloader | `bash eso-reloader/setup.sh` then `bash eso-reloader/demo.sh` |
+
+### `eso-reloader/` notes
+
+- Namespace **`eso-reloader`**. Shares **`k8s-eso`** safe and **`authn-jwt/zg-eso`** with the ESO sub-demo.
+- Demonstrates volume mount auto-update vs env vars requiring pod restart (Reloader automates restart).
+
 - External Secrets Operator
 - direct `curl` authentication and retrieval
 
