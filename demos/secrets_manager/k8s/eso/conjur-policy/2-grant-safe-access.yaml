@@ -1,0 +1,15 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Grants the ESO workload host consumer access to the k8s-eso safe.
+# The delegation/consumers group is created by the Conjur Synchronizer
+# after "Conjur Sync" is added as a safe member in Privilege Cloud.
+---
+- !policy
+  id: vault
+  body:
+    - !grant
+      roles:
+        - !group k8s-eso/delegation/consumers
+      members:
+        - !host /data/poc-workloads/system:serviceaccount:external-secrets:zg-eso-service-account

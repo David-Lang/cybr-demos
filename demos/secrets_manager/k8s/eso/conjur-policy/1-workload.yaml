@@ -1,0 +1,15 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Defines the poc-workloads policy and the ESO host identity.
+# The host's "sub" annotation must match the K8s service account JWT sub claim.
+---
+- !policy
+  id: poc-workloads
+  owner: !group /Conjur_Cloud_Admins
+  body:
+  - !host
+    id: system:serviceaccount:external-secrets:zg-eso-service-account
+    annotations:
+      authn-jwt/zg-eso/sub: system:serviceaccount:external-secrets:zg-eso-service-account
+      authn/api-key: true

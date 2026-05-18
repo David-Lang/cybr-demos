@@ -1,0 +1,14 @@
+# Policy branch: conjur/authn-jwt
+# mode: append-policy
+#
+# Adds the ESO workload host to the zg-eso JWT authenticator's apps group,
+# allowing it to authenticate via authn-jwt/zg-eso.
+---
+- !policy
+  id: zg-eso
+  body:
+  - !grant
+    roles:
+      - !group apps
+    members:
+      - !host /data/poc-workloads/system:serviceaccount:external-secrets:zg-eso-service-account

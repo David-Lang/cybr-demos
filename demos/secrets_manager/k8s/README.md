@@ -48,6 +48,20 @@ This demo includes these main patterns:
 - K8s Secrets FetchAll
 - Push To File
 - Push To File FetchAll
+- External Secrets Operator (standalone sub-demo)
+- direct `curl` authentication and retrieval
+
+### Sub-Demos
+
+| Directory | Pattern | Entry Point |
+|---|---|---|
+| `eso/` | External Secrets Operator — Conjur Cloud JWT auth (`refreshInterval: 15s`) | `bash eso/demo.sh` |
+
+### `eso/` manifests
+
+- **`secretstore.tmpl.yaml`** / **`externalsecret.yaml`** use namespace **`external-secrets`**. Render the SecretStore with `envsubst` and `TENANT_SUBDOMAIN` (see **`eso/demo_setup.md`**).
+- **`refreshInterval: 15s`** on the ExternalSecret for rotation walkthroughs.
+
 - External Secrets Operator
 - direct `curl` authentication and retrieval
 

@@ -34,8 +34,17 @@ for f in "${req[@]}"; do
   [[ -f "$f" ]] || { echo "[ERROR] missing file: $f" >&2; exit 1; }
 done
 
+if [[ -f "$demo_path/check_prereqs.sh" ]] && [[ "${SKIP_K8S_PREREQ_CHECK:-}" != "1" ]]; then
+  echo "[INFO] Running $demo_path/check_prereqs.sh (set SKIP_K8S_PREREQ_CHECK=1 to skip)"
+  bash "$demo_path/check_prereqs.sh" || {
+    echo "[ERROR] Prerequisite check failed. Fix the issues above, then re-run ./setup.sh" >&2
+    exit 1
+  }
+fi
+
 # Optional: ensure executable (won't hurt if already)
 chmod +x \
+  "$demo_path/check_prereqs.sh" \
   "$demo_path/setup/k8s/init_rancher.sh" \
   "$demo_path/setup/vault/setup.sh" \
   "$demo_path/setup/sm/setup.sh" \

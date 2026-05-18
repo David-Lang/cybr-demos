@@ -12,9 +12,10 @@ demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/k8s"
 # In prod a https service might be used with below to publicly expose jwks
 # curl -s https://127.0.0.1/openid/v1/jwks
 
-# Checks verify JWKS:
+# Checks verify JWKS (use cluster-relative paths so kubeconfig works on any API endpoint;
+# avoid hardcoded https://localhost:6443 — that only applies when the API is tunneled locally.)
 printf "\n\njwks jq formated\n"
-kubectl get --raw "https://localhost:6443/openid/v1/jwks" --insecure-skip-tls-verify | jq .
+kubectl get --raw /openid/v1/jwks | jq .
 printf "\n\nopenid-configurations\n"
 kubectl get --raw /.well-known/openid-configuration || echo "no discovery"
 printf "\n\njwks raw\n"
