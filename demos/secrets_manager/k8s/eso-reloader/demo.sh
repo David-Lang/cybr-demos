@@ -152,6 +152,14 @@ require_app_pod() {
   printf "%s" "$pod"
 }
 
+get_env_password() {
+  local pod="$1"
+  if [ -z "$pod" ]; then
+    return 0
+  fi
+  kubectl exec -n "$NAMESPACE" "$pod" -c app -- printenv DB_PASSWORD 2>/dev/null || true
+}
+
 brand_bar() {
   printf "${ACCENT}${BOLD}  %-54s${NC}\n" "  CyberArk Conjur Cloud · ESO · Reloader"
 }
@@ -504,6 +512,26 @@ while [ "$POLL_COUNT" -lt "$MAX_POLLS" ]; do
     printf "\n"
     status_ok "K8s Secret auto-rotated"
     status_ok "Zero code changes, zero manual intervention"
+
+    # Capture env vars immediately — Reloader often restarts the pod within seconds.
+    ROTATED_PASS="$CURRENT_PASS"
+    ROTATION_POD_AT_DETECT=$(get_app_pod)
+    ENV_PASS_AT_ROTATION=$(get_env_password "$ROTATION_POD_AT_DETECT")
+
+    printf "\n    ${BOLD}Snapshot (same second as Secret update):${NC}\n"
+    box_top 52
+    box_row 52 "  ${BOLD}K8s Secret password:${NC}  ${ACCENT}updated${NC}"
+    if [ -n "$ENV_PASS_AT_ROTATION" ] && [ "$ENV_PASS_AT_ROTATION" != "$ROTATED_PASS" ]; then
+      box_row 52 "  ${BOLD}DB_PASSWORD env:${NC}     ${ERR}still ${ENV_PASS_AT_ROTATION}${NC}"
+      box_row 52 "  ${DIM}(frozen at container start — Reloader has not rolled yet)${NC}"
+      status_warn "Env var still stale — step 11 will use this snapshot"
+    elif [ -n "$ENV_PASS_AT_ROTATION" ] && [ "$ENV_PASS_AT_ROTATION" = "$ROTATED_PASS" ]; then
+      box_row 52 "  ${BOLD}DB_PASSWORD env:${NC}     ${ACCENT}already ${ENV_PASS_AT_ROTATION}${NC}"
+      status_warn "Reloader was very fast — step 11 replays the stale-env story from this snapshot"
+    else
+      box_row 52 "  ${BOLD}DB_PASSWORD env:${NC}     ${DIM}(pod not ready to inspect)${NC}"
+    fi
+    box_bot 52
     break
   fi
 
@@ -519,20 +547,12 @@ if [ "$POLL_COUNT" -eq "$MAX_POLLS" ]; then
   printf "    ${DIM}3. kubectl get externalsecret -n %s db-credentials${NC}\n" "$NAMESPACE"
 fi
 
-# Jump to k9s right after the Secret changes so the audience can watch Reloader roll the
-# deployment before the scripted kubelet/env waits (those can take minutes).
-ROTATED_PASS_CHECK=$(kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath="{.data.password}" | base64 --decode)
-if [ "$ROTATED_PASS_CHECK" != "$BEFORE_PASS" ]; then
-  printf "\n    ${BOLD}Reloader reacts to this Secret change next.${NC}\n"
-  printf "    ${DIM}Live view: ${BOLD}:pods${DIM} — new pod name / age (clearest for Reloader). ${BOLD}:events${DIM} — Scheduled/Pulled/Started (optional, noisier).${NC}\n\n"
-  printf "    ${EMPH}Open k9s now to watch the rollout? [Y/n] ${NC}"
-  read -r k9s_early
-  case "${k9s_early:-y}" in
-    [nN]*) ;;
-    *) k9s -n "$NAMESPACE" ;;
-  esac
+if [ -z "${ROTATED_PASS:-}" ]; then
+  ROTATED_PASS=$(kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath="{.data.password}" | base64 --decode)
 fi
 
+printf "\n    ${DIM}Next: volume mount catches up (~60–90s), then the env-var / Reloader story.${NC}\n"
+printf "    ${DIM}Reloader may restart the pod during step 10 — we captured env at rotation above.${NC}\n"
 pause
 
 # ═══════════════════════════════════════════════════════════
@@ -551,7 +571,7 @@ printf "\n"
 
 printf "    ${BOLD}Polling mounted file until it reflects the new password...${NC}\n\n"
 
-ROTATED_PASS=$(kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath="{.data.password}" | base64 --decode)
+ROTATED_PASS="${ROTATED_PASS:-$(kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath="{.data.password}" | base64 --decode)}"
 VOL_COUNT=0
 VOL_MAX=$MAX_VOLUME_POLLS
 while [ "$VOL_COUNT" -lt "$VOL_MAX" ]; do
@@ -608,25 +628,42 @@ box_blank 53 "$EMPH"
 box_bot 53 "$EMPH"
 printf "\n"
 
-APP_POD=$(require_app_pod)
-ROTATED_PASS=$(kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath="{.data.password}" | base64 --decode)
-ENV_PASS=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- printenv DB_PASSWORD 2>/dev/null || echo "")
+APP_POD=$(get_app_pod)
+ENV_PASS_NOW=$(get_env_password "$APP_POD")
+VOL_NOW=""
+if [ -n "$APP_POD" ]; then
+  VOL_NOW=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- cat /etc/secrets/password 2>/dev/null || echo '(pending)')
+fi
 
-VOL_NOW=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- cat /etc/secrets/password 2>/dev/null || echo '(pending)')
-box_top 50
-box_row 50 "  ${BOLD}K8s Secret:${NC}     ${ACCENT}${ROTATED_PASS}${NC}"
-box_row 50 "  ${BOLD}Volume mount:${NC}   ${ACCENT}${VOL_NOW}${NC}"
-box_mid 50
-box_row 50 "  ${BOLD}DB_PASSWORD:${NC}    ${ERR}${ENV_PASS}${NC}"
-box_bot 50
+# Prefer the snapshot from step 9 — Reloader often wins before we reach this step.
+STALE_ENV="${ENV_PASS_AT_ROTATION:-$BEFORE_PASS}"
+if [ -z "$STALE_ENV" ] || [ "$STALE_ENV" = "$ROTATED_PASS" ]; then
+  STALE_ENV="$BEFORE_PASS"
+fi
+
+box_top 54
+box_row 54 "  ${BOLD}K8s Secret (now):${NC}              ${ACCENT}${ROTATED_PASS}${NC}"
+box_row 54 "  ${BOLD}Volume mount (now):${NC}            ${ACCENT}${VOL_NOW}${NC}"
+box_mid 54
+box_row 54 "  ${BOLD}DB_PASSWORD at rotation:${NC}       ${ERR}${STALE_ENV}${NC}"
+if [ -n "$ENV_PASS_NOW" ] && [ "$ENV_PASS_NOW" != "$STALE_ENV" ]; then
+  box_row 54 "  ${BOLD}DB_PASSWORD in running pod now:${NC}  ${ACCENT}${ENV_PASS_NOW}${NC}"
+  box_row 54 "  ${DIM}(Reloader likely restarted the pod during step 10)${NC}"
+elif [ -n "$ENV_PASS_NOW" ] && [ "$ENV_PASS_NOW" = "$STALE_ENV" ]; then
+  box_row 54 "  ${BOLD}DB_PASSWORD in running pod now:${NC}  ${ERR}${ENV_PASS_NOW}${NC}  ${ERR}still stale${NC}"
+else
+  box_row 54 "  ${BOLD}DB_PASSWORD in running pod now:${NC}  ${DIM}(unavailable)${NC}"
+fi
+box_bot 54
 printf "\n"
 
-if [ "$ENV_PASS" != "$ROTATED_PASS" ]; then
-  status_warn "Env var is STALE — still holds the pre-rotation value"
-  printf "\n    ${BOLD}Solution:${NC} A ${BOLD}rolling restart${NC} refreshes env vars.\n"
-  printf "    ${DIM}Reloader automates this. Without it, we restart manually.${NC}\n"
+if [ "$STALE_ENV" != "$ROTATED_PASS" ]; then
+  status_warn "Env var was STALE right after rotation — still held ${STALE_ENV}"
+  printf "\n    ${BOLD}Solution:${NC} ${BOLD}Rolling restart${NC} (Stakater Reloader does this automatically).\n"
+  printf "    ${DIM}Step 12 shows the rollout / refreshed env.${NC}\n"
 else
-  status_ok "Env var already matches (Reloader may have restarted the pod)"
+  status_warn "Could not capture a stale env at rotation — use the BEFORE password for narrative"
+  printf "    ${DIM}Expected: DB_PASSWORD stayed ${BEFORE_PASS} while Secret became ${ROTATED_PASS}${NC}\n"
 fi
 pause
 
@@ -641,12 +678,21 @@ if [ -n "$RELOADER_RUNNING" ]; then
   printf "\n    ${DIM}Checking if Reloader already restarted the pod...${NC}\n\n"
 
   APP_POD=$(require_app_pod)
-  ENV_PASS=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- printenv DB_PASSWORD 2>/dev/null || echo "")
+  ENV_PASS=$(get_env_password "$APP_POD")
 
   if [ "$ENV_PASS" = "$ROTATED_PASS" ]; then
-    status_ok "Reloader already restarted the pod — env vars are current"
+    status_ok "Reloader restarted the pod — env vars are current"
     printf "\n"
     printf "    ${DIM}│${NC}  DB_PASSWORD:  ${ACCENT}%s${NC}  ${ACCENT}✔${NC}\n" "$ENV_PASS"
+    if [ -n "${STALE_ENV:-}" ] && [ "$STALE_ENV" != "$ROTATED_PASS" ]; then
+      printf "    ${DIM}│${NC}  (was ${ERR}%s${NC} at rotation — step 11)${NC}\n" "$STALE_ENV"
+    fi
+    printf "\n    ${EMPH}Watch Reloader in k9s? [Y/n] ${NC}"
+    read -r k9s_reloader
+    case "${k9s_reloader:-n}" in
+      [yY]*) k9s -n "$NAMESPACE" ;;
+      *) ;;
+    esac
   else
     printf "    ${BOLD}Waiting for Reloader to restart the pod...${NC}\n\n"
     RESTART_COUNT=0
@@ -664,7 +710,7 @@ if [ -n "$RELOADER_RUNNING" ]; then
       fi
       if [ "$APP_POD" != "$OLD_POD" ]; then
         kubectl wait --for=condition=Ready pod -n "$NAMESPACE" "$APP_POD" --timeout=30s 2>/dev/null
-        ENV_PASS=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- printenv DB_PASSWORD 2>/dev/null || echo "")
+        ENV_PASS=$(get_env_password "$APP_POD")
         printf "    ${ACCENT}[%s]  ✔  Pod restarted by Reloader${NC}\n" "$TIMESTAMP"
         printf "\n"
         printf "    ${DIM}│${NC}  New pod:      ${BOLD}%s${NC}\n" "$APP_POD"
@@ -690,8 +736,9 @@ else
   box_bot 50
   printf "\n"
 
+  ENV_PASS=$(get_env_password "$(get_app_pod)")
   printf "    ${ERR}━━━ BEFORE restart ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-  printf "    ${DIM}│${NC}  DB_PASSWORD:  ${ERR}%s${NC}  ${ERR}✘ stale${NC}\n\n" "$ENV_PASS"
+  printf "    ${DIM}│${NC}  DB_PASSWORD:  ${ERR}%s${NC}  ${ERR}✘ stale${NC}\n\n" "${STALE_ENV:-$ENV_PASS}"
   pause
 
   printf "    ${BOLD}Triggering rolling restart...${NC}\n\n"
@@ -702,7 +749,7 @@ else
   APP_POD=$(require_app_pod)
   kubectl wait --for=condition=Ready pod -n "$NAMESPACE" "$APP_POD" --timeout=30s 2>/dev/null
 
-  FRESH_PASS=$(kubectl exec -n "$NAMESPACE" "$APP_POD" -c app -- printenv DB_PASSWORD 2>/dev/null || echo "")
+  FRESH_PASS=$(get_env_password "$APP_POD")
 
   printf "\n    ${ACCENT}━━━ AFTER restart ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
   printf "    ${DIM}│${NC}  DB_PASSWORD:  ${ACCENT}%s${NC}  ${ACCENT}✔ current${NC}\n\n" "$FRESH_PASS"
@@ -723,7 +770,7 @@ box_row 56 "  ${BOLD}Optional second pass${NC} — ESO + decoded Secret:"
 box_blank 56
 box_row 56 "  ${ACCENT}:externalsecrets${NC}  sync status + LAST SYNC timer"
 box_row 56 "  ${ACCENT}:secrets${NC}          ${BOLD}x${NC} decode"
-box_row 56 "  (${ACCENT}:pods${NC} / ${ACCENT}:events${NC} were best ${BOLD}right after rotation${NC})"
+box_row 56 "  (${ACCENT}:pods${NC} / ${ACCENT}:events${NC} — best during step 12 / Reloader rollout)"
 box_blank 56
 box_row 56 "  ${BOLD}Pro tip:${NC} decode secret, rotate again in Priv Cloud"
 box_bot 56
