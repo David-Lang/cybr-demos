@@ -1,0 +1,13 @@
+# Copy to demos/tenant_vars.sh and fill in real values (never commit tenant_vars.sh).
+#
+#   cp demos/tenant_vars.sh.example demos/tenant_vars.sh
+
+LAB_ID="lab01"
+TENANT_ID="your-tenant-short-id"
+TENANT_SUBDOMAIN="your-subdomain"
+CLIENT_ID="your-service-account@your-subdomain"
+CLIENT_SECRET="your-client-secret"
+
+# Credential Provider demos only (optional elsewhere):
+# INSTALLER_USR="installer-user"
+# INSTALLER_PWD="installer-password"
