@@ -48,6 +48,21 @@ This demo includes these main patterns:
 - K8s Secrets FetchAll
 - Push To File
 - Push To File FetchAll
+- Secrets Provider for Kubernetes (sidecar sub-demo)
+- direct `curl` authentication and retrieval
+
+### Sub-Demos
+
+| Directory | Pattern | Entry Point |
+|---|---|---|
+| `sidecar/` | CyberArk Secrets Provider — sidecar + `k8s_secrets`, 15s refresh | `bash sidecar/setup.sh` then `bash sidecar/demo.sh` |
+
+### `sidecar/` notes
+
+- Namespace **`sp-sidecar`**. Reuses safe **`k8s-eso`** and JWT authenticator **`authn-jwt/zg-eso`** (same as the ESO sub-demo when present).
+- **`setup.sh`** fetches the Conjur TLS cert, applies Conjur policy, and restarts the app after the sidecar populates **`db-credentials`**.
+- For local **minikube**, `setup.sh` can repoint the JWT authenticator JWKS — re-run **`setup/k8s/init_rancher.sh`** before returning to a Rancher lab cluster.
+
 - External Secrets Operator
 - direct `curl` authentication and retrieval
 
