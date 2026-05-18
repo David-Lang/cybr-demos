@@ -99,10 +99,16 @@ apply_conjur_secret "$TENANT_SUBDOMAIN" "$conjur_token" \
 
 ### 6. Apply K8s resources
 
+Set `TENANT_SUBDOMAIN` and optional `SM_AUTHN_ID` (defaults to `zg-eso`), then render and apply:
+
 ```bash
-kubectl apply -f demos/secrets_manager/k8s/eso/secretstore.yaml -n external-secrets
-kubectl apply -f demos/secrets_manager/k8s/eso/externalsecret.yaml -n external-secrets
+export TENANT_SUBDOMAIN=your-subdomain
+export SM_AUTHN_ID=zg-eso
+envsubst < demos/secrets_manager/k8s/eso/secretstore.tmpl.yaml | kubectl apply -f -
+kubectl apply -f demos/secrets_manager/k8s/eso/externalsecret.yaml
 ```
+
+`secretstore.yaml` in the repo may contain a lab example URL; prefer `secretstore.tmpl.yaml` for new clusters.
 
 ## What Gets Deployed
 

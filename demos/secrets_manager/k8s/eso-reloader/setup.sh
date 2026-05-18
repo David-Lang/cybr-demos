@@ -79,7 +79,13 @@ fi
 
 # ── Apply ESO resources ──────────────────────────────────
 echo "[INFO] Applying SecretStore and ExternalSecret"
-kubectl apply -f "$DEMO_DIR/secretstore.yaml"
+export SM_AUTHN_ID="${SM_AUTHN_ID:-zg-eso}"
+if [[ -z "${TENANT_SUBDOMAIN:-}" ]]; then
+  echo "[ERROR] TENANT_SUBDOMAIN is not set"
+  exit 1
+fi
+export TENANT_SUBDOMAIN SM_AUTHN_ID
+envsubst < "$DEMO_DIR/secretstore.tmpl.yaml" | kubectl apply -f -
 kubectl apply -f "$DEMO_DIR/externalsecret.yaml"
 
 echo "[INFO] Waiting for ExternalSecret to sync..."
