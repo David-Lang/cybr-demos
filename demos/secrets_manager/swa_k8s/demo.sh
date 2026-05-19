@@ -162,7 +162,7 @@ aws_edit_and_fetch() {
   key_id="$(grep AWS_ACCESS_KEY_ID "$creds_file" | cut -d'"' -f2)"
   secret="$(grep AWS_SECRET_ACCESS_KEY "$creds_file" | cut -d'"' -f2)"
 
-  echo "updated by demo - $(date -u +%H:%M:%SZ)" \
+  echo "hello from cyberark spiffe - aws - updated by demo - $(date -u +%H:%M:%SZ)" \
     | AWS_ACCESS_KEY_ID="$key_id" AWS_SECRET_ACCESS_KEY="$secret" \
       AWS_DEFAULT_REGION="$region" \
       aws s3 cp - "s3://$bucket/test.txt"
@@ -414,7 +414,7 @@ if [[ -n "$AWS_ROLE_ARN" ]]; then
 wget -qO- --no-check-certificate 'https://127.0.0.1:8443/csp-test?cloud=aws' | jq ."
 
   run_func "20. Edit The S3 File To Prove It Is A Live Fetch" \
-    "echo 'updated by demo - \$(date -u)' | aws s3 cp - s3://<bucket>/test.txt && curl /csp-test?cloud=aws" \
+    "echo 'hello from cyberark spiffe - aws - updated by demo - \$(date -u)' | aws s3 cp - s3://<bucket>/test.txt && curl /csp-test?cloud=aws" \
     aws_edit_and_fetch
 fi
 

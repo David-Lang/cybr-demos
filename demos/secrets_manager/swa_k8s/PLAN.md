@@ -173,11 +173,12 @@ The AWS integration is now ready to test. Spin up a fresh lab and:
 
 **Quick Start:** See [`QUICKSTART_AWS.md`](QUICKSTART_AWS.md) for a 5-minute setup guide.
 
-### Pending Azure/GCP Tasks (deferred)
+### Pending GCP Tasks (deferred)
 
-- Azure and GCP implementations exist in `csp.go` but are not being tested in this phase
-- ConfigMap creation logic exists in Azure/GCP setup scripts (needs same update as AWS)
-- All multi-cloud infrastructure is in place but untested
+- Azure and GCP implementations exist in `csp.go`
+- Azure setup now patches `giftapp-cloud-spiffe` with `AZURE_SPIFFE_*` runtime config and restarts `giftapp-swa`
+- GCP still needs the same non-clobbering ConfigMap update as AWS/Azure
+- Azure and GCP still need fresh-lab validation
 
 ### CSP Bootstrap Credential Flow (Simplified)
 

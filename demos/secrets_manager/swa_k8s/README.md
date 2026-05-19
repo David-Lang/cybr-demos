@@ -20,6 +20,7 @@ Two versions of the same Flask gift-card app are deployed side-by-side:
 | **AWS SPIFFE Integration** | |
 | [`QUICKSTART_AWS.md`](QUICKSTART_AWS.md) | **⚡ 5-minute quick start** for AWS SPIFFE testing |
 | [`AWS_TESTING.md`](AWS_TESTING.md) | Full AWS SPIFFE testing guide with troubleshooting |
+| [`AZURE_TESTING.md`](AZURE_TESTING.md) | Full Azure SPIFFE testing guide with troubleshooting |
 | [`LAB_CHECKLIST.md`](LAB_CHECKLIST.md) | Step-by-step lab setup checklist |
 
 ## Quick command flow
@@ -42,26 +43,32 @@ bash validate.sh
 bash demo.sh
 ```
 
-### With AWS SPIFFE Integration
+### With Cloud SPIFFE Integration
 
 ```bash
 cd demos/secrets_manager/swa_k8s
 
 # 1) Configure cloud variables
 vi setup/cloud/vars.env
-# Set: CLOUD_SAFE_NAME, CLOUD_CONJUR_AUTHN_LOGIN, AWS_ACCOUNT_ID, AWS_REGION
+# Set AWS_ACCOUNT_ID/AWS_REGION and/or AZURE_TENANT_ID/AZURE_SUBSCRIPTION_ID/AZURE_REGION
 
-# 2) Set up with AWS
+# 2) Set up with one or more clouds
 bash setup.sh --aws
+bash setup.sh --azure
+bash setup.sh --aws --azure
 
 # 3) Validate base demo
 bash validate.sh
 
-# 4) Test AWS SPIFFE
+# 4) Test cloud SPIFFE
 source setup/vars.env
 kubectl exec -n $NAMESPACE_SWA deployment/giftapp-swa -- \
   curl -sk "https://localhost:8443/csp-test?cloud=aws"
 # Expected: {"cloud":"aws","spiffeId":"spiffe://...","content":"hello from cyberark spiffe - aws"}
+
+kubectl exec -n $NAMESPACE_SWA deployment/giftapp-swa -- \
+  curl -sk "https://localhost:8443/csp-test?cloud=azure"
+# Expected: {"cloud":"azure","spiffeId":"spiffe://...","content":"hello from cyberark spiffe - azure"}
 ```
 
 ## What is SWA?

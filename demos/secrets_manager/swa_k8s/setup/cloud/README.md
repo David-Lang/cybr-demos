@@ -1,6 +1,6 @@
 # Cloud Provider Setup
 
-This directory contains scripts to set up cloud provider resources for the AWS SPIFFE JWT-SVID demo.
+This directory contains scripts to set up cloud provider resources for the SPIFFE JWT-SVID cloud federation demo.
 
 ## Quick Start
 
@@ -88,17 +88,18 @@ bash setup.sh --aws --azure --gcp
 - **IAM Role**: `<lab-id>-swa-k8s-spiffe-role` with trust policy for SPIFFE JWT-SVIDs
 - **IAM Policy**: `<lab-id>-swa-k8s-spiffe-s3-policy` allowing S3 read access
 - **S3 Bucket**: `<lab-id>-swa-k8s-spiffe-demo` with test file
-- **K8s ConfigMap**: `giftapp-cloud-spiffe` in namespace with AWS credentials
+- **K8s ConfigMap**: `giftapp-cloud-spiffe` in namespace with AWS runtime config
 
 Outputs written to: `aws/aws_registered.env`
 
-### Azure (Not Yet Tested)
+### Azure
 
 - Resource group
 - Managed identity with federated credential
 - Storage account and container
-- RBAC assignments
-- K8s ConfigMap with Azure credentials
+- `Storage Blob Data Reader` RBAC assignment for the managed identity
+- Test blob at `spiffe-demo/test.txt`
+- K8s ConfigMap with Azure runtime config
 
 Outputs written to: `azure/azure_registered.env`
 
@@ -192,7 +193,7 @@ Verify your credentials have the necessary permissions:
 
 ### ConfigMap not created
 
-The setup script should automatically create the ConfigMap. If it's missing, check:
+The setup scripts automatically create or patch the ConfigMap without removing keys created by other cloud setup scripts. If it's missing, check:
 
 ```bash
 kubectl get configmap giftapp-cloud-spiffe -n <namespace>
@@ -206,5 +207,17 @@ kubectl create configmap giftapp-cloud-spiffe \
   --from-literal="AWS_SPIFFE_ROLE_ARN=${AWS_SPIFFE_ROLE_ARN}" \
   --from-literal="AWS_SPIFFE_BUCKET=${AWS_SPIFFE_BUCKET}" \
   --from-literal="AWS_SPIFFE_REGION=${AWS_SPIFFE_REGION}" \
+  --namespace="<namespace>"
+```
+
+For Azure:
+
+```bash
+source setup/cloud/azure/azure_registered.env
+kubectl create configmap giftapp-cloud-spiffe \
+  --from-literal="AZURE_SPIFFE_CLIENT_ID=${AZURE_SPIFFE_CLIENT_ID}" \
+  --from-literal="AZURE_SPIFFE_TENANT_ID=${AZURE_SPIFFE_TENANT_ID}" \
+  --from-literal="AZURE_SPIFFE_STORAGE_ACCOUNT=${AZURE_SPIFFE_STORAGE_ACCOUNT}" \
+  --from-literal="AZURE_SPIFFE_CONTAINER=${AZURE_SPIFFE_CONTAINER}" \
   --namespace="<namespace>"
 ```

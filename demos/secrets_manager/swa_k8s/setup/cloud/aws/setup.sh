@@ -9,6 +9,10 @@ export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-$(dirname "$(dirname "$(dirname "$dem
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] [AWS] $*"; }
 
 set -a
+if [[ -f /etc/profile.d/cyberark.sh ]]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
 # shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
@@ -153,12 +157,19 @@ log "Wrote $OUT_ENV"
 # ── Update K8s ConfigMap for giftapp-swa ──────────────────────────────────────
 if command -v kubectl >/dev/null 2>&1; then
   log "Creating/updating giftapp-cloud-spiffe ConfigMap in namespace $NAMESPACE_SWA"
-  kubectl create configmap giftapp-cloud-spiffe \
-    --from-literal="AWS_SPIFFE_ROLE_ARN=${ROLE_ARN}" \
-    --from-literal="AWS_SPIFFE_BUCKET=${BUCKET_NAME}" \
-    --from-literal="AWS_SPIFFE_REGION=${AWS_REGION}" \
+  if ! kubectl get configmap giftapp-cloud-spiffe -n "$NAMESPACE_SWA" >/dev/null 2>&1; then
+    kubectl create configmap giftapp-cloud-spiffe --namespace="$NAMESPACE_SWA"
+  fi
+  kubectl patch configmap giftapp-cloud-spiffe \
     --namespace="$NAMESPACE_SWA" \
-    --dry-run=client -o yaml | kubectl apply -f -
+    --type merge \
+    --patch "{
+      \"data\": {
+        \"AWS_SPIFFE_ROLE_ARN\": \"${ROLE_ARN}\",
+        \"AWS_SPIFFE_BUCKET\": \"${BUCKET_NAME}\",
+        \"AWS_SPIFFE_REGION\": \"${AWS_REGION}\"
+      }
+    }"
 
   log "Restarting giftapp-swa deployment"
   kubectl rollout restart deployment/giftapp-swa -n "$NAMESPACE_SWA" || true

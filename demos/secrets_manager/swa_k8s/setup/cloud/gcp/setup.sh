@@ -9,6 +9,10 @@ export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-$(dirname "$(dirname "$(dirname "$dem
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] [GCP] $*"; }
 
 set -a
+if [[ -f /etc/profile.d/cyberark.sh ]]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
 # shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091

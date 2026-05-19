@@ -9,6 +9,10 @@ export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-$(dirname "$(dirname "$(dirname "$dem
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] [Azure] $*"; }
 
 set -a
+if [[ -f /etc/profile.d/cyberark.sh ]]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/cyberark.sh
+fi
 # shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
 # shellcheck disable=SC1091
@@ -118,18 +122,23 @@ else
     --output none
 fi
 
+STORAGE_ACCOUNT_KEY="$(az storage account keys list \
+  --account-name "$STORAGE_ACCOUNT" \
+  --resource-group "$RG_NAME" \
+  --query '[0].value' -o tsv)"
+
 # ── Blob container ────────────────────────────────────────────────────────────
 if az storage container show \
     --name "$CONTAINER_NAME" \
     --account-name "$STORAGE_ACCOUNT" \
-    --auth-mode login >/dev/null 2>&1; then
+    --account-key "$STORAGE_ACCOUNT_KEY" >/dev/null 2>&1; then
   log "Container already exists: $CONTAINER_NAME"
 else
   log "Creating container $CONTAINER_NAME"
   az storage container create \
     --name "$CONTAINER_NAME" \
     --account-name "$STORAGE_ACCOUNT" \
-    --auth-mode login \
+    --account-key "$STORAGE_ACCOUNT_KEY" \
     --output none
 fi
 
@@ -147,6 +156,22 @@ az role assignment create \
   --scope "$STORAGE_SCOPE" \
   --output none 2>/dev/null || log "Role assignment already exists (skipping)"
 
+# The setup principal needs data-plane access only for creating/updating test.txt.
+if [[ -n "${AZURE_CLIENT_ID:-}" ]]; then
+  SETUP_SP_OBJECT_ID="$(az ad sp show --id "$AZURE_CLIENT_ID" --query id -o tsv 2>/dev/null || true)"
+  if [[ -n "$SETUP_SP_OBJECT_ID" ]]; then
+    log "Assigning Storage Blob Data Contributor to setup service principal"
+    az role assignment create \
+      --assignee-object-id "$SETUP_SP_OBJECT_ID" \
+      --assignee-principal-type ServicePrincipal \
+      --role "Storage Blob Data Contributor" \
+      --scope "$STORAGE_SCOPE" \
+      --output none 2>/dev/null || log "Setup role assignment already exists (skipping)"
+  else
+    log "Could not resolve setup service principal object ID — assuming current login already has blob data access"
+  fi
+fi
+
 # ── Upload test blob ──────────────────────────────────────────────────────────
 log "Uploading test blob to ${STORAGE_ACCOUNT}/${CONTAINER_NAME}/test.txt"
 echo "hello from cyberark spiffe - azure" \
@@ -156,7 +181,7 @@ echo "hello from cyberark spiffe - azure" \
       --name "test.txt" \
       --data "@-" \
       --overwrite \
-      --auth-mode login \
+      --account-key "$STORAGE_ACCOUNT_KEY" \
       --output none
 
 # ── Write outputs ─────────────────────────────────────────────────────────────
@@ -170,4 +195,29 @@ export AZURE_SPIFFE_RG="${RG_NAME}"
 EOF
 
 log "Wrote $OUT_ENV"
+
+# ── Update K8s ConfigMap for giftapp-swa ──────────────────────────────────────
+if command -v kubectl >/dev/null 2>&1; then
+  log "Creating/updating giftapp-cloud-spiffe ConfigMap in namespace $NAMESPACE_SWA"
+  if ! kubectl get configmap giftapp-cloud-spiffe -n "$NAMESPACE_SWA" >/dev/null 2>&1; then
+    kubectl create configmap giftapp-cloud-spiffe --namespace="$NAMESPACE_SWA"
+  fi
+  kubectl patch configmap giftapp-cloud-spiffe \
+    --namespace="$NAMESPACE_SWA" \
+    --type merge \
+    --patch "{
+      \"data\": {
+        \"AZURE_SPIFFE_CLIENT_ID\": \"${CLIENT_ID}\",
+        \"AZURE_SPIFFE_TENANT_ID\": \"${AZURE_TENANT_ID}\",
+        \"AZURE_SPIFFE_STORAGE_ACCOUNT\": \"${STORAGE_ACCOUNT}\",
+        \"AZURE_SPIFFE_CONTAINER\": \"${CONTAINER_NAME}\"
+      }
+    }"
+
+  log "Restarting giftapp-swa deployment"
+  kubectl rollout restart deployment/giftapp-swa -n "$NAMESPACE_SWA" || true
+else
+  log "kubectl not found — skipping ConfigMap creation"
+fi
+
 log "Done — client ID: $CLIENT_ID"
