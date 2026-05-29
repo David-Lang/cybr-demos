@@ -1,0 +1,29 @@
+# metadata
+# mode: append-policy
+---
+- !policy
+  id: {{ .LAB_ID }}
+  body:
+  - !policy
+    id: azure-apps
+    body:
+    - !group
+
+    - &hosts
+      - !host
+        id: {{ .AZURE_WORKLOAD_HOST_NAME }}
+        annotations:
+          description: Summon Azure managed identity workload
+          authn-azure/subscription-id: {{ .AZURE_SUBSCRIPTION_ID }}
+          authn-azure/resource-group: {{ .AZURE_RESOURCE_GROUP }}
+          authn-azure/user-assigned-identity: {{ .AZURE_USER_ASSIGNED_IDENTITY_NAME }}
+
+    - !grant
+      role: !group
+      members: *hosts
+
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !group /data/{{ .LAB_ID }}/azure-apps

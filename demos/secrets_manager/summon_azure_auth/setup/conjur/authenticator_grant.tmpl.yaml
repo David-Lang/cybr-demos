@@ -1,0 +1,8 @@
+# metadata
+# mode: append-policy
+---
+- !grant
+  roles:
+    - !group {{ .AUTHN_AZURE_SERVICE_ID }}/apps
+  members:
+    - !group /data/{{ .LAB_ID }}/azure-apps

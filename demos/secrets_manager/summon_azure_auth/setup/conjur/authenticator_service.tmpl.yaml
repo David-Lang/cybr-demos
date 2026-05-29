@@ -1,0 +1,20 @@
+# metadata
+# mode: append-policy
+---
+- !policy
+  id: {{ .AUTHN_AZURE_SERVICE_ID }}
+  body:
+  - !webservice
+
+  - !variable
+    id: provider-uri
+
+  - !group
+    id: apps
+    annotations:
+      description: Group of hosts that can authenticate using authn-azure/{{ .AUTHN_AZURE_SERVICE_ID }}
+
+  - !permit
+    role: !group apps
+    privilege: [ read, authenticate, update ]
+    resource: !webservice
