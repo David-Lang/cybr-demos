@@ -58,8 +58,53 @@ azure_imds_token_response() {
     "$url"
 }
 
-validate_azure_imds() {
-  local token_json token_value
+azure_instance_compute_response() {
+  curl --fail --silent --show-error --connect-timeout 2 --max-time 15 \
+    --header "Metadata: true" \
+    "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01"
+}
+
+decode_jwt_payload() {
+  local token="$1"
+  local payload
+
+  payload="$(printf "%s" "$token" | cut -d. -f2)"
+  payload="${payload//-/+}"
+  payload="${payload//_//}"
+
+  case $((${#payload} % 4)) in
+    0) ;;
+    2) payload="${payload}==" ;;
+    3) payload="${payload}=" ;;
+    *)
+      printf "ERROR: Failed to normalize Azure token payload for decoding\n" >&2
+      return 1
+      ;;
+  esac
+
+  printf "%s" "$payload" | base64 -d
+}
+
+resource_id_segment() {
+  local resource_id="$1"
+  local wanted_segment="$2"
+  local parts index segment
+
+  IFS='/' read -r -a parts <<< "$resource_id"
+  for index in "${!parts[@]}"; do
+    segment="${parts[$index],,}"
+    if [ "$segment" = "$wanted_segment" ]; then
+      printf "%s" "${parts[$((index + 1))]:-}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_azure_metadata() {
+  local token_json token_value token_payload compute_json xms_mirid
+  local discovered_value
 
   if ! token_json="$(azure_imds_token_response)"; then
     printf "ERROR: Failed to retrieve Azure managed identity token from IMDS.\n" >&2
@@ -74,6 +119,46 @@ validate_azure_imds() {
     printf "ERROR: Azure IMDS response did not include access_token\n" >&2
     printf "%s\n" "$token_json" | jq . >&2
     exit 1
+  fi
+
+  token_payload="$(decode_jwt_payload "$token_value")"
+  xms_mirid="$(printf "%s" "$token_payload" | jq -r '.xms_mirid // empty')"
+
+  if [ -z "${AZURE_TENANT_ID:-}" ]; then
+    AZURE_TENANT_ID="$(printf "%s" "$token_payload" | jq -r '.tid // empty')"
+  fi
+
+  if [ -z "${AZURE_CLIENT_ID:-}" ]; then
+    AZURE_CLIENT_ID="$(printf "%s" "$token_json" | jq -r '.client_id // empty')"
+  fi
+
+  if [[ "${xms_mirid,,}" == *"/providers/microsoft.managedidentity/userassignedidentities/"* ]]; then
+    if [ -z "${AZURE_SUBSCRIPTION_ID:-}" ]; then
+      discovered_value="$(resource_id_segment "$xms_mirid" "subscriptions" || true)"
+      AZURE_SUBSCRIPTION_ID="$discovered_value"
+    fi
+
+    if [ -z "${AZURE_RESOURCE_GROUP:-}" ]; then
+      discovered_value="$(resource_id_segment "$xms_mirid" "resourcegroups" || true)"
+      AZURE_RESOURCE_GROUP="$discovered_value"
+    fi
+
+    if [ -z "${AZURE_USER_ASSIGNED_IDENTITY_NAME:-}" ]; then
+      discovered_value="$(resource_id_segment "$xms_mirid" "userassignedidentities" || true)"
+      AZURE_USER_ASSIGNED_IDENTITY_NAME="$discovered_value"
+    fi
+  fi
+
+  if [ -z "${AZURE_SUBSCRIPTION_ID:-}" ] || [ -z "${AZURE_RESOURCE_GROUP:-}" ]; then
+    if compute_json="$(azure_instance_compute_response)"; then
+      if [ -z "${AZURE_SUBSCRIPTION_ID:-}" ]; then
+        AZURE_SUBSCRIPTION_ID="$(printf "%s" "$compute_json" | jq -r '.subscriptionId // empty')"
+      fi
+
+      if [ -z "${AZURE_RESOURCE_GROUP:-}" ]; then
+        AZURE_RESOURCE_GROUP="$(printf "%s" "$compute_json" | jq -r '.resourceGroupName // empty')"
+      fi
+    fi
   fi
 
   printf "%s" "$token_json" | jq '{client_id, resource, token_type, expires_on}'
@@ -99,13 +184,6 @@ set +a
 
 AZURE_IMDS_RESOURCE="${AZURE_IMDS_RESOURCE:-https://management.azure.com/}"
 AZURE_WORKLOAD_HOST_NAME="${AZURE_WORKLOAD_HOST_NAME:-}"
-if [ -z "$AZURE_WORKLOAD_HOST_NAME" ]; then
-  AZURE_WORKLOAD_HOST_NAME="$AZURE_USER_ASSIGNED_IDENTITY_NAME"
-fi
-AZURE_PROVIDER_URI="https://sts.windows.net/$AZURE_TENANT_ID/"
-WORKLOAD_POLICY_BRANCH="data"
-WORKLOAD_APP_GROUP_ID="data/$LAB_ID/azure-apps"
-WORKLOAD_HOST_ID="$WORKLOAD_APP_GROUP_ID/$AZURE_WORKLOAD_HOST_NAME"
 
 required_vars=(
   LAB_ID
@@ -115,11 +193,6 @@ required_vars=(
   CLIENT_SECRET
   SAFE_NAME
   AUTHN_AZURE_SERVICE_ID
-  AZURE_TENANT_ID
-  AZURE_SUBSCRIPTION_ID
-  AZURE_RESOURCE_GROUP
-  AZURE_USER_ASSIGNED_IDENTITY_NAME
-  AZURE_WORKLOAD_HOST_NAME
   AZURE_IMDS_RESOURCE
 )
 
@@ -127,28 +200,13 @@ for var_name in "${required_vars[@]}"; do
   require_env "$var_name"
 done
 validate_safe_name "$SAFE_NAME"
-warn_identity_name_constraints "$AZURE_USER_ASSIGNED_IDENTITY_NAME"
 
 require_command "curl"
 require_command "jq"
+require_command "base64"
 ensure_file "authenticator_service.tmpl.yaml"
 ensure_file "workload.tmpl.yaml"
 ensure_file "authenticator_grant.tmpl.yaml"
-
-printf "\nResolving Azure managed identity through IMDS...\n"
-validate_azure_imds
-
-printf "\n========================================\n"
-printf "Provisioning Azure Managed Identity Workload\n"
-printf "========================================\n"
-printf "\nSafe: %s\n" "$SAFE_NAME"
-printf "Authn service: %s\n" "$AUTHN_AZURE_SERVICE_ID"
-printf "Provider URI: %s\n" "$AZURE_PROVIDER_URI"
-printf "Azure subscription: %s\n" "$AZURE_SUBSCRIPTION_ID"
-printf "Azure resource group: %s\n" "$AZURE_RESOURCE_GROUP"
-printf "Azure identity name: %s\n" "$AZURE_USER_ASSIGNED_IDENTITY_NAME"
-printf "Workload group: %s\n" "$WORKLOAD_APP_GROUP_ID"
-printf "Workload host: %s\n" "$WORKLOAD_HOST_ID"
 
 printf "\nAuthenticating to Identity...\n"
 identity_token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
@@ -165,6 +223,50 @@ if [ -z "$conjur_token" ]; then
   exit 1
 fi
 printf "Conjur authentication successful\n"
+
+printf "\nResolving Azure managed identity through IMDS...\n"
+resolve_azure_metadata
+
+if [ -z "${AZURE_USER_ASSIGNED_IDENTITY_NAME:-}" ]; then
+  printf "ERROR: Could not discover AZURE_USER_ASSIGNED_IDENTITY_NAME from Azure IMDS.\n" >&2
+  printf "Set AZURE_USER_ASSIGNED_IDENTITY_NAME in setup/vars.env to the user-assigned managed identity name attached to this VM.\n" >&2
+  exit 1
+fi
+
+if [ -z "${AZURE_WORKLOAD_HOST_NAME:-}" ]; then
+  AZURE_WORKLOAD_HOST_NAME="$AZURE_USER_ASSIGNED_IDENTITY_NAME"
+fi
+
+AZURE_PROVIDER_URI="https://sts.windows.net/$AZURE_TENANT_ID/"
+WORKLOAD_POLICY_BRANCH="data"
+WORKLOAD_APP_GROUP_ID="data/$LAB_ID/azure-apps"
+WORKLOAD_HOST_ID="$WORKLOAD_APP_GROUP_ID/$AZURE_WORKLOAD_HOST_NAME"
+
+required_azure_vars=(
+  AZURE_TENANT_ID
+  AZURE_SUBSCRIPTION_ID
+  AZURE_RESOURCE_GROUP
+  AZURE_USER_ASSIGNED_IDENTITY_NAME
+  AZURE_WORKLOAD_HOST_NAME
+)
+
+for var_name in "${required_azure_vars[@]}"; do
+  require_env "$var_name"
+done
+warn_identity_name_constraints "$AZURE_USER_ASSIGNED_IDENTITY_NAME"
+
+printf "\n========================================\n"
+printf "Provisioning Azure Managed Identity Workload\n"
+printf "========================================\n"
+printf "\nSafe: %s\n" "$SAFE_NAME"
+printf "Authn service: %s\n" "$AUTHN_AZURE_SERVICE_ID"
+printf "Provider URI: %s\n" "$AZURE_PROVIDER_URI"
+printf "Azure subscription: %s\n" "$AZURE_SUBSCRIPTION_ID"
+printf "Azure resource group: %s\n" "$AZURE_RESOURCE_GROUP"
+printf "Azure identity name: %s\n" "$AZURE_USER_ASSIGNED_IDENTITY_NAME"
+printf "Azure client id: %s\n" "${AZURE_CLIENT_ID:-<unset>}"
+printf "Workload group: %s\n" "$WORKLOAD_APP_GROUP_ID"
+printf "Workload host: %s\n" "$WORKLOAD_HOST_ID"
 
 if authn_azure_apps_group_exists; then
   printf "\nAzure authenticator service already exists: authn-azure/%s\n" "$AUTHN_AZURE_SERVICE_ID"

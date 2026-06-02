@@ -23,6 +23,7 @@ Create a repo-standard Secrets Manager demo based on `summon_aws_auth` that runs
 - [x] Add Azure workload policy with managed identity annotations.
 - [x] Adapt setup orchestration and vault setup paths.
 - [x] Adapt runtime demo script for Azure metadata and Summon cloud auth.
+- [x] Discover Azure tenant, subscription, resource group, and identity metadata from IMDS where possible.
 - [x] Adapt cleanup to preserve `authn-azure/<service-id>`.
 - [x] Update README, setup, and validation documentation.
 - [x] Run syntax checks locally.
@@ -31,7 +32,8 @@ Create a repo-standard Secrets Manager demo based on `summon_aws_auth` that runs
 
 ## New Lab Test Checklist
 
-- Fill `setup/vars.env` with Azure tenant, subscription, resource group, and user-assigned managed identity values.
+- Fill `setup/vars.env` with `AZURE_CLIENT_ID` if the VM has multiple managed identities.
+- Fill `AZURE_USER_ASSIGNED_IDENTITY_NAME` only if setup cannot discover it from the managed identity token.
 - Confirm the VM can obtain an Azure managed identity token from IMDS.
 - Run `bash setup.sh`.
 - Run `source ./conjur_authn_azure.env`.

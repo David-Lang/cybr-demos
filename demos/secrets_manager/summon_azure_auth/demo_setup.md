@@ -51,18 +51,22 @@ The setup uses `setup/vars.env` as the shared demo configuration file. Set these
 
 - `SAFE_NAME`
 - `AUTHN_AZURE_SERVICE_ID`
+
+These values can usually be discovered from Azure IMDS and may be left blank:
+
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 - `AZURE_RESOURCE_GROUP`
 - `AZURE_USER_ASSIGNED_IDENTITY_NAME`
-- `AZURE_CLIENT_ID` when the VM has multiple managed identities
+
+Set `AZURE_CLIENT_ID` when the VM has multiple managed identities attached. If setup cannot discover the user-assigned identity name from the Azure token, set `AZURE_USER_ASSIGNED_IDENTITY_NAME` explicitly.
 
 Constraints and assumptions:
 
 - `SAFE_NAME` must not exceed 28 characters.
 - `AZURE_USER_ASSIGNED_IDENTITY_NAME` is case-sensitive.
 - CyberArk's Azure authenticator examples use the managed identity name, not the client ID, in the `authn-azure/user-assigned-identity` annotation.
-- `AZURE_CLIENT_ID` is optional for policy, but useful for IMDS token selection.
+- `AZURE_CLIENT_ID` is optional for policy, but required for IMDS token selection when more than one managed identity is attached.
 - The generated workload host lives under `host/data/<LAB_ID>/azure-apps/<host-name>`.
 
 ## Setup Flow
