@@ -52,14 +52,22 @@ source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/template_functions.sh"
 # shellcheck disable=SC1091
 source "$CYBR_DEMOS_PATH/demos/utility/ubuntu/aws_functions.sh"
 
-is_tool_installed() {
-  if command -v "$1" >/dev/null 2>&1; then
-    echo "$1 is installed"
+ensure_tool_installed() {
+  local tool_name="$1"
+  local install_script="$CYBR_DEMOS_PATH/compute_init/ubuntu/install_${tool_name}.sh"
+
+  if command -v "$tool_name" >/dev/null 2>&1; then
+    echo "$tool_name is installed"
   else
-    echo "$1 is not installed and it might be required to run setup scripts"
+    echo "$tool_name is not installed. Installing with $install_script"
+    if [ ! -x "$install_script" ]; then
+      printf "ERROR: Installer script not found or not executable: %s\n" "$install_script" >&2
+      return 1
+    fi
+    bash "$install_script"
   fi
 }
 
-is_tool_installed git
-is_tool_installed curl
-is_tool_installed jq
+ensure_tool_installed git
+ensure_tool_installed curl
+ensure_tool_installed jq
