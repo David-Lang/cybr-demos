@@ -1,0 +1,108 @@
+# Student Guide: Hardcoded Secret Remediation
+
+Workspace:
+
+```bash
+cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
+```
+
+## Goal
+
+You will compare two scripts that run the same Azure SQL query:
+
+- `query_db_hardcoded.sh` has database connection secrets in the script.
+- `query_db_secured.sh` has no hardcoded secrets and receives them at runtime.
+
+The SQL query remains inline in both scripts. The remediation is about secret handling, not query logic.
+
+## 1. Run The Hardcoded Script
+
+```bash
+./query_db_hardcoded.sh
+```
+
+The script should return rows from the Azure SQL database.
+
+## 2. Find The Hardcoded Secrets
+
+Open the script:
+
+```bash
+sed -n '1,80p' query_db_hardcoded.sh
+```
+
+Identify the values that should not be stored in code:
+
+- SQL server
+- database username
+- database password
+
+## 3. Inspect The Secured Script
+
+```bash
+sed -n '1,120p' query_db_secured.sh
+```
+
+Notice that the script still runs `sqlcmd`, but it reads connection values from environment variables:
+
+- `SQL_SERVER`
+- `SQL_DATABASE`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+
+## 4. Inspect The CyberArk Mapping
+
+```bash
+cat secrets.yml
+```
+
+This file maps environment variables to CyberArk safe-backed variables:
+
+```text
+SQL_SERVER -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/address
+DB_USERNAME -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username
+DB_PASSWORD -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password
+```
+
+## 5. Inspect The Summon Wrapper
+
+```bash
+sed -n '1,120p' run_secured_query.sh
+```
+
+Find the Summon command:
+
+```bash
+summon --provider summon-conjur -f ./secrets.yml ./query_db_secured.sh
+```
+
+Summon reads `secrets.yml`, retrieves the authorized values from CyberArk, injects them into the child process, and starts `query_db_secured.sh`.
+
+## 6. Run The Secured Script
+
+```bash
+./run_secured_query.sh
+```
+
+The secured script should return the same database result as the hardcoded script.
+
+## 7. Explain The Flow
+
+Be ready to explain this sequence:
+
+```text
+run_secured_query.sh
+  -> source conjur_authn_azure.env
+  -> summon reads secrets.yml
+  -> summon-conjur authenticates with Azure managed identity
+  -> CyberArk returns authorized safe-backed values
+  -> query_db_secured.sh receives environment variables
+  -> sqlcmd runs the inline SQL query
+```
+
+## Success Criteria
+
+- You can identify the hardcoded secrets in `query_db_hardcoded.sh`.
+- You can explain why `query_db_secured.sh` does not contain those secrets.
+- You can point to where Summon is called.
+- You can explain which values come from CyberArk and which value is normal configuration.
