@@ -4,6 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/templates"
 DEMO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+INPUTS_ENV="${INPUTS_ENV:-$SCRIPT_DIR/inputs.env}"
+
+if [ ! -f "$INPUTS_ENV" ]; then
+  printf "ERROR: Activity inputs file not found: %s\n" "$INPUTS_ENV" >&2
+  printf "Create or edit activity/inputs.env and set the required values.\n" >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$INPUTS_ENV"
+set +a
 
 LABS_ROOT="${LABS_ROOT:-/opt/labs}"
 ACTIVITY_DIR_NAME="${ACTIVITY_DIR_NAME:-hardcoded-secret-remediation}"
@@ -20,7 +32,8 @@ ACCOUNT_NAME_TEMPLATE="${ACCOUNT_NAME_TEMPLATE:-azure-sql-__STUDENT__}"
 require_env() {
   local var_name="$1"
   if [ -z "${!var_name:-}" ]; then
-    printf "ERROR: Required environment variable is not set: %s\n" "$var_name" >&2
+    printf "ERROR: Required activity input is not set: %s\n" "$var_name" >&2
+    printf "Set %s in %s.\n" "$var_name" "$INPUTS_ENV" >&2
     exit 1
   fi
 }
@@ -148,7 +161,7 @@ for ((N = 1; N <= STUDENT_COUNT; N++)); do
   SQL_QUERY_VALUE="$(render_string "$SQL_QUERY")"
 
   if [ -z "$DB_PASSWORD_VALUE" ]; then
-    printf "ERROR: Missing password for %s. Set DB_PASSWORD_TEMPLATE, DB_PASSWORD, or DB_PASSWORD_%s.\n" "$STUDENT" "$N" >&2
+    printf "ERROR: Missing password for %s. Set DB_PASSWORD_TEMPLATE, DB_PASSWORD, or DB_PASSWORD_%s in %s.\n" "$STUDENT" "$N" "$INPUTS_ENV" >&2
     exit 1
   fi
 

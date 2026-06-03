@@ -25,25 +25,21 @@ From the parent demo directory:
 cd demos/secrets_manager/summon_azure_auth
 ```
 
-Set the required activity inputs:
+Edit the activity inputs file:
 
 ```bash
-export STUDENT_COUNT=30
-export SQL_SERVER="myserver.database.windows.net"
-export SQL_DATABASE="trainingdb"
-export SQL_QUERY="SELECT TOP 5 * FROM dbo.ExampleTable"
+vi activity/inputs.env
 ```
 
-Set credential and CyberArk naming templates:
+Set the required values:
 
-```bash
-export DB_USERNAME_TEMPLATE="__STUDENT___user"
-export DB_PASSWORD_TEMPLATE="replace-with-lab-password-pattern"
-export SAFE_NAME_TEMPLATE="${LAB_ID}-__STUDENT__-sql"
-export ACCOUNT_NAME_TEMPLATE="azure-sql-__STUDENT__"
+```env
+SQL_SERVER="myserver.database.windows.net"
+SQL_DATABASE="trainingdb"
+DB_PASSWORD_TEMPLATE="replace-with-lab-password-pattern"
 ```
 
-Then run:
+Adjust the optional student count, query, credential, and CyberArk naming templates in the same file as needed. Then run:
 
 ```bash
 bash activity/setup_activity.sh
@@ -51,13 +47,13 @@ bash activity/setup_activity.sh
 
 ## Per-Student Overrides
 
-If credentials or CyberArk names do not follow a simple pattern, set numbered overrides before running setup:
+If credentials or CyberArk names do not follow a simple pattern, add numbered overrides to `activity/inputs.env` before running setup:
 
-```bash
-export DB_USERNAME_1="student1_user"
-export DB_PASSWORD_1="student1-password"
-export SAFE_NAME_1="${LAB_ID}-student1-sql"
-export ACCOUNT_NAME_1="azure-sql-student1"
+```env
+DB_USERNAME_1="student1_user"
+DB_PASSWORD_1="student1-password"
+SAFE_NAME_1="${LAB_ID:-lab}-student1-sql"
+ACCOUNT_NAME_1="azure-sql-student1"
 ```
 
 Supported override prefixes:
