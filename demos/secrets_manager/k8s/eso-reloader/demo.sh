@@ -108,7 +108,28 @@ header() {
 
 run_cmd() {
   printf "    ${ACCENT}\$ %s${NC}\n" "$*"
-  eval "$@" 2>&1 | while IFS= read -r line; do printf "    %s\n" "$line"; done
+  "$@" 2>&1 | while IFS= read -r line; do printf "    %s\n" "$line"; done
+}
+
+preflight() {
+  if ! command -v kubectl >/dev/null 2>&1; then
+    printf "${ERR}ERROR: kubectl not found in PATH.${NC}\n" >&2
+    exit 1
+  fi
+  if ! kubectl cluster-info --request-timeout=5s >/dev/null 2>&1; then
+    printf "${ERR}ERROR: cannot reach the Kubernetes API at:${NC} %s\n" \
+      "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null)" >&2
+    printf "${EMPH}Start the cluster first:${NC}\n" >&2
+    printf "  minikube start --driver=docker\n" >&2
+    printf "  kubectl cluster-info\n" >&2
+    exit 1
+  fi
+  if ! kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
+    printf "${ERR}ERROR: namespace '%s' is missing.${NC}\n" "$NAMESPACE" >&2
+    printf "${EMPH}Run the demo setup first:${NC}\n" >&2
+    printf "  bash %s/setup.sh\n" "$DEMO_DIR" >&2
+    exit 1
+  fi
 }
 
 info_box() {

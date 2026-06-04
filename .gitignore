@@ -24,6 +24,7 @@ secrets/*
 
 # Credential/config files that get populated with real secrets
 demos/tenant_vars.sh
+demos/tenant_vars.local.sh
 demos/tenant_vars.ps1
 **/vars.env
 **/vars.env.bak
@@ -34,6 +35,18 @@ jwks.json
 demos/secrets_manager/github.com/setup/conjur/workload1.yaml
 demos/secrets_manager/github.com/setup/conjur/github_apps_vault_grant.yaml
 demos/secrets_manager/github.com/setup/conjur/github_jwt_apps_grant.yaml
+
+# secrets_manager/jenkins runtime artifacts
+demos/secrets_manager/jenkins/setup/.jenkins.env
+demos/secrets_manager/jenkins/setup/jenkins/state/
+demos/secrets_manager/jenkins/setup/jenkins/pipeline/get_secrets.groovy
+demos/secrets_manager/jenkins/setup/jenkins/configure_conjur.groovy
+demos/secrets_manager/jenkins/setup/conjur/workload1.yaml
+demos/secrets_manager/jenkins/setup/conjur/jenkins_apps_vault_grant.yaml
+demos/secrets_manager/jenkins/setup/conjur/jenkins_jwt_apps_grant.yaml
+demos/secrets_manager/jenkins/setup/conjur/jwt_service_jenkins.yaml
+demos/secrets_manager/jenkins/setup/conjur/remove_jenkins_jwt_apps_revoke.yaml
+demos/secrets_manager/jenkins/setup/conjur/remove_jenkins_apps_vault_revoke.yaml
 
 # secure_ai_agents/spiffe_conjur runtime artifacts
 demos/secure_ai_agents/spiffe_conjur/setup/.oidc.env

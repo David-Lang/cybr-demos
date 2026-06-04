@@ -4,53 +4,177 @@
 # shellcheck disable=SC2153
 set -euo pipefail
 
+demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/jenkins"
+# shellcheck disable=SC1091
+source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
+# shellcheck disable=SC1091
+source "$demo_path/setup/vars.env"
+
+state_dir="$demo_path/setup/jenkins/state"
+mkdir -p "$state_dir"
+
+CLOUDFLARED_PID_FILE="$state_dir/cloudflared.pid"
+CLOUDFLARED_LOG="$state_dir/cloudflared.log"
+JENKINS_ENV_FILE="$demo_path/setup/.jenkins.env"
+
 main() {
-  printf "\nJenkins Setup\n"
-  set_variables
-  start_jenkins
-  printf "\n"
+  printf "\nJenkins Setup (profile: %s)\n" "${DEPLOY_PROFILE:-aws}"
+  start_jenkins_container
+  resolve_jenkins_public_url
+  write_jenkins_env_file
+  print_configuration_summary
 }
 
-
-set_variables() {
-  printf "\nSetting local vars from Env\n"
-
-#  jenkins_image="jenkins/jenkins:lts"
-  jenkins_container="$JENKINS_CONTAINER"
-#  jenkins_volume="cybr-jenkins"
-  jenkins_port=8081
-
-  host_fqdn=$(curl --silent http://169.254.169.254/latest/meta-data/public-hostname)
+resolve_jenkins_public_url() {
+  # Default mode is public-keys: finish_setup.sh mirrors the live Jenkins JWKS
+  # into the Conjur 'public-keys' variable, so Conjur verifies signatures locally
+  # and does not need to reach Jenkins. JENKINS_PUBLIC_URL / JENKINS_JWKS_URI are
+  # only consulted if you opt out of public-keys mode.
+  case "${DEPLOY_PROFILE:-aws}" in
+    aws)
+      HOST_FQDN="${HOST_FQDN:-$(curl -sf --connect-timeout 2 http://169.254.169.254/latest/meta-data/public-hostname || true)}"
+      if [[ -z "$HOST_FQDN" ]]; then
+        HOST_FQDN="127.0.0.1"
+        printf "[INFO] EC2 IMDS unavailable — falling back HOST_FQDN to 127.0.0.1 (public-keys mode does not need a public hostname)\n"
+      fi
+      JENKINS_PUBLIC_URL="http://${HOST_FQDN}:${JENKINS_PORT}"
+      JENKINS_ISSUER="$JENKINS_PUBLIC_URL"
+      JENKINS_JWKS_URI="${JENKINS_PUBLIC_URL}/jwtauth/conjur-jwk-set"
+      ;;
+    local)
+      if [[ -n "${CLOUDFLARED_TUNNEL_NAME:-}" ]] || command -v cloudflared >/dev/null 2>&1; then
+        start_cloudflared_tunnel
+        HOST_FQDN="${TUNNEL_HOST:-localhost}"
+        JENKINS_PUBLIC_URL="$TUNNEL_URL"
+        JENKINS_ISSUER="$TUNNEL_URL"
+        JENKINS_JWKS_URI="${TUNNEL_URL}/jwtauth/conjur-jwk-set"
+      else
+        printf "[INFO] cloudflared not installed — staying on http://127.0.0.1:%s (public-keys mode does not need a tunnel)\n" "$JENKINS_PORT"
+        HOST_FQDN="127.0.0.1"
+        JENKINS_PUBLIC_URL="http://127.0.0.1:${JENKINS_PORT}"
+        JENKINS_ISSUER="$JENKINS_PUBLIC_URL"
+        JENKINS_JWKS_URI="${JENKINS_PUBLIC_URL}/jwtauth/conjur-jwk-set"
+      fi
+      ;;
+    *)
+      printf "DEPLOY_PROFILE must be aws or local\n" >&2
+      exit 1
+      ;;
+  esac
+  export HOST_FQDN JENKINS_PUBLIC_URL JENKINS_ISSUER JENKINS_JWKS_URI
 }
 
-start_jenkins() {
-  printf "\nStarting Jenkins\n"
-#  docker build -f ./Dockerfile -t $cybr_jenkins_image:latest .
-
-  # create volume for persistence of state across container instances
-#  if [[ "$(docker volume ls | grep "$jenkins_volume")" == "" ]]; then
-#    docker volume create "$jenkins_volume"
-#  fi
-
-  if [[ "$(docker ps | grep "$jenkins_container")" == "" ]]; then
-     docker run -p "$jenkins_port":8080 -d --name "$jenkins_container" --restart always jenkins/jenkins:lts
-     sleep 10
-     docker logs "$jenkins_container"
+start_cloudflared_tunnel() {
+  if ! command -v cloudflared >/dev/null 2>&1; then
+    printf "cloudflared is required for DEPLOY_PROFILE=local\n" >&2
+    exit 1
   fi
 
-  printf "\n\nKeystore Password is: changeit\n\n"
-  printf "\nWaiting for Jenkins to start up...\n"
+  if [ -f "$CLOUDFLARED_PID_FILE" ]; then
+    old_pid=$(cat "$CLOUDFLARED_PID_FILE")
+    kill "$old_pid" 2>/dev/null || true
+    rm -f "$CLOUDFLARED_PID_FILE"
+  fi
 
-  echo
-  echo "======== Configuration info ========="
-  echo
-  echo "Follow the README.md file for guidance on setting up Jenkins"
-  echo
-  echo "Jenkins URL: http://$host_fqdn:$jenkins_port"
-  echo
-  echo -n "Initial Jenkins admin password: "
-  echo $(docker exec "$jenkins_container" cat /var/jenkins_home/secrets/initialAdminPassword)
-  echo
+  local_port="${JENKINS_PORT}"
+  TUNNEL_URL=""
+
+  if [ -n "${CLOUDFLARED_TUNNEL_NAME:-}" ]; then
+    if [ -z "${CLOUDFLARED_TUNNEL_HOSTNAME:-}" ]; then
+      printf "CLOUDFLARED_TUNNEL_HOSTNAME required when CLOUDFLARED_TUNNEL_NAME is set\n" >&2
+      exit 1
+    fi
+    nohup cloudflared tunnel --no-autoupdate run --url "http://127.0.0.1:${local_port}" "$CLOUDFLARED_TUNNEL_NAME" \
+      >"$CLOUDFLARED_LOG" 2>&1 &
+    echo $! >"$CLOUDFLARED_PID_FILE"
+    TUNNEL_URL="https://${CLOUDFLARED_TUNNEL_HOSTNAME}"
+    TUNNEL_HOST="$CLOUDFLARED_TUNNEL_HOSTNAME"
+  else
+    printf "Starting cloudflared quick tunnel -> http://127.0.0.1:%s\n" "$local_port"
+    nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:${local_port}" \
+      >"$CLOUDFLARED_LOG" 2>&1 &
+    echo $! >"$CLOUDFLARED_PID_FILE"
+    for _ in $(seq 1 60); do
+      if [ -s "$CLOUDFLARED_LOG" ]; then
+        TUNNEL_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$CLOUDFLARED_LOG" | head -1 || true)
+        [ -n "$TUNNEL_URL" ] && break
+      fi
+      sleep 1
+    done
+    TUNNEL_HOST="${TUNNEL_URL#https://}"
+  fi
+
+  if [ -z "$TUNNEL_URL" ]; then
+    printf "cloudflared did not produce a public URL; see %s\n" "$CLOUDFLARED_LOG" >&2
+    exit 1
+  fi
+  printf "Tunnel URL: %s\n" "$TUNNEL_URL"
+}
+
+start_jenkins_container() {
+  if docker ps -a --format '{{.Names}}' | grep -qx "$JENKINS_CONTAINER"; then
+    if ! docker ps --format '{{.Names}}' | grep -qx "$JENKINS_CONTAINER"; then
+      docker start "$JENKINS_CONTAINER" >/dev/null
+    fi
+  else
+    docker run -p "${JENKINS_PORT}:8080" -d --name "$JENKINS_CONTAINER" jenkins/jenkins:lts
+  fi
+
+  printf "Waiting for Jenkins to listen on port %s...\n" "$JENKINS_PORT"
+  for _ in $(seq 1 60); do
+    if curl -sf "http://127.0.0.1:${JENKINS_PORT}/login" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+  done
+}
+
+write_jenkins_env_file() {
+  cat >"$JENKINS_ENV_FILE" <<EOF
+# Generated by setup/jenkins/setup.sh — do not commit
+HOST_FQDN="${HOST_FQDN}"
+JENKINS_LOCAL_URL="http://127.0.0.1:${JENKINS_PORT}"
+JENKINS_PUBLIC_URL="${JENKINS_PUBLIC_URL}"
+JENKINS_ISSUER="${JENKINS_ISSUER}"
+JENKINS_JWKS_URI="${JENKINS_JWKS_URI}"
+EOF
+}
+
+print_configuration_summary() {
+  local admin_pw
+  admin_pw=$(docker exec "$JENKINS_CONTAINER" cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null || echo "(already configured)")
+
+  cat <<EOF
+
+======== Jenkins demo configuration =========
+Local UI (presenter):  http://127.0.0.1:${JENKINS_PORT}
+Public URL:            ${JENKINS_PUBLIC_URL}
+Initial password:      ${admin_pw}
+
+Conjur plugin (Manage Jenkins > System):
+  Authentication type:  JWT
+  Conjur account:         conjur
+  Appliance URL:          https://${TENANT_SUBDOMAIN}.secretsmgr.cyberark.cloud/api
+  Service ID:             authn-jwt/${CONJUR_JWT_AUTHN_ID}
+  JWT audience:           ${CONJUR_AUDIENCE:-cyberark-conjur}
+
+JWT signature trust (default: public-keys mode):
+  finish_setup.sh mirrors Jenkins's JWKS into the Conjur public-keys variable
+  and PATCH-deletes jwks-uri. Conjur verifies signatures locally — no inbound
+  reach back to Jenkins required.
+
+  JENKINS_ISSUER  (set in Conjur as 'issuer'):  ${JENKINS_ISSUER}
+  JENKINS_JWKS_URI (only used if you opt back into jwks-uri mode):
+    ${JENKINS_JWKS_URI}
+
+Workload identity (must match pipeline job jenkins_full_name claim):
+  data/jenkins-apps/${JWT_CLAIM_IDENTITY}
+
+Next: bash go.sh (full bootstrap) or demo_validation.md
+Pipeline job (after go.sh): global-credentials-demo
+===============================================
+
+EOF
 }
 
 main "$@"

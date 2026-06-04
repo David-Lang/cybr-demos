@@ -145,7 +145,7 @@ bash init_cybr_demos.sh
 | `k8s` | Kubernetes cluster (EKS, OCP, or Rancher/RKE2) |
 | `github.com` | GitHub repo with Actions enabled |
 | `gitlab.com` | GitLab project with CI/CD enabled |
-| `jenkins` | Docker (Jenkins runs in a container) |
+| `jenkins` | Docker (Jenkins runs in a container). Optional Edge mode also needs the Conjur Cloud Edge image + an Edge instance from the Secrets Manager UI. |
 | `hashi_vault` | Kubernetes cluster + Helm |
 | `asm` | AWS account + IAM credentials |
 | `agent_ubuntu` | CyberArk CP installer package in S3 |
@@ -328,21 +328,31 @@ bash demo.sh
 
 #### Jenkins (`demos/secrets_manager/jenkins/`)
 
-**What it shows:** A Jenkins pipeline retrieves secrets using the [Conjur Secrets Plugin](https://plugins.jenkins.io/conjur-secrets/), with context-aware access tied to the Jenkins job.
+**What it shows:** A Jenkins pipeline retrieves credentials at run time from CyberArk Secrets Manager via the [Conjur Secrets Plugin](https://plugins.jenkins.io/conjur-credentials/), authenticating with a short-lived JWT (`authn-jwt`) where each pipeline job's `jenkins_full_name` is its own Conjur workload identity. No static API key lives in Jenkins.
+
+Two architectures, switchable via `CONJUR_AUTH_TARGET` + `JWT_TRUST_MODE` in `setup/vars.env`:
+
+| Mode | Story |
+|------|-------|
+| **cloud** (default) | Jenkins authenticates directly to Conjur Cloud SaaS. Signature trust via a JWKS mirrored into the `public-keys` variable — works on a laptop with no inbound network. |
+| **edge** | Jenkins authenticates against a local **Conjur Cloud Edge** container on the same Docker host. Edge replicates policy + secrets from Conjur Cloud and validates JWTs locally — the auth + secret-read path never leaves the host. For restricted-egress, latency-sensitive, or regulated environments. |
 
 ```bash
 cd demos/secrets_manager/jenkins
-vi setup/vars.env
-bash setup.sh
+cp setup/vars.env.example setup/vars.env
+cp ../../tenant_vars.local.sh.example ../../tenant_vars.local.sh   # TENANT_ID, CLIENT_*
+bash go.sh
+bash ready_check.sh
 bash demo.sh
 ```
 
-> After `setup.sh`, you may need to finish plugin configuration in the Jenkins UI. See `demos/secrets_manager/jenkins/README.md` for detailed steps.
+> Presenter UI: http://127.0.0.1:8081/job/global-credentials-demo/ — see `demo_validation.md`.
+> Edge bring-up: see `setup/edge/README.md`.
 
 **Clean up:**
 
 ```bash
-bash setup/jenkins/remove.sh
+bash remove.sh
 ```
 
 #### Summon on Linux (`demos/secrets_manager/summon_ubuntu/`)

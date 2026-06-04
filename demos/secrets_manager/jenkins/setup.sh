@@ -1,19 +1,24 @@
 #!/bin/bash
+# Full setup when CyberArk credentials are configured (same stages as go.sh).
 set -euo pipefail
 
-demo_path="$CYBR_DEMOS_PATH/demos/conjur_cloud/jenkins"
-# Set environment variables using .env file
-# -a means that every bash variable would become an environment variable
-# Using ‘+’ rather than ‘-’ causes the option to be turned off
-set -a
-source "$demo_path/setup/vars.env"
-set +a
+demo_path="$(cd "$(dirname "$0")" && pwd)"
+export CYBR_DEMOS_PATH="${CYBR_DEMOS_PATH:-$(cd "$demo_path/../../.." && pwd)}"
+vars_example="$demo_path/setup/vars.env.example"
+vars_file="$demo_path/setup/vars.env"
 
-# Vault Setup
-cd "$demo_path/setup/vault" && ./setup.sh
+if [ ! -f "$vars_file" ]; then
+  if [ -f "$vars_example" ]; then
+    cp "$vars_example" "$vars_file"
+    printf "Created %s from example — edit SAFE_NAME / DEPLOY_PROFILE, then re-run setup.sh\n" "$vars_file"
+    exit 1
+  fi
+  printf "Missing %s\n" "$vars_file" >&2
+  exit 1
+fi
 
-# Conjur Setup
-cd "$demo_path/setup/conjur" && ./setup.sh
+if [[ "${SKIP_JENKINS_PREREQ_CHECK:-}" != "1" ]]; then
+  bash "$demo_path/check_prereqs.sh"
+fi
 
-# Vault Setup
-cd "$demo_path/setup/jenkins" && ./setup.sh
+exec bash "$demo_path/go.sh"

@@ -1,0 +1,12 @@
+# Copy to demos/tenant_vars.local.sh (gitignored) — required for bash go.sh
+#
+#   cp demos/tenant_vars.local.sh.example demos/tenant_vars.local.sh
+#   vi demos/tenant_vars.local.sh
+#
+# Use the same service account as demos/secrets_manager/k8s/eso (e.g. conjurinstaller@zach-lab).
+
+export LAB_ID="zach"
+export TENANT_SUBDOMAIN="zach-lab"
+export TENANT_ID="your-tenant-short-id"
+export CLIENT_ID="conjurinstaller@zach-lab"
+export CLIENT_SECRET="your-service-account-secret"

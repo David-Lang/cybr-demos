@@ -146,8 +146,8 @@ get_identity_token() {
   else
     local j
     for ((j = 0; j < nd; j++)); do
-      printf '--- body %d (%d bytes) ---\n' "$j" "${#diag_bodies[j]}" >&2
-      printf '%s\n' "${diag_bodies[j]}" | jq . 2>/dev/null || printf '%s\n' "${diag_bodies[j]}" >&2
+      printf -- '--- body %d (%d bytes) ---\n' "$j" "${#diag_bodies[j]}" >&2
+      printf -- '%s\n' "${diag_bodies[j]}" | jq . 2>/dev/null >&2 || printf -- '%s\n' "${diag_bodies[j]}" >&2
     done
   fi
   if ((nd > 0)); then

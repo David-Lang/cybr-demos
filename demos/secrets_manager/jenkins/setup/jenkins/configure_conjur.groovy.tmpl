@@ -1,0 +1,26 @@
+// Rendered by configure_jenkins.sh from setup/vars.env + setup/.jenkins.env.
+// Do NOT edit the .groovy directly — edit configure_conjur.groovy.tmpl.
+// Applied once via init.groovy.d on Jenkins restart.
+import org.conjur.jenkins.configuration.ConjurConfiguration
+import org.conjur.jenkins.configuration.GlobalConjurConfiguration
+import jenkins.model.Jenkins
+
+// CONJUR_AUTH_TARGET selects where the plugin sends authn-jwt requests:
+//   cloud -> Conjur Cloud SaaS
+//   edge  -> Conjur Cloud Edge container on this Docker host
+def applianceUrl = '{{APPLIANCE_URL}}'
+def authnId      = '{{CONJUR_JWT_AUTHN_ID}}'
+def audience     = '{{CONJUR_AUDIENCE}}'
+
+def global = GlobalConjurConfiguration.get()
+global.setSelectAuthenticator('JWT')
+global.setAuthWebServiceId("authn-jwt/${authnId}")
+// jwtAudience defaults to cyberark-conjur in plugin 3.x (no setter)
+global.setSelectIdentityFormatToken('jenkins_full_name')
+global.setIdentityFormatFieldsFromToken('jenkins_full_name')
+
+def conjur = new ConjurConfiguration(applianceUrl, 'conjur')
+global.setConjurConfiguration(conjur)
+global.save()
+
+println("Conjur plugin configured: JWT authn-jwt/${authnId} -> ${applianceUrl} (audience=${audience})")

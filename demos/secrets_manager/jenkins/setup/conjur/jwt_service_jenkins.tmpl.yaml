@@ -1,0 +1,51 @@
+# metadata
+# mode: append-policy
+---
+# JWT authenticator for Jenkins (Secrets Manager SaaS pattern).
+# Rendered by setup/conjur/setup.sh from setup/vars.env (CONJUR_JWT_AUTHN_ID).
+# See: https://docs.cyberark.com/secrets-manager-saas/latest/en/content/integrations/jenkins.htm
+- !policy
+  id: {{ .CONJUR_JWT_AUTHN_ID }}
+  body:
+    - !webservice
+
+    - !variable
+      id: jwks-uri
+
+    - !variable
+      id: public-keys
+
+    - !variable
+      id: token-app-property
+
+    - !variable
+      id: identity-path
+
+    - !variable
+      id: issuer
+
+    - !variable
+      id: audience
+
+    - !group
+      id: apps
+
+    - !permit
+      role: !group apps
+      privilege: [ read, authenticate ]
+      resource: !webservice
+
+    - !webservice
+      id: status
+      annotations:
+        description: Status service to check that the authenticator is configured correctly
+
+    - !group
+      id: operators
+      annotations:
+        description: Group of users who can manage the authenticator and check status
+
+    - !permit
+      role: !group operators
+      privilege: [ read, update ]
+      resource: !webservice status

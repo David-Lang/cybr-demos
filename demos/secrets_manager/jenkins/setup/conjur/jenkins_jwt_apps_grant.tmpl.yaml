@@ -1,0 +1,7 @@
+# metadata
+# mode: append-policy
+# Load under branch: conjur/authn-jwt/jenkins1
+---
+- !grant
+  role: !group apps
+  member: !host /data/jenkins-apps/{{ .JWT_CLAIM_IDENTITY }}

@@ -1,10 +1,17 @@
-# Copy to demos/tenant_vars.sh and fill in real values (never commit tenant_vars.sh).
+# Copy to demos/tenant_vars.sh (never commit real secrets).
 #
 #   cp demos/tenant_vars.sh.example demos/tenant_vars.sh
+#
+# For Jenkins / K8s demos, put API credentials in demos/tenant_vars.local.sh instead:
+#
+#   cp demos/tenant_vars.local.sh.example demos/tenant_vars.local.sh
+#   vi demos/tenant_vars.local.sh
 
 LAB_ID="lab01"
-TENANT_ID="your-tenant-short-id"
 TENANT_SUBDOMAIN="your-subdomain"
+
+# Or set these in tenant_vars.local.sh (recommended):
+TENANT_ID="your-tenant-short-id"
 CLIENT_ID="your-service-account@your-subdomain"
 CLIENT_SECRET="your-client-secret"
 

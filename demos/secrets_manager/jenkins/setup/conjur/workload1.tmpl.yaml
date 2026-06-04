@@ -1,0 +1,15 @@
+# metadata
+# mode: append-policy
+---
+# Workload identity for Jenkins (jenkins_full_name claim).
+# Identity path data/jenkins-apps matches conjur/authn-jwt/<CONJUR_JWT_AUTHN_ID>/identity-path.
+- !policy
+  id: jenkins-apps
+  body:
+    - !host
+      id: {{ .JWT_CLAIM_IDENTITY }}
+      annotations:
+        authn-jwt/{{ .CONJUR_JWT_AUTHN_ID }}/jenkins_full_name: {{ .JWT_CLAIM_IDENTITY }}
+        authn-jwt/{{ .CONJUR_JWT_AUTHN_ID }}/jenkins_task_noun: Build
+        authn-jwt/{{ .CONJUR_JWT_AUTHN_ID }}/jenkins_pronoun: Global
+        authn/api-key: true

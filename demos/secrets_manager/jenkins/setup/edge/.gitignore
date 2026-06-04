@@ -1,0 +1,3 @@
+# The install.sh contains a one-shot 8-minute install token from the
+# Secrets Manager UI. Never commit it.
+install.sh

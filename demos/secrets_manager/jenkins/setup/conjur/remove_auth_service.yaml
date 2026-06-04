@@ -1,0 +1,6 @@
+# metadata
+# mode: append-policy
+# branch: conjur/authn-jwt
+---
+- !delete
+  record: !policy jenkins1

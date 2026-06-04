@@ -27,10 +27,37 @@ header() {
 
 run_cmd() {
   printf "${GREEN}\$ %s${NC}\n" "$*"
-  eval "$@"
+  "$@"
+}
+
+preflight() {
+  if ! command -v kubectl >/dev/null 2>&1; then
+    printf "${RED}ERROR: kubectl not found in PATH.${NC}\n" >&2
+    exit 1
+  fi
+  if ! kubectl cluster-info --request-timeout=5s >/dev/null 2>&1; then
+    printf "${RED}ERROR: cannot reach the Kubernetes API at:${NC}\n" >&2
+    kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' >&2 2>/dev/null || true
+    printf "\n${YELLOW}Start the cluster first:${NC}\n" >&2
+    printf "  minikube start --driver=docker         ${YELLOW}# or your cluster of choice${NC}\n" >&2
+    printf "  kubectl cluster-info                   ${YELLOW}# should report Running${NC}\n" >&2
+    exit 1
+  fi
+  if ! kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
+    printf "${RED}ERROR: namespace '%s' is missing.${NC}\n" "$NAMESPACE" >&2
+    printf "${YELLOW}Run the demo setup first:${NC}\n" >&2
+    printf "  cd %s/.. && bash setup.sh\n" "$ESO_DIR" >&2
+    exit 1
+  fi
+  if ! kubectl get deploy -n "$NAMESPACE" -l 'app.kubernetes.io/name=external-secrets' -o name >/dev/null 2>&1 \
+     || [[ -z "$(kubectl get pods -n "$NAMESPACE" -l 'app.kubernetes.io/name=external-secrets' -o name 2>/dev/null)" ]]; then
+    printf "${YELLOW}WARN: ESO controller not detected in namespace %s. Continuing anyway.${NC}\n" "$NAMESPACE"
+  fi
 }
 
 # ─────────────────────────────────────────────────────────
+preflight
+
 header "ESO + CyberArk Secrets Manager Demo"
 cat <<'INTRO'
 
@@ -155,43 +182,64 @@ printf "${BOLD}Current password in K8s:${NC} %s\n" "$BEFORE_PASS"
 printf "${BOLD}Refresh interval:${NC}       "
 kubectl get externalsecret -n "$NAMESPACE" conjur -o jsonpath="{.spec.refreshInterval}"
 echo
-cat <<'TALK'
+# Rotation poll cadence — env-configurable so presenters can ride out Conjur Sync lag.
+ROT_INTERVAL="${CYBR_DEMO_POLL_INTERVAL:-10}"
+ROT_WINDOW_SECONDS="${CYBR_DEMO_ROTATION_TIMEOUT:-360}"
+ROT_MAX_POLLS=$(( ROT_WINDOW_SECONDS / ROT_INTERVAL ))
+[ "$ROT_MAX_POLLS" -lt 1 ] && ROT_MAX_POLLS=1
+
+cat <<TALK
 
   Now go to Privilege Cloud and change the password for
   account-ssh-user-1 in the k8s-eso safe.
 
-  ESO will detect the change on the next sync cycle (≤15s).
-  This script will poll every 10 seconds and show you the
-  moment the K8s secret updates — live, no restart required.
+  End-to-end propagation: CPM (in Priv Cloud) -> Conjur Sync ->
+  Conjur Cloud -> ESO refresh (15s) -> K8s Secret. Conjur Sync
+  is the slowest leg and can lag several minutes in busy tenants.
+
+  This script polls every ${ROT_INTERVAL}s for up to ${ROT_WINDOW_SECONDS}s
+  (override: CYBR_DEMO_POLL_INTERVAL, CYBR_DEMO_ROTATION_TIMEOUT).
 
 TALK
 printf "${YELLOW}▶ Change the password in Privilege Cloud, then press ENTER to start watching...${NC}"
 read -r
 
-printf "\n${BOLD}Watching for rotation...${NC}\n"
-POLL_COUNT=0
-MAX_POLLS=18
-while [ "$POLL_COUNT" -lt "$MAX_POLLS" ]; do
-  CURRENT_PASS=$(kubectl get secret -n "$NAMESPACE" conjur-secrets -o jsonpath="{.data.password}" | base64 --decode)
-  POLL_COUNT=$((POLL_COUNT + 1))
-  TIMESTAMP=$(date +"%H:%M:%S")
+watch_rotation() {
+  local before="$1" interval="$2" max="$3" count=0 current ts last_sync
+  printf "\n${BOLD}Watching for rotation (interval=%ss, window=%ss)...${NC}\n" "$interval" "$((interval * max))"
+  while [ "$count" -lt "$max" ]; do
+    current=$(kubectl get secret -n "$NAMESPACE" conjur-secrets -o jsonpath="{.data.password}" 2>/dev/null | base64 --decode 2>/dev/null || echo "")
+    count=$((count + 1))
+    ts=$(date +"%H:%M:%S")
+    if [ -n "$current" ] && [ "$current" != "$before" ]; then
+      printf "  ${GREEN}[%s] ✓ ROTATED${NC}\n" "$ts"
+      printf "\n${BOLD}Before:${NC} %s\n" "$before"
+      printf "${BOLD}After:${NC}  %s\n" "$current"
+      printf "\n${GREEN}Password updated in K8s — zero pod restarts, zero redeployments.${NC}\n"
+      return 0
+    fi
+    last_sync=$(kubectl get externalsecret -n "$NAMESPACE" conjur -o jsonpath='{.status.refreshTime}' 2>/dev/null || echo "")
+    printf "  [%s] polling... unchanged (%d/%d, last ESO sync: %s)\n" "$ts" "$count" "$max" "${last_sync:-?}"
+    sleep "$interval"
+  done
+  return 1
+}
 
-  if [ "$CURRENT_PASS" != "$BEFORE_PASS" ]; then
-    printf "  ${GREEN}[%s] ✓ ROTATED${NC}\n" "$TIMESTAMP"
-    printf "\n${BOLD}Before:${NC} %s\n" "$BEFORE_PASS"
-    printf "${BOLD}After:${NC}  %s\n" "$CURRENT_PASS"
-    printf "\n${GREEN}Password updated in K8s — zero pod restarts, zero redeployments.${NC}\n"
-    break
-  fi
-
-  printf "  [%s] polling... password unchanged (%d/%d)\n" "$TIMESTAMP" "$POLL_COUNT" "$MAX_POLLS"
-  sleep 10
+while ! watch_rotation "$BEFORE_PASS" "$ROT_INTERVAL" "$ROT_MAX_POLLS"; do
+  printf "\n${YELLOW}No change after %ss. Conjur Sync may still be catching up.${NC}\n" \
+    "$((ROT_INTERVAL * ROT_MAX_POLLS))"
+  printf "${BOLD}Diagnostics:${NC}\n"
+  printf "  ExternalSecret status:\n"
+  kubectl get externalsecret -n "$NAMESPACE" conjur 2>&1 | sed 's/^/    /'
+  printf "  Last reconciler errors (if any):\n"
+  kubectl logs -n "$NAMESPACE" deploy/external-secrets --tail=3 2>&1 | grep -E "error|Reconciler" | sed 's/^/    /' | head -3 || true
+  printf "\n${YELLOW}Keep watching another %ss? [Y/n]: ${NC}" "$((ROT_INTERVAL * ROT_MAX_POLLS))"
+  read -r continue_ans
+  case "${continue_ans:-y}" in
+    [nN]*) printf "${RED}Manual check: kubectl get secret -n %s conjur-secrets -o jsonpath=\"{.data.password}\" | base64 --decode${NC}\n" "$NAMESPACE"; break ;;
+    *) BEFORE_PASS=$(kubectl get secret -n "$NAMESPACE" conjur-secrets -o jsonpath="{.data.password}" | base64 --decode) ;;
+  esac
 done
-
-if [ "$POLL_COUNT" -eq "$MAX_POLLS" ]; then
-  printf "\n${RED}Timed out after 3 minutes. Verify the change propagated in Privilege Cloud.${NC}\n"
-  printf "Manual check: kubectl get secret -n %s conjur-secrets -o jsonpath=\"{.data.password}\" | base64 --decode\n" "$NAMESPACE"
-fi
 pause
 
 # ─────────────────────────────────────────────────────────

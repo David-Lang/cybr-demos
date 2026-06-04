@@ -1,98 +1,100 @@
-# Jenkins Setup
+# Demo: Jenkins + CyberArk Secrets Manager (JWT)
 
-Instructions on how to set up the demo environment  
+Jenkins pipelines retrieve secrets from CyberArk Secrets Manager using the [Conjur Secrets plugin](https://plugins.jenkins.io/conjur-credentials/) and JWT authentication (`authn-jwt`), with credentials synced from a Privilege Cloud safe.
 
-#### Run the demo setup if not already done 
-```
-./setup.sh 
-```
+End-to-end flow:
 
-======== Configuration info ========= 
-
-## Use RDP to login 
-Go to the jenkins in a browser: http:\\FQDN:PORT
-login with default password 
-complete default plugin install
-create admin user: admin
-save and finnish
-
-## Install Conjur Plugin
-Manage Jenkins:Manage Plugins:Available Plugins 
-search: Conjur Secrets
-Check checkbox: "Restart Jenkins when installation is complete... "
-
-## Configure Conjur Plugin
-Manage Jenkins:Configure System
-
-*Scroll Down to Conjur Appliance  
-Enter Conjur details
-
-*Scroll Down to Conjur JWT Authentication  
-Enter Conjur JWT details
-make sure checkboxes are checked: 
-- Enable JWT Key Set endpoint 
-- Enable Context Aware Credential Stores 
-
-Save 
-
-## Create a Jenkins Job
-Manage Jenkins
-Dashboard
-Create a new Job (Pipeline) 
-**name: new-identity**
-copy "freestyle.sh" contents into Pipeline:Definition:Script  
-Save
-Dashboard:cybrlab-pipeline:Configuration:General
-Refresh Credential Store
-Dashboard:cybrlab-pipeline:Credentials
-Inspect Credentials
-
-Run the pipeline
-look at the "Console Output" 
-look at the file output artifact
-
-## Jenkins Job Logging
-Configure a new log recorder
-
-Select Logger:
-Type\Select: org.conjur.jenkins
-Log Level: All
-
-## On Jenkins server/container add Edge cert to Java cert store: cacerts
+```text
+Privilege Cloud Safe -> Conjur Sync -> Conjur Cloud (SaaS) -> Jenkins Conjur plugin
+                                                              -> JWT auth (authn-jwt)
+                                                              -> conjurSecretCredential
+                                                              -> masked env vars in build
 ```
 
-# update jenkins container with Conjur Cloud Cert
+Two architectures supported, switchable via two env vars in `setup/vars.env`:
 
-root@ossjenkins:/etc/ssl/certs/java# openssl s_client -showcerts -connect isp-poc.secretsmgr.cyberark.cloud:443 < /dev/null 2> /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > isp-poc.pem
-root@ossjenkins:/etc/ssl/certs/java# /usr/lib/jvm/java-11-openjdk-amd64/bin/keytool -import -alias cc -keystore cacerts -file isp-poc.pem
+| Path | `CONJUR_AUTH_TARGET` | `JWT_TRUST_MODE` | Story |
+|------|----------------------|------------------|-------|
+| **Default (cloud)** | `cloud` | `public-keys` | Jenkins authenticates directly against Conjur Cloud SaaS. Conjur verifies JWT signatures locally using a JWKS we mirror into the `public-keys` variable. Works on a laptop with no inbound network. |
+| **Edge** | `edge` | `jwks-uri` | Jenkins authenticates against a local Conjur Cloud Edge container running on the same Docker host. Edge replicates policy + secrets from Conjur Cloud. Edge fetches Jenkins's JWKS over the Docker network (`host.docker.internal`) — no public hostname required. |
 
-# default certstore password is: changeit
+## Quick start
 
-####
+```bash
+export CYBR_DEMOS_PATH=/path/to/cybr-demos
+cd demos/secrets_manager/jenkins
 
-conjur_fqdn="tbd.secretsmgr.cyberark.cloud"
+cp setup/vars.env.example setup/vars.env
+vi setup/vars.env                    # SAFE_NAME, DEPLOY_PROFILE (aws|local)
 
-# show cert info
-openssl s_client -showcerts -connect $conjur_fqdn:443 < /dev/null
+cp "$CYBR_DEMOS_PATH/demos/tenant_vars.local.sh.example" \
+   "$CYBR_DEMOS_PATH/demos/tenant_vars.local.sh"
+vi "$CYBR_DEMOS_PATH/demos/tenant_vars.local.sh"   # TENANT_ID, CLIENT_ID, CLIENT_SECRET
 
-# single cert
-openssl s_client -showcerts -connect $conjur_fqdn:443 < /dev/null 2> /dev/null | openssl x509 -outform PEM > $conjur_fqdn.pem
-
-# chain
-openssl s_client -showcerts -connect $conjur_fqdn:443 < /dev/null 2> /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' >  $conjur_fqdn.pem 
-
-# jenkins/jenkins:lts location for cacerts
-ls -l /opt/java/openjdk/lib/security/cacerts
-# other possible location forcacerts
-#ls -l /etc/ssl/certs/java
-
-cd /opt/java/openjdk/lib/security
-keytool -import -alias $conjur_fqdn -keystore cacerts -file $conjur_fqdn.pem
+bash check_prereqs.sh
+bash go.sh                           # full bootstrap (recommended)
+bash ready_check.sh                  # confirm ready
+bash demo.sh                         # interactive presenter walkthrough (~30 min)
 ```
 
-Links:
+**Presenter URL:** http://127.0.0.1:8081/job/global-credentials-demo/  
+**JWT signature trust:** default mode is **public-keys** — `finish_setup.sh` mirrors the live Jenkins JWKS into the Conjur `public-keys` variable, so Conjur Cloud does **not** need inbound network reach back to Jenkins. `JENKINS_JWKS_URI` (in `setup/.jenkins.env`) is only required if you opt out and switch the authenticator to `jwks-uri` mode.
 
-https://plugins.jenkins.io/conjur-credentials/
+## Edge mode quickstart
 
+To switch the demo to authenticate against a local Conjur Cloud Edge:
 
-Other Guides: https://www.conjur.org/blog/adding-conjur-secrets-management-to-your-jenkins-pipeline/
+```bash
+# 1. Download Edge from CyberArk Marketplace and load it
+sudo docker load -i ~/Downloads/conjur-edge_*.tar.gz
+
+# 2. Generate an install script in Secrets Manager UI -> Edges -> Install new Edge
+#    Set: COMMON_NAME=host.docker.internal, SAN=127.0.0.1,localhost
+#    Save the generated 'docker run' as setup/edge/install.sh (gitignored)
+
+# 3. Flip the toggles in setup/vars.env
+#    CONJUR_AUTH_TARGET="edge"
+#    JWT_TRUST_MODE="jwks-uri"
+
+# 4. Bring it up (works whether or not the cloud demo was already running)
+bash setup/edge/setup.sh
+bash configure_jenkins.sh
+bash finish_setup.sh
+```
+
+Full Edge bring-up walkthrough: [setup/edge/README.md](setup/edge/README.md).
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `go.sh` | **Main entry** — Jenkins, TLS, vault, Conjur policy, plugin, pipeline job |
+| `setup.sh` | Alias for `go.sh` (after prereqs) |
+| `demo.sh` | Interactive walkthrough (~25-30 min with UI). Mode-aware: tells the Edge story when `CONJUR_AUTH_TARGET=edge`. |
+| `ready_check.sh` | Pass/fail readiness before presenting |
+| `finish_setup.sh` | **Idempotent rebind** — re-applies Conjur policies, syncs JWKS, recreates Jenkins credentials, pushes pipeline, runs sanity build. Use after Jenkins restart, JWKS rotation, or any "it was working yesterday" moment. |
+| `configure_jenkins.sh` | Plugin JWT config + `global-credentials-demo` job (restarts Jenkins) |
+| `import_sm_cert.sh` | Import SM TLS cert into Jenkins Java truststore |
+| `render_pipeline.sh` | Render `get_secrets.groovy` from template |
+| `remove.sh` | Teardown Conjur policy, safe, Jenkins container |
+
+## Documentation
+
+| File | Purpose |
+|------|---------|
+| [demo_setup.md](demo_setup.md) | Deployment, profiles, troubleshooting |
+| [demo_validation.md](demo_validation.md) | Post-setup validation |
+| [talktrack.md](talktrack.md) | 30-minute presenter script |
+| [setup/edge/README.md](setup/edge/README.md) | Conjur Cloud Edge bring-up |
+| [setup/aws/README.md](setup/aws/README.md) | EC2 lab checklist |
+
+## Clean up
+
+```bash
+bash remove.sh
+```
+
+## Reference
+
+- [CyberArk Jenkins integration](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/integrations/jenkins.htm)
+- [Conjur Cloud Edge install docs](https://docs.cyberark.com/secrets-manager-saas/latest/en/content/conjurcloud/edge/ccl-edge-install.htm)
