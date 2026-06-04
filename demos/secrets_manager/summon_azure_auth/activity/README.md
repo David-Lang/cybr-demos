@@ -36,10 +36,10 @@ Set the required values:
 ```env
 SQL_SERVER="myserver.database.windows.net"
 SQL_DATABASE="trainingdb"
-DB_PASSWORD_TEMPLATE="replace-with-lab-password-pattern"
+SQL_PASSWORD_TEMPLATE="replace-with-lab-password-pattern"
 ```
 
-Adjust the optional student count, query, credential, and CyberArk naming templates in the same file as needed. Then run:
+Adjust the optional student count, query, and credential template in the same file as needed. Then run:
 
 ```bash
 bash activity/setup_activity.sh
@@ -47,23 +47,19 @@ bash activity/setup_activity.sh
 
 ## Per-Student Overrides
 
-If credentials or CyberArk names do not follow a simple pattern, add numbered overrides to `activity/inputs.env` before running setup:
+If SQL connection values do not follow a simple pattern, add numbered overrides to `activity/inputs.env` before running setup:
 
 ```env
-DB_USERNAME_1="student1_user"
-DB_PASSWORD_1="student1-password"
-SAFE_NAME_1="${LAB_ID:-lab}-student1-sql"
-ACCOUNT_NAME_1="azure-sql-student1"
+SQL_USERNAME_1="student1_user"
+SQL_PASSWORD_1="student1-password"
 ```
 
 Supported override prefixes:
 
 - `SQL_SERVER_N`
 - `SQL_DATABASE_N`
-- `DB_USERNAME_N`
-- `DB_PASSWORD_N`
-- `SAFE_NAME_N`
-- `ACCOUNT_NAME_N`
+- `SQL_USERNAME_N`
+- `SQL_PASSWORD_N`
 
 Where `N` is the numeric student index, for example `1`, `2`, or `30`.
 

@@ -244,9 +244,9 @@ export CONJUR_AUTHN_JWT_TOKEN="$(curl -fsS -H Metadata:true "$url" | jq -r '.acc
 Map process environment variables to CyberArk variable paths:
 
 ```yaml
-SQL_SERVER: !var data/vault/<SAFE_NAME>/<ACCOUNT_NAME>/address
-DB_USERNAME: !var data/vault/<SAFE_NAME>/<ACCOUNT_NAME>/username
-DB_PASSWORD: !var data/vault/<SAFE_NAME>/<ACCOUNT_NAME>/password
+SQL_SERVER: !var data/vault/set_safe/set_account/address
+SQL_USERNAME: !var data/vault/set_safe/set_account/username
+SQL_PASSWORD: !var data/vault/set_safe/set_account/password
 ```
 
 Keep non-secret values such as the database name in normal configuration:

@@ -24,10 +24,8 @@ STUDENT_COUNT="${STUDENT_COUNT:-30}"
 CONJUR_AUTHN_AZURE_ENV="${CONJUR_AUTHN_AZURE_ENV:-$DEMO_DIR/conjur_authn_azure.env}"
 
 SQL_QUERY="${SQL_QUERY:-SELECT TOP 5 * FROM dbo.ExampleTable}"
-DB_USERNAME_TEMPLATE="${DB_USERNAME_TEMPLATE:-${DB_USERNAME:-__STUDENT___user}}"
-DB_PASSWORD_TEMPLATE="${DB_PASSWORD_TEMPLATE:-${DB_PASSWORD:-}}"
-SAFE_NAME_TEMPLATE="${SAFE_NAME_TEMPLATE:-${LAB_ID:-lab}-__STUDENT__-sql}"
-ACCOUNT_NAME_TEMPLATE="${ACCOUNT_NAME_TEMPLATE:-azure-sql-__STUDENT__}"
+SQL_USERNAME_TEMPLATE="${SQL_USERNAME_TEMPLATE:-__STUDENT___user}"
+SQL_PASSWORD_TEMPLATE="${SQL_PASSWORD_TEMPLATE:-}"
 
 require_env() {
   local var_name="$1"
@@ -76,15 +74,13 @@ render_file() {
   local token_nn="__NN__"
   local token_sql_server="__SQL_SERVER__"
   local token_sql_database="__SQL_DATABASE__"
-  local token_db_username="__DB_USERNAME__"
-  local token_db_password="__DB_PASSWORD__"
-  local token_safe_name="__SAFE_NAME__"
-  local token_account_name="__ACCOUNT_NAME__"
+  local token_sql_username="__SQL_USERNAME__"
+  local token_sql_password="__SQL_PASSWORD__"
   local token_sql_query="__SQL_QUERY__"
   local token_sql_server_q="__SQL_SERVER_Q__"
   local token_sql_database_q="__SQL_DATABASE_Q__"
-  local token_db_username_q="__DB_USERNAME_Q__"
-  local token_db_password_q="__DB_PASSWORD_Q__"
+  local token_sql_username_q="__SQL_USERNAME_Q__"
+  local token_sql_password_q="__SQL_PASSWORD_Q__"
   local token_sql_query_q="__SQL_QUERY_Q__"
 
   : > "$output_file"
@@ -92,15 +88,13 @@ render_file() {
     rendered="$line"
     rendered="${rendered//$token_sql_server_q/$SQL_SERVER_Q}"
     rendered="${rendered//$token_sql_database_q/$SQL_DATABASE_Q}"
-    rendered="${rendered//$token_db_username_q/$DB_USERNAME_Q}"
-    rendered="${rendered//$token_db_password_q/$DB_PASSWORD_Q}"
+    rendered="${rendered//$token_sql_username_q/$SQL_USERNAME_Q}"
+    rendered="${rendered//$token_sql_password_q/$SQL_PASSWORD_Q}"
     rendered="${rendered//$token_sql_query_q/$SQL_QUERY_Q}"
     rendered="${rendered//$token_sql_server/$SQL_SERVER_VALUE}"
     rendered="${rendered//$token_sql_database/$SQL_DATABASE_VALUE}"
-    rendered="${rendered//$token_db_username/$DB_USERNAME_VALUE}"
-    rendered="${rendered//$token_db_password/$DB_PASSWORD_VALUE}"
-    rendered="${rendered//$token_safe_name/$SAFE_NAME_VALUE}"
-    rendered="${rendered//$token_account_name/$ACCOUNT_NAME_VALUE}"
+    rendered="${rendered//$token_sql_username/$SQL_USERNAME_VALUE}"
+    rendered="${rendered//$token_sql_password/$SQL_PASSWORD_VALUE}"
     rendered="${rendered//$token_sql_query/$SQL_QUERY_VALUE}"
     rendered="${rendered//$token_student/$STUDENT}"
     rendered="${rendered//$token_nn/$NN}"
@@ -154,21 +148,19 @@ for ((N = 1; N <= STUDENT_COUNT; N++)); do
 
   SQL_SERVER_VALUE="$(student_value "SQL_SERVER" "$SQL_SERVER")"
   SQL_DATABASE_VALUE="$(student_value "SQL_DATABASE" "$SQL_DATABASE")"
-  DB_USERNAME_VALUE="$(student_value "DB_USERNAME" "$DB_USERNAME_TEMPLATE")"
-  DB_PASSWORD_VALUE="$(student_value "DB_PASSWORD" "$DB_PASSWORD_TEMPLATE")"
-  SAFE_NAME_VALUE="$(student_value "SAFE_NAME" "$SAFE_NAME_TEMPLATE")"
-  ACCOUNT_NAME_VALUE="$(student_value "ACCOUNT_NAME" "$ACCOUNT_NAME_TEMPLATE")"
+  SQL_USERNAME_VALUE="$(student_value "SQL_USERNAME" "$SQL_USERNAME_TEMPLATE")"
+  SQL_PASSWORD_VALUE="$(student_value "SQL_PASSWORD" "$SQL_PASSWORD_TEMPLATE")"
   SQL_QUERY_VALUE="$(render_string "$SQL_QUERY")"
 
-  if [ -z "$DB_PASSWORD_VALUE" ]; then
-    printf "ERROR: Missing password for %s. Set DB_PASSWORD_TEMPLATE, DB_PASSWORD, or DB_PASSWORD_%s in %s.\n" "$STUDENT" "$N" "$INPUTS_ENV" >&2
+  if [ -z "$SQL_PASSWORD_VALUE" ]; then
+    printf "ERROR: Missing password for %s. Set SQL_PASSWORD_TEMPLATE or SQL_PASSWORD_%s in %s.\n" "$STUDENT" "$N" "$INPUTS_ENV" >&2
     exit 1
   fi
 
   SQL_SERVER_Q="$(shell_quote "$SQL_SERVER_VALUE")"
   SQL_DATABASE_Q="$(shell_quote "$SQL_DATABASE_VALUE")"
-  DB_USERNAME_Q="$(shell_quote "$DB_USERNAME_VALUE")"
-  DB_PASSWORD_Q="$(shell_quote "$DB_PASSWORD_VALUE")"
+  SQL_USERNAME_Q="$(shell_quote "$SQL_USERNAME_VALUE")"
+  SQL_PASSWORD_Q="$(shell_quote "$SQL_PASSWORD_VALUE")"
   SQL_QUERY_Q="$(shell_quote "$SQL_QUERY_VALUE")"
 
   student_dir="$LABS_ROOT/$STUDENT/$ACTIVITY_DIR_NAME"

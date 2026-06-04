@@ -47,8 +47,8 @@ Notice that the script still runs `sqlcmd`, but it reads connection values from 
 
 - `SQL_SERVER`
 - `SQL_DATABASE`
-- `DB_USERNAME`
-- `DB_PASSWORD`
+- `SQL_USERNAME`
+- `SQL_PASSWORD`
 
 ## 4. Inspect The CyberArk Mapping
 
@@ -59,9 +59,9 @@ cat secrets.yml
 This file maps environment variables to CyberArk safe-backed variables:
 
 ```text
-SQL_SERVER -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/address
-DB_USERNAME -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username
-DB_PASSWORD -> data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password
+SQL_SERVER -> data/vault/set_safe/set_account/address
+SQL_USERNAME -> data/vault/set_safe/set_account/username
+SQL_PASSWORD -> data/vault/set_safe/set_account/password
 ```
 
 ## 5. Inspect The Summon Wrapper
