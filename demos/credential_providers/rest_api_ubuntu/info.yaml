@@ -1,7 +1,7 @@
 Category: "Credential Provider"
 Name: "CCP"
-Docs: "https://github.com/david-lang/cybr-demos/tree/main/demos/credential_providers/ccp_ubuntu"
+Docs: "https://github.com/david-lang/cybr-demos/tree/main/demos/credential_providers/rest_api_ubuntu"
 DemoScript: "demo.sh"
-SetupScript: "init.sh"
+SetupScript: "setup.sh"
 Enabled: false
 IsSetup: false

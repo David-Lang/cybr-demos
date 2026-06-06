@@ -35,7 +35,7 @@ node tools/cli/cybr-demos.js create-demo \
 
 ```bash
 node tools/cli/cybr-demos.js validate-readme \
-  --file-path demo_md_guidelines.md \
+  --file-path guidelines/demo_md_guidelines.md \
   --json
 ```
 

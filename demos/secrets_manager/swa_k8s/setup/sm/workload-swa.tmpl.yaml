@@ -1,0 +1,11 @@
+# mode: append-policy
+---
+- !policy
+  id: swa-workloads
+  body:
+    - !host
+      id: "{{ .JWT_CLAIM_IDENTITY_VALUE }}"
+      annotations:
+        description: SWA server Kubernetes service account
+        authn-jwt/{{ .SM_SERVICE_NAME }}/sub: "{{ .JWT_CLAIM_IDENTITY_VALUE }}"
+        authn/api-key: true

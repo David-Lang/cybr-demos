@@ -21,6 +21,9 @@ license.txt
 test_assets/*
 secret/*
 secrets/*
+**/secret/*
+**/secrets/*
+**/video/*
 
 # Credential/config files that get populated with real secrets
 demos/tenant_vars.sh

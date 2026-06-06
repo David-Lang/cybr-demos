@@ -153,6 +153,7 @@ set -euo pipefail
 
  }
 
+
  get_account_id_by_safe() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name
    # Echoes the first account id found in the safe (empty if none).

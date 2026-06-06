@@ -1,0 +1,25 @@
+# WORKSHOP ONLY — intentional vulnerability: credentials visible inside pod
+
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: Always
+
+replicaCount: 1
+
+service:
+  type: NodePort
+  port: 8443
+  nodePort: 30443
+
+nodeSelector: {}
+
+# Attack surface 1: DB creds and API key in a K8s Secret, mounted at /etc/secrets/
+# An attacker with pod exec can read all values with: cat /etc/secrets/*
+secrets:
+  db:
+    user: giftapp-db01
+    pass: Cyberark1
+    port: "3306"
+    name: giftapp
+  giftappApiKey: "ChangeMeRightNow"

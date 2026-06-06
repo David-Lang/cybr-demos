@@ -1,0 +1,10 @@
+# mode: append-policy
+---
+- !policy
+  id: vault
+  body:
+    - !grant
+      roles:
+        - !group {{ .SAFE_NAME }}/delegation/consumers
+      members:
+        - !host "/data/swa-workloads/{{ .JWT_CLAIM_IDENTITY_VALUE }}"

@@ -1,28 +1,25 @@
-# Kubernetes Demo Walkthrough
+# Kubernetes Demo Validation
 
-This guide starts after `./setup.sh` has completed successfully and the Helm chart has already been deployed.
+This walkthrough starts after `./setup.sh` has completed and the Helm release is already installed.
 
-This repo deploys the demo through the Rancher-based lab setup.
-
-The validation patterns in this walkthrough are standard Kubernetes patterns. They are intended to be conceptually valid on other conformant Kubernetes platforms, including OpenShift, as long as the cluster supports projected service account tokens, the required provider or operator components, and the CyberArk workload identity mapping.
-
-The goal is to help a new user validate what Helm installed and understand how CyberArk Secrets Manager delivers secrets into workloads.
+The deployment path in this repo is Rancher-first, but the runtime patterns validated here are standard Kubernetes patterns. The goal is to inspect the live workloads, confirm that CyberArk authentication and authorization are working, and understand how each secret delivery model behaves.
 
 ## Start Here
 
-Deployment context:
-
-- Repo automation and `setup.sh` assume the Rancher-based lab path.
-- The workload validation steps below focus on standard Kubernetes resources and behavior.
-
-Load the demo namespace:
+Move into the demo directory and load the shared demo variables:
 
 ```bash
 cd demos/secrets_manager/k8s
 source setup/vars.env
 export DEMO_NAMESPACE="$SM_SERVICE_NAME"
-echo "$DEMO_NAMESPACE"
+```
+
+Confirm that the namespace and main workloads exist:
+
+```bash
 kubectl get all -n "$DEMO_NAMESPACE"
+kubectl get secret,configmap,serviceaccount -n "$DEMO_NAMESPACE"
+kubectl get secretstore,externalsecret -n "$DEMO_NAMESPACE"
 ```
 
 You should see these main demo workloads:
@@ -33,32 +30,34 @@ You should see these main demo workloads:
 - `demo-push-to-file-fetch-all`
 - `alpine-curl`
 
-You should also see these supporting resources:
+You should also see these shared resources:
 
 - `sm-configmap`
+- `demo-scripts`
 - `poc-service-account`
-- `SecretStore` and `ExternalSecret` objects
+- `db-credential`
+- `demo-k8-secret-fetch-all`
+- `SecretStore/conjur`
+- `ExternalSecret/conjur`
 
-## What Helm Installed
+## About The CyberArk Components
 
-The Helm chart for this demo renders resources from:
+This demo uses CyberArk Secrets Manager JWT authentication for Kubernetes workloads.
 
-- `setup/k8s/charts/poc-sm/templates/demo-k8s-secrets.yaml`
-- `setup/k8s/charts/poc-sm/templates/demo-k8s-secrets-fetch-all.yaml`
-- `setup/k8s/charts/poc-sm/templates/demo-push-to-file.yaml`
-- `setup/k8s/charts/poc-sm/templates/demo-push-to-file-fetch-all.yaml`
-- `setup/k8s/charts/poc-sm/templates/demo-eso-sm.yaml`
-- `setup/k8s/charts/poc-sm/templates/alpine-curl.yaml`
-- `setup/k8s/charts/poc-sm/templates/namespace.yaml`
+The common components are:
 
-After Helm deploys the chart, the common building blocks in the namespace are:
-
-- Namespace for the demo
-- `sm-configmap` with CyberArk connection settings
+- `sm-configmap`
+  - provides the CyberArk service URLs, authenticator ID, account, and certificate
 - `poc-service-account`
-- RBAC allowing the workload to read and update Kubernetes secrets
+  - provides the Kubernetes workload identity used by every demo workload
+- projected service account JWT
+  - mounted at `/var/run/secrets/tokens/jwt`
+- `cyberark/secrets-provider-for-k8s`
+  - used as either an init container or sidecar depending on the pattern
+- External Secrets Operator
+  - retrieves secrets through a `SecretStore` and syncs them into a Kubernetes `Secret`
 
-Validate them:
+Validate the shared configuration first:
 
 ```bash
 kubectl get configmap sm-configmap -n "$DEMO_NAMESPACE" -o yaml
@@ -66,26 +65,47 @@ kubectl get serviceaccount poc-service-account -n "$DEMO_NAMESPACE" -o yaml
 kubectl get role,rolebinding -n "$DEMO_NAMESPACE"
 ```
 
-The important CyberArk values are:
+These values in `sm-configmap` are the core CyberArk connection settings:
 
+- `CONJUR_ACCOUNT`
 - `CONJUR_APPLIANCE_URL`
 - `CONJUR_AUTHN_URL`
 - `AUTHENTICATOR_ID`
 - `CONJUR_SSL_CERTIFICATE`
 
-These are the main values the integrations use to talk to CyberArk Secrets Manager.
+What this proves:
 
-## JWT Authentication Model
+- workloads know which CyberArk tenant and JWT authenticator to use
+- the service account identity is present in the namespace
+- RBAC exists for the patterns that write back to Kubernetes secrets
 
-Every demo pattern in this namespace uses the Kubernetes service account token projected into the pod at:
+## Request And Retrieval Flow
 
-```text
-/var/run/secrets/tokens/jwt
+Every pattern in this demo starts with the same identity flow:
+
+1. Kubernetes projects a service account token into the pod.
+2. The workload or controller presents that JWT to CyberArk.
+3. CyberArk validates the JWT and maps the token claims to the configured workload identity.
+4. CyberArk evaluates the policy attached to that identity.
+5. Authorized secret values are returned and then delivered as a Kubernetes secret, a mounted file, or direct API output.
+
+```mermaid
+sequenceDiagram
+    participant W as Workload or Controller
+    participant K as Kubernetes API
+    participant C as CyberArk JWT Authn
+    participant S as CyberArk Secret Service
+    participant D as Delivery Target
+
+    K->>W: Project service account JWT
+    W->>C: Authenticate with JWT
+    C->>C: Validate claims and map workload identity
+    C->>S: Authorize secret access for identity
+    S-->>W: Return authorized secret values
+    W-->>D: Write secret to K8s Secret, file, or API response
 ```
 
-CyberArk validates that JWT and maps its `sub` claim to the configured workload identity.
-
-Inspect the token from the helper pod:
+Inspect the projected JWT from the helper pod:
 
 ```bash
 kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- \
@@ -95,30 +115,50 @@ jq -R 'split(".") | {header: .[0] | @base64d | fromjson, payload: .[1] | @base64
   /tmp/k8s-demo.jwt
 ```
 
-Focus on:
+Focus on these claims:
 
 - `sub`
 - `aud`
-- namespace and service account details in the payload
+- namespace and service account fields in the payload
+
+What this proves:
+
+- the pod received a projected JWT
+- the token audience is set for CyberArk
+- the Kubernetes identity in the JWT is the identity CyberArk will evaluate
+
+## Quick Validation Of Core Resources
+
+Before validating each pattern, confirm that the shared runtime pieces are healthy:
+
+```bash
+kubectl get pods -n "$DEMO_NAMESPACE" -o wide
+kubectl get events -n "$DEMO_NAMESPACE" --sort-by=.lastTimestamp | tail -20
+kubectl get pods -n external-secrets
+```
+
+What to validate:
+
+- all demo pods are `Running`
+- init-container-based workloads reached ready state
+- the External Secrets Operator controller is healthy
+- there are no recent auth, mount, or secret sync errors in namespace events
 
 ## Pattern 1: K8s Secrets
 
-What it does:
+This pattern uses the provider as an init container and writes values into a native Kubernetes `Secret`.
 
-- Creates a native Kubernetes `Secret` named `db-credential`
-- Adds a `conjur-map` that maps Kubernetes secret keys to CyberArk secret IDs
-- Uses `cyberark-secrets-provider-for-k8s` as an init container
-- Writes secret values into the Kubernetes secret before the app container starts
-- Exposes those values to the app with `secretKeyRef`
+The seed secret is `db-credential`. It starts with a `conjur-map` that maps Kubernetes secret keys to CyberArk secret IDs. The application then consumes `username` and `password` through `secretKeyRef`.
 
-Validate the result:
+Validate the workload and generated secret:
 
 ```bash
 kubectl get secret db-credential -n "$DEMO_NAMESPACE" -o yaml
 kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets
+kubectl logs -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets -c cyberark-secrets-provider-for-k8s --previous
 ```
 
-Decode the secret values:
+Decode the populated secret values:
 
 ```bash
 kubectl get secret db-credential -n "$DEMO_NAMESPACE" -o jsonpath='{.data.username}' | base64 -d; echo
@@ -128,254 +168,282 @@ kubectl get secret db-credential -n "$DEMO_NAMESPACE" -o jsonpath='{.data.conjur
 
 What to validate:
 
-- The pod is running
-- The `db-credential` secret exists
-- The secret contains `username`, `password`, and `conjur-map`
-- The application pod started after the provider init container completed
+- the pod is running
+- the init container completed successfully
+- `db-credential` contains the requested keys
+- the app container can start after the provider populates the Kubernetes secret
 
-CyberArk behavior:
+What CyberArk is doing:
 
-- Authenticate the pod with JWT
-- Read the requested secret IDs from CyberArk
-- Populate the Kubernetes secret
-- Let the application consume a standard Kubernetes secret without talking to CyberArk directly
+- authenticating the pod with the projected JWT
+- authorizing the workload against the mapped identity
+- retrieving only the listed secret IDs
+- returning values to the provider so it can update the Kubernetes secret
+
+What this proves:
+
+- CyberArk can broker secrets into a standard Kubernetes `Secret`
+- the application can consume secrets without calling CyberArk directly
 
 ## Pattern 2: K8s Secrets FetchAll
 
-What it changes:
+This pattern still writes into a Kubernetes `Secret`, but the seed secret contains:
 
-- The seed secret contains `conjur-map: "*": "*"`
-- The provider is instructed to fetch everything available to the workload
-- The application imports all keys from that generated Kubernetes secret with `envFrom`
+```text
+"*": "*"
+```
 
-Validate the result:
+That tells the provider to fetch the full set of variables authorized for the workload identity and write them into `demo-k8-secret-fetch-all`. The application imports the resulting values with `envFrom`.
+
+Validate the secret and pod behavior:
 
 ```bash
 kubectl get secret demo-k8-secret-fetch-all -n "$DEMO_NAMESPACE" -o yaml
 kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets-fetch-all
+kubectl logs -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets-fetch-all -c cyberark-secrets-provider-for-k8s --previous
+```
+
+Check which keys were written:
+
+```bash
+kubectl get secret demo-k8-secret-fetch-all -n "$DEMO_NAMESPACE" -o json | jq -r '.data | keys[]'
 ```
 
 What to validate:
 
-- The pod is running
-- The secret exists and contains more than the seed `conjur-map`
-- The workload was able to populate a Kubernetes secret from all authorized variables
+- the pod is running
+- the secret exists and contains more than the original `conjur-map`
+- the init container completed and populated the secret successfully
+- the workload could import all returned keys as environment variables
 
-CyberArk behavior:
+What CyberArk is doing:
 
-- The workload authenticates once
-- The provider fetches all authorized variables for that identity
-- Matching values are written into the Kubernetes secret
-- The app consumes the full set as environment variables
+- authenticating once with the workload JWT
+- evaluating the full permission set for that identity
+- returning every secret currently authorized for the workload
 
-This pattern is useful when you want broad secret sync for a workload, but it also increases the blast radius if the workload is over-permissioned.
+What this proves:
+
+- the workload can do broad secret sync when policy allows it
+- authorization scope matters more in this pattern because over-permissioning has a larger blast radius
 
 ## Pattern 3: Push To File
 
-What it does:
+This pattern runs the provider as a sidecar and writes a YAML file into a shared in-memory volume mounted at `/opt/secrets/conjur`.
 
-- Runs the provider as a sidecar
-- Mounts a shared in-memory volume into both containers
-- Writes secrets into `/opt/secrets/conjur/credentials.yaml`
-- Refreshes the file on an interval
+The application does not read a Kubernetes `Secret`. It reads the file written locally by the sidecar.
 
-Validate the result:
+Validate the pod and file delivery:
 
 ```bash
 kubectl get pod -n "$DEMO_NAMESPACE" -l app=demo-push-to-file
+kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-push-to-file
 kubectl exec -n "$DEMO_NAMESPACE" deploy/demo-push-to-file -c app-container -- \
   cat /opt/secrets/conjur/credentials.yaml
+kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file -c cyberark-secrets-provider-for-k8s
 ```
 
 What to validate:
 
-- The pod is running
-- The file exists in the shared volume
-- The file contains the expected secret keys and values
-- The app container can read the file written by the sidecar
+- both containers are running
+- the shared volume is mounted into both containers
+- `credentials.yaml` exists and contains the expected keys
+- the sidecar refresh loop is running without errors
 
-CyberArk behavior:
+What CyberArk is doing:
 
-- The sidecar authenticates with the pod JWT
-- The sidecar retrieves the requested variables from CyberArk
-- The sidecar renders a YAML file into the shared volume
-- The app reads the file locally without embedding secrets into the pod spec
+- authenticating the sidecar with the pod JWT
+- retrieving only the explicitly requested variables
+- rendering them into a YAML file in the shared volume
+- refreshing that file on the configured interval
+
+What this proves:
+
+- CyberArk can deliver secrets as files instead of Kubernetes secret objects
+- the application can consume locally mounted material without secret values being embedded in the pod spec
 
 ## Pattern 4: Push To File FetchAll
 
-What it changes:
-
-- Instead of listing individual variables, it asks for all secrets with:
+This is the file-based equivalent of FetchAll. The workload uses:
 
 ```text
 conjur.org/conjur-secrets.test-app: "*"
 ```
 
-Validate the result:
+That asks the sidecar to retrieve all variables authorized for the workload and write them into the generated file.
+
+Validate the file output:
 
 ```bash
 kubectl get pod -n "$DEMO_NAMESPACE" -l app=demo-push-to-file-fetch-all
+kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-push-to-file-fetch-all
 kubectl exec -n "$DEMO_NAMESPACE" deploy/demo-push-to-file-fetch-all -c app-container -- \
   cat /opt/secrets/conjur/credentials.yaml
+kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file-fetch-all -c cyberark-secrets-provider-for-k8s
 ```
 
-CyberArk behavior:
+What to validate:
 
-- Same sidecar flow as Push To File
-- Broader retrieval scope
-- File is regenerated as the sidecar refreshes secrets
+- both containers are running
+- the file exists in the shared volume
+- the file contains the full authorized set, not only two named variables
+- periodic refresh is still working
 
-This is the file-based equivalent of FetchAll and should be treated with the same caution around workload permissions.
+What CyberArk is doing:
+
+- authenticating with the same pod identity model
+- returning the workload’s full authorized secret set
+- letting the sidecar regenerate the output file on refresh
+
+What this proves:
+
+- FetchAll works in the file delivery model too
+- broad retrieval remains a policy-sensitive pattern and should be scoped carefully
 
 ## Pattern 5: External Secrets Operator
 
-What it does:
+This pattern moves retrieval into the controller model.
 
-- Creates a `SecretStore` called `conjur`
-- Configures ESO to authenticate to CyberArk with the pod service account JWT
-- Creates an `ExternalSecret` that syncs remote CyberArk variables into a Kubernetes secret named `conjur`
+The chart creates:
 
-Validate the result:
+- `SecretStore/conjur`
+- `ExternalSecret/conjur`
+
+ESO requests a service account token for `poc-service-account`, authenticates to CyberArk through the JWT authenticator, retrieves the remote variables listed in `remoteRef.key`, and syncs them into a Kubernetes `Secret` named `conjur`.
+
+Validate the ESO resources and synced secret:
 
 ```bash
 kubectl get secretstore,externalsecret -n "$DEMO_NAMESPACE"
 kubectl get secretstore conjur -n "$DEMO_NAMESPACE" -o yaml
 kubectl get externalsecret conjur -n "$DEMO_NAMESPACE" -o yaml
 kubectl get secret conjur -n "$DEMO_NAMESPACE" -o yaml
-kubectl get pods -n external-secrets
+kubectl logs -n external-secrets deploy/external-secrets
 ```
 
 What to validate:
 
-- The `SecretStore` is ready
-- The `ExternalSecret` is synced
-- The generated Kubernetes secret `conjur` exists
-- The secret contains the expected keys from CyberArk
-- The ESO controller is healthy
+- the `SecretStore` is ready
+- the `ExternalSecret` reports a successful sync
+- the generated `Secret` exists and contains the requested keys
+- the ESO controller logs do not show JWT or provider errors
 
-CyberArk behavior:
+What CyberArk is doing:
 
-- ESO requests a service account token for the referenced service account
-- ESO authenticates to CyberArk using the JWT authn service
-- ESO reads the remote variables defined in `remoteRef.key`
-- ESO creates and refreshes a standard Kubernetes secret
+- accepting a controller-driven JWT authentication flow
+- evaluating the same workload identity and policy boundary
+- returning the specific remote references requested by the `ExternalSecret`
 
-The difference from the provider-based patterns is that ESO is a controller-driven sync model, not an app-side init or sidecar model.
+What this proves:
 
-## Pattern 6: Curl Direct
+- the controller can broker CyberArk secrets into Kubernetes-native secrets on a refresh schedule
+- retrieval is decoupled from the application pod lifecycle
 
-The helper pod mounts:
+## Pattern 6: Direct JWT Authentication And Retrieval
 
-- The projected JWT
-- The CyberArk config from `sm-configmap`
-- Environment variables containing the secret IDs
+The `alpine-curl` helper deployment is the cleanest way to validate the raw API flow without the provider or ESO abstractions.
 
-Inspect the helper pod:
+The pod mounts the same projected JWT and loads the same CyberArk connection settings from `sm-configmap`. It also mounts `demo-scripts`, which contains `direct.sh`.
 
-```bash
-kubectl get pod -n "$DEMO_NAMESPACE" -l app=alpine-curl
-kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- env | sort
-```
-
-The `demo-scripts` ConfigMap includes a direct retrieval example. You can view it with:
+Run the direct retrieval flow:
 
 ```bash
-kubectl get configmap demo-scripts -n "$DEMO_NAMESPACE" -o yaml
+kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- /opt/demo/direct.sh
 ```
 
-Direct retrieval flow:
-
-1. Read the pod JWT from `/var/run/secrets/tokens/jwt`
-2. POST it to the CyberArk JWT authenticator endpoint
-3. Receive a session token
-4. Use that session token to request a secret value directly from the CyberArk API
-
-This pattern shows the raw API flow without ESO or the Secrets Provider abstractions.
-
-Validate the API flow from inside the helper pod:
+If you want to inspect the steps manually, validate the token and auth endpoint first:
 
 ```bash
-kubectl exec -it -n "$DEMO_NAMESPACE" deploy/alpine-curl -- sh
-JWT=$(cat /var/run/secrets/tokens/jwt)
-AUTHN_URL="$CONJUR_AUTHN_URL/conjur/authenticate"
-SESSION_TOKEN=$(curl -sk \
-  -X POST "$AUTHN_URL" \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  -H 'Accept-Encoding: base64' \
-  --data-urlencode "jwt=$JWT")
-echo "$SESSION_TOKEN"
-
-SECRET_URL="$CONJUR_APPLIANCE_URL/secrets/conjur/variable/$username"
-curl -sk \
-  --request GET \
-  --url "$SECRET_URL" \
-  --header "Authorization: Token token=\"$SESSION_TOKEN\""
-exit
+kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- sh -c 'echo "$CONJUR_AUTHN_URL"'
+kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- sh -c 'ls -l /var/run/secrets/tokens && wc -c /var/run/secrets/tokens/jwt'
 ```
 
-Validate it by confirming:
+What to validate:
 
-- The helper pod has the JWT token mounted
-- The helper pod has `CONJUR_AUTHN_URL`
-- The helper pod knows the secret IDs from environment variables
-- A manual API call can authenticate and retrieve a secret
+- the helper pod is running
+- the JWT file exists in the pod
+- CyberArk returns a session token for the JWT authentication request
+- the secret retrieval API returns the expected secret value
 
-## Compare The Patterns
+What CyberArk is doing:
 
-K8s Secrets:
+- validating the JWT directly at the authn-jwt endpoint
+- minting a session token for the mapped identity
+- authorizing a direct secret read through the variable API
 
-- Best when the app already expects native Kubernetes secrets
-- Uses init-container injection into a Kubernetes secret
+What this proves:
 
-Push To File:
+- the base authn and retrieval path works even without the Kubernetes provider
+- failures in higher-level patterns can be isolated to provider or controller behavior versus core JWT authn
 
-- Best when the app wants a local file
-- Uses a sidecar and shared volume
+## Pattern Comparison
 
-FetchAll:
+The main tradeoffs in this demo are:
 
-- Best for broad retrieval demos or dynamic secret sets
-- Higher permission sensitivity
-
-ESO:
-
-- Best when you want controller-managed sync into Kubernetes secrets
-- Does not require app-side init or sidecar provider logic
-
-Curl Direct:
-
-- Best for learning and debugging the raw CyberArk JWT auth flow
-- Closest to the underlying API behavior
+- K8s Secrets
+  - provider writes a native Kubernetes `Secret`
+  - best when apps already expect `secretKeyRef` or `envFrom`
+- Push To File
+  - provider writes a mounted file
+  - best when apps expect local file material or refreshable file content
+- External Secrets Operator
+  - controller syncs CyberArk values into Kubernetes `Secret` objects
+  - best when you want cluster-managed sync behavior outside pod startup
+- FetchAll variants
+  - reduce per-key configuration
+  - increase risk if the workload identity is granted too many secrets
+- Direct `curl`
+  - lowest-level diagnostic path
+  - best for proving the JWT authn path independently of provider integrations
 
 ## Troubleshooting
 
-Provider logs:
+If a pattern fails, isolate the problem in this order.
+
+Check workload health:
 
 ```bash
-kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-k8-secrets -c cyberark-secrets-provider-for-k8s
-kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file -c cyberark-secrets-provider-for-k8s
-kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file-fetch-all -c cyberark-secrets-provider-for-k8s
+kubectl get pods -n "$DEMO_NAMESPACE"
+kubectl describe pod -n "$DEMO_NAMESPACE" <pod-name>
+kubectl get events -n "$DEMO_NAMESPACE" --sort-by=.lastTimestamp | tail -30
 ```
 
-ESO logs:
+Check the projected JWT and service account:
 
 ```bash
+kubectl get serviceaccount poc-service-account -n "$DEMO_NAMESPACE" -o yaml
+kubectl exec -n "$DEMO_NAMESPACE" deploy/alpine-curl -- sh -c 'ls -l /var/run/secrets/tokens && head -c 40 /var/run/secrets/tokens/jwt; echo'
+```
+
+Check CyberArk connection settings:
+
+```bash
+kubectl get configmap sm-configmap -n "$DEMO_NAMESPACE" -o yaml
+```
+
+Check provider logs:
+
+```bash
+kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file -c cyberark-secrets-provider-for-k8s
+kubectl logs -n "$DEMO_NAMESPACE" deploy/demo-push-to-file-fetch-all -c cyberark-secrets-provider-for-k8s
+kubectl logs -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets -c cyberark-secrets-provider-for-k8s --previous
+kubectl logs -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets-fetch-all -c cyberark-secrets-provider-for-k8s --previous
+```
+
+Check ESO status:
+
+```bash
+kubectl get secretstore,externalsecret -n "$DEMO_NAMESPACE" -o yaml
 kubectl logs -n external-secrets deploy/external-secrets
 ```
 
-Resource inspection:
+Common failure points:
 
-```bash
-kubectl describe secretstore conjur -n "$DEMO_NAMESPACE"
-kubectl describe externalsecret conjur -n "$DEMO_NAMESPACE"
-kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-k8-secrets
-kubectl describe pod -n "$DEMO_NAMESPACE" -l app=demo-push-to-file
-```
+- the service account JWT audience does not match the CyberArk JWT authenticator configuration
+- the workload identity mapping in CyberArk does not match the JWT claims
+- the workload has insufficient policy permission for the requested secrets
+- `sm-configmap` has the wrong authenticator URL, tenant URL, or certificate
+- RBAC is missing for the patterns that update Kubernetes `Secret` objects
+- ESO is healthy, but the `SecretStore` or `ExternalSecret` reports provider auth errors
 
-If something fails, check these first:
-
-- The pod is using `poc-service-account`
-- The pod has `/var/run/secrets/tokens/jwt`
-- `CONJUR_AUTHN_URL` points to the expected JWT authenticator
-- The workload identity in CyberArk matches the service account subject
-- The secret IDs from `setup/vars.env` exist and are authorized for the workload
+Use the direct `alpine-curl` flow whenever you need to separate core JWT authn problems from provider-specific behavior.

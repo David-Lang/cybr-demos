@@ -1,0 +1,54 @@
+# mode: append-policy
+---
+- !policy
+  id: {{ .SM_SERVICE_NAME }}
+  body:
+    - !webservice
+      annotations:
+        description: JWT authenticator for SWA server on Kubernetes
+
+    - !variable
+      id: public-keys
+      annotations:
+        description: 'Inline JWKS: {"type":"jwks","value":<kubectl get --raw /openid/v1/jwks>}'
+
+    - !variable
+      id: token-app-property
+      annotations:
+        description: JWT claim used as workload identity key (sub)
+
+    - !variable
+      id: identity-path
+      annotations:
+        description: Conjur policy path where workload host identities are defined
+
+    - !variable
+      id: issuer
+      annotations:
+        description: Expected JWT issuer (kubectl get --raw /.well-known/openid-configuration | jq -r .issuer)
+
+    - !variable
+      id: audience
+      annotations:
+        description: Expected JWT audience claim
+
+    - !group
+      id: apps
+      annotations:
+        description: Workloads allowed to authenticate with this authenticator
+
+    - !permit
+      role: !group apps
+      privilege: [read, authenticate]
+      resource: !webservice
+
+    - !webservice
+      id: status
+
+    - !group
+      id: operators
+
+    - !permit
+      role: !group operators
+      privilege: [read]
+      resource: !webservice status

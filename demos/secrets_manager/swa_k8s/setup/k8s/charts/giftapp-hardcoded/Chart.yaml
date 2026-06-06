@@ -1,0 +1,6 @@
+apiVersion: v2
+name: giftapp-hardcoded
+description: GiftApp with hardcoded secrets (attack demo)
+type: application
+version: 0.1.0
+appVersion: "1.0"

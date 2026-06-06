@@ -64,7 +64,162 @@ demos/{category}/{demo_name}/
         └── setup.sh
 ```
 
-Generated scripts depend on: `demos/setup_env.sh`, `demos/tenant_vars.sh`, and utility functions in `demos/utility/ubuntu/` (identity, privilege, conjur).
+### Generated Files
+
+#### setup/vars.env
+Contains demo-level environment variables shared across setup stages:
+```bash
+# CyberArk Vault
+SAFE_NAME="${LAB_ID}-azure-devops"
+
+# Add additional environment variables here
+```
+Note: If you provide a custom `safeName`, that value will be used instead of the default pattern.
+Preferred structure:
+- Keep `SAFE_NAME` and related demo settings in `setup/vars.env`
+- Avoid creating a second `setup/vault/vars.env` unless there is a documented exception
+
+#### setup/vault/setup.sh
+Vault setup script that:
+1. Sources common environment and utility functions
+2. Loads variables from `setup/vars.env`
+3. Gets Identity authentication token
+4. Creates the safe
+5. Adds admin role permissions
+6. Optionally adds Conjur Sync member
+7. Optionally creates test accounts
+8. Optionally sets up Conjur synchronization
+
+### Response
+
+Returns a JSON object:
+
+```json
+{
+  "success": true,
+  "path": "/full/path/to/demos/category/demo_name/setup",
+  "files": [
+    "vars.env",
+    "vault/setup.sh"
+  ]
+}
+```
+
+### Dependencies
+
+The generated scripts depend on functions from:
+
+- **`demos/setup_env.sh`** - Loads all utility functions
+- **`demos/tenant_vars.sh`** - Tenant configuration
+- **`demos/utility/ubuntu/identity_functions.sh`** - Identity token functions
+- **`demos/utility/ubuntu/privilege_functions.sh`** - Safe/account functions
+- **`demos/utility/ubuntu/priviledge_functions.sh`** - Back-compat shim (sources `privilege_functions.sh`; prefer the correctly spelled path)
+- **`demos/utility/ubuntu/conjur_functions.sh`** - Conjur sync functions
+
+### Required Environment Variables
+
+Set these in `demos/tenant_vars.sh`:
+
+```bash
+TENANT_ID="your-tenant-id"
+TENANT_SUBDOMAIN="your-subdomain"
+CLIENT_ID="your-client-id"
+CLIENT_SECRET="your-client-secret"
+LAB_ID="your-lab-id"  # Used for default safe names (e.g., "poc", "lab01", "demo")
+```
+
+Note: `LAB_ID` is used in the default safe name pattern `${LAB_ID}-{demo-name}`. This allows you to create unique safe names across different lab environments without manually specifying the safe name each time.
+
+### Usage Workflow
+
+1. **Create demo** (if not exists):
+   ```
+   Create a secrets_manager demo called "azure_devops"
+   ```
+
+2. **Create safe setup**:
+   ```
+   Create a demo safe for secrets_manager/azure_devops with safe name "poc-azure-devops"
+   ```
+
+3. **Run the setup**:
+   ```bash
+   cd demos/secrets_manager/azure_devops/setup/vault
+   ./setup.sh
+   ```
+
+### API Functions Used
+
+The generated scripts use these CyberArk API functions:
+
+- **`get_identity_token()`** - Authenticate to Identity
+- **`create_safe()`** - Create safe via Privilege Cloud API
+- **`add_safe_admin_role()`** - Add admin permissions
+- **`add_safe_read_member()`** - Add read-only member (for Conjur Sync)
+- **`create_account_ssh_user_1()`** - Create test SSH account
+- **`get_conjur_token()`** - Get Conjur authentication token
+- **`wait_for_synchronizer()`** - Wait for Conjur to detect the safe
+
+### Common Use Cases
+
+#### 1. Simple Safe for API Testing (Default Name)
+```
+demoPath: "secrets_manager/api_test"
+```
+Safe name will be: `${LAB_ID}-api-test`
+
+#### 2. Secrets Manager with Conjur Sync (Default Name)
+```
+demoPath: "secrets_manager/k8s"
+addSyncMember: true
+setupConjur: true
+createAccount: true
+```
+Safe name will be: `${LAB_ID}-k8s`
+
+#### 3. Credential Provider Demo (Custom Name)
+```
+demoPath: "credential_providers/ccp"
+safeName: "poc-ccp-accounts"
+createAccount: true
+```
+
+#### 4. GitHub Actions with JWT (Custom Name)
+```
+demoPath: "secrets_manager/github_actions"
+safeName: "poc-github"
+additionalVars: 'JWT_CLAIM_IDENTITY="INPUT_REQUIRED: github-name"'
+```
+
+### Troubleshooting
+
+#### Demo Path Not Found
+Ensure the demo directory exists before creating safe setup:
+```bash
+ls -la demos/secrets_manager/azure_devops
+```
+
+#### Missing Environment Variables
+Source the tenant variables:
+```bash
+source demos/tenant_vars.sh
+echo $TENANT_ID
+```
+
+#### Permission Errors
+Ensure scripts are executable:
+```bash
+chmod +x setup/vault/*.sh
+```
+
+### Best Practices
+
+1. **Use default safe names**: Let the tool generate `${LAB_ID}-{demo-name}` automatically unless you need a specific name
+2. **Set LAB_ID appropriately**: Use values like "poc", "lab01", "demo" to identify your lab environment
+3. **Enable Conjur Sync** when using Secrets Manager/Secrets Hub
+4. **Create test accounts** for demos that need them
+5. **Document custom variables** in the demo's README
+6. **Test safe creation** before running full demo setup
 
 ---
 

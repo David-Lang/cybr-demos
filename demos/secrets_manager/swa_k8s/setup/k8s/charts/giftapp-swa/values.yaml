@@ -1,0 +1,37 @@
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: Always
+
+replicaCount: 1
+
+service:
+  type: NodePort
+  port: 8443
+  nodePort: 31443
+
+nodeSelector: {}
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# Non-sensitive DB settings mounted from a K8s Secret (no password here).
+secrets:
+  db:
+    user: giftapp-db01
+    port: "3306"
+    name: giftapp
+
+# SWA SPIFFE workload API socket path.
+swa:
+  socketPath: unix:///tmp/swa-agent/public/api.sock
+  socketHostPath: /tmp/swa-agent
+
+# Conjur identifiers are non-sensitive — passed via ConfigMap, not a Secret.
+conjur:
+  applianceUrl: ""
+  account: "conjur"
+  authenticatorId: ""
+  apiKeySecretId: ""
+  dbPassSecretId: ""
