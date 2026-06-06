@@ -1,0 +1,36 @@
+# Rendered by install_server.sh (resolve_template). Do not edit the rendered copy.
+replicaCount: 1
+
+image:
+  repository: "{{ .SWA_IMG_SERVER_REPO }}"
+  tag: "{{ .SWA_IMG_SERVER_TAGONLY }}"
+  pullPolicy: IfNotPresent
+
+controlPlane:
+  url: "{{ .SWA_CONTROL_PLANE_URL }}"
+  auth:
+    type: jwt
+    authnID: "{{ .SWA_SERVER_AUTHN_ID }}"
+    tokenPath: /var/run/secrets/tokens/swa-token
+    audience: "{{ .SWA_CONTROL_PLANE_AUDIENCE }}"
+
+server:
+  apiAddr: "0.0.0.0:8443"
+  webAddr: "0.0.0.0:8080"
+  trustRootDir: /var/swa/certs
+
+service:
+  type: ClusterIP
+  apiPort: 8443
+  webPort: 8080
+
+serviceAccount:
+  create: true
+  name: "{{ .SWA_SERVER_SA }}"
+
+rbac:
+  createTokenReviewRole: true
+
+telemetry:
+  logging:
+    level: info

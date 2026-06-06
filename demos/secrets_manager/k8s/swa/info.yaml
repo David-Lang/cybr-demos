@@ -1,0 +1,7 @@
+Category: "Secret Manager"
+Name: "K8s SWA"
+Docs: "https://docs.cyberark.com/secrets-manager-saas/latest/en/content/conjurcloud/ccl-swa-overview.htm"
+DemoScript: "demo.sh"
+SetupScript: "go.sh"
+Enabled: false
+IsSetup: false

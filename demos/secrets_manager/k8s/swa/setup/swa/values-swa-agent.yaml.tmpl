@@ -1,0 +1,63 @@
+# Rendered by install_agent.sh (resolve_template). Do not edit the rendered copy.
+image:
+  repository: "{{ .SWA_IMG_AGENT_REPO }}"
+  tag: "{{ .SWA_IMG_AGENT_TAGONLY }}"
+  pullPolicy: IfNotPresent
+
+# Must match the control-plane trust domain created by terraform.
+trustDomain:
+  name: "{{ .SWA_TRUST_DOMAIN }}"
+
+# Self-hosted server: trust the server's bundle on first contact (demo simplicity).
+bootstrap:
+  insecure: true
+
+server:
+  address: "{{ .SWA_SERVER_DNS }}:8443"
+
+agent:
+  healthAddr: 0.0.0.0:8082
+  socketPath: /tmp/swa-agent/public/api.sock
+
+nodeAttestor:
+  type: k8s_psat
+  k8s_psat:
+    cluster: "{{ .SWA_CLUSTER_NAME }}"
+    audience: "{{ .SWA_PSAT_AUDIENCE }}"
+    tokenPath: /var/run/secrets/swa/serviceaccount/token
+
+# minikube kubelet serving cert is not verifiable from the agent — skip for the demo.
+workloadAttestors:
+  - type: k8s
+    config:
+      skipKubeletVerification: true
+      nodeNameEnv: MY_NODE_NAME
+
+serviceAccount:
+  create: true
+  name: "{{ .SWA_AGENT_SA }}"
+
+rbac:
+  create: true
+
+# minikube node name ("minikube") is not DNS-resolvable; fall back to 127.0.0.1
+# via hostNetwork instead of MY_NODE_NAME.
+setNodeNameEnv: false
+hostPID: true
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+socketHostPath: /tmp/swa-agent
+
+securityContext:
+  runAsUser: 65532
+  runAsGroup: 65532
+  privileged: false
+  allowPrivilegeEscalation: false
+
+# Required by the server's agent SPIFFE ID template for k8s_psat attestation.
+podLabels:
+  swa_nodegroup: "{{ .SWA_NODE_GROUP }}"
+
+telemetry:
+  logging:
+    level: info

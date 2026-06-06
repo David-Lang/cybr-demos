@@ -1,0 +1,14 @@
+# Policy branch: conjur/authn-jwt
+# mode: append-policy
+#
+# Adds the SWA workload host to the secureWorkloadAccess authenticator apps group,
+# allowing it to authenticate via authn-jwt/secureWorkloadAccess.
+---
+- !policy
+  id: {{ .SWA_AUTHN_ID }}
+  body:
+  - !grant
+    roles:
+      - !group apps
+    members:
+      - !host /data/poc-workloads/{{ .SWA_SPIFFE_ID }}

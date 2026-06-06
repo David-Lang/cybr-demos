@@ -153,6 +153,32 @@ set -euo pipefail
 
  }
 
+ get_account_id_by_safe() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name
+   # Echoes the first account id found in the safe (empty if none).
+   local safe_enc
+   safe_enc="$(printf '%s' "$3" | jq -sRr @uri)"
+   curl --silent \
+   --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safename%20eq%20${safe_enc}" \
+   --header "Authorization: Bearer $2" | jq -r '.value[0].id // empty'
+ }
+
+ set_account_password() {
+   # $1 isp_subdomain, $2 identity_token, $3 account_id, $4 new_password
+   # Manually sets a new password value in the Vault (no CPM target required),
+   # so the change is immediate and Conjur Sync replicates it to Conjur Cloud.
+   # Returns 0 when the API accepts the update.
+   local payload resp http_code
+   payload="$(jq -n --arg p "$4" '{ChangeEntireGroup: false, NewCredentials: $p}')"
+   resp="$(curl --silent --write-out $'\n%{http_code}' --request POST \
+   --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$3/Password/Update" \
+   --header "Authorization: Bearer $2" \
+   --header 'Content-Type: application/json' \
+   --data "$payload")"
+   http_code="${resp##*$'\n'}"
+   [[ "$http_code" =~ ^2 ]]
+ }
+
  create_app() {
   # $1 isp_subdomain, $2 identity_token, $3 app_id
 

@@ -1,0 +1,53 @@
+# Policy branch: conjur/authn-jwt
+# mode: append-policy
+#
+# Defines the authn-jwt/secureWorkloadAccess authenticator that validates the
+# SPIFFE JWT-SVIDs presented by attested workloads.
+---
+- !policy
+  id: {{ .SWA_AUTHN_ID }}
+  body:
+  - !webservice
+
+  # JWKS endpoint hosted by the SWA trust domain (Conjur Cloud can reach it).
+  - !variable
+    id: jwks-uri
+
+  # Claim used to resolve the Conjur host identity (the SPIFFE ID is in 'sub').
+  - !variable
+    id: token-app-property
+
+  # Policy branch holding the workload hosts.
+  - !variable
+    id: identity-path
+
+  # Expected token issuer (trust domain base URL).
+  - !variable
+    id: issuer
+
+  # Expected audience requested via 'swa-agent api fetch jwt -a <aud>'.
+  - !variable
+    id: audience
+
+  - !group
+    id: apps
+
+  - !permit
+    role: !group apps
+    privilege: [ read, authenticate ]
+    resource: !webservice
+
+  - !webservice
+    id: status
+    annotations:
+      description: Status service to check that the authenticator is configured correctly
+
+  - !group
+    id: operators
+    annotations:
+      description: Group of users who can check the status of the authenticator
+
+  - !permit
+    role: !group operators
+    privilege: [ read ]
+    resource: !webservice status

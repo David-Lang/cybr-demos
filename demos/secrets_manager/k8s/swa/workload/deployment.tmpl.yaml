@@ -1,0 +1,103 @@
+# Rendered by go.sh (resolve_template) -> workload/deployment.yaml
+#
+# Flow per pod:
+#   initContainer (swa-agent image) attests via the node-local agent socket and
+#   writes a JWT-SVID to a shared volume. The app container (alpine) exchanges the
+#   JWT-SVID for a Conjur Cloud access token via authn-jwt/secureWorkloadAccess and
+#   retrieves the synced secret. No API key, no static SA token leaves the cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swa-demo-app
+  namespace: {{ .SWA_APP_NAMESPACE }}
+  labels:
+    app: swa-demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swa-demo-app
+  template:
+    metadata:
+      labels:
+        app: swa-demo-app
+    spec:
+      serviceAccountName: {{ .SWA_APP_SA }}
+      initContainers:
+        # Fetch a JWT-SVID for audience "conjur" from the node-local SWA Agent.
+        - name: fetch-svid
+          image: "{{ .SWA_IMG_AGENT }}"
+          imagePullPolicy: IfNotPresent
+          args:
+            - api
+            - fetch
+            - jwt
+            - -a
+            - "{{ .SWA_JWT_AUDIENCE }}"
+            - -s
+            - /run/swa/public/api.sock
+            - --output
+            - json
+            - --silent
+            - --write
+            - /spiffe/svid.json
+          volumeMounts:
+            - name: swa-socket
+              mountPath: /run/swa
+              readOnly: true
+            - name: spiffe
+              mountPath: /spiffe
+      containers:
+        - name: app
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SM_FQDN
+              value: "{{ .SM_FQDN }}"
+            - name: SWA_AUTHN_ID
+              value: "{{ .SWA_AUTHN_ID }}"
+            - name: SECRET_USERNAME_ID
+              value: "{{ .SM_SECRET_USERNAME_ID }}"
+            - name: SECRET_PASSWORD_ID
+              value: "{{ .SM_SECRET_PASSWORD_ID }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl jq ca-certificates >/dev/null 2>&1 || true
+              echo "[app] starting SWA secret-retrieval loop"
+              while true; do
+                # Extract the raw JWT-SVID from whatever shape swa-agent wrote.
+                SVID="$(jq -r 'if type=="array" then .[0] else . end | (.svid // .token // .jwt // .svids[0].svid // .)' /spiffe/svid.json 2>/dev/null || true)"
+                case "$SVID" in
+                  *.*.*) : ;;  # looks like a JWT
+                  *) SVID="$(tr -d "[:space:]" < /spiffe/svid.json)";;
+                esac
+                CTOKEN="$(curl -s --data-urlencode "jwt=${SVID}" \
+                  -H "Accept-Encoding: base64" \
+                  "https://${SM_FQDN}/api/authn-jwt/${SWA_AUTHN_ID}/conjur/authenticate" || true)"
+                if [ -z "${CTOKEN}" ] || printf '%s' "${CTOKEN}" | grep -qi "error"; then
+                  echo "[app] authn-jwt failed (SVID expired? authenticator not ready?). Retrying in 30s."
+                  echo "[app] response: ${CTOKEN}"
+                  sleep 30
+                  continue
+                fi
+                U="$(curl -s -H "Authorization: Token token=\"${CTOKEN}\"" \
+                  "https://${SM_FQDN}/api/secrets/conjur/variable/${SECRET_USERNAME_ID}" || true)"
+                P="$(curl -s -H "Authorization: Token token=\"${CTOKEN}\"" \
+                  "https://${SM_FQDN}/api/secrets/conjur/variable/${SECRET_PASSWORD_ID}" || true)"
+                echo "[app] $(date -u +%H:%M:%S) retrieved via SWA JWT-SVID -> username=${U} password=********"
+                sleep 30
+              done
+          volumeMounts:
+            - name: spiffe
+              mountPath: /spiffe
+              readOnly: true
+      volumes:
+        # Node-local SWA Agent workload API socket (DaemonSet hostPath).
+        - name: swa-socket
+          hostPath:
+            path: /tmp/swa-agent
+            type: Directory
+        - name: spiffe
+          emptyDir: {}

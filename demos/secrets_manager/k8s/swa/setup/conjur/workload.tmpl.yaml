@@ -1,0 +1,21 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Defines the workload host identity for the SWA demo app. The host id and the
+# authn-jwt/<svc>/sub annotation are both the workload's SPIFFE ID, so the
+# secureWorkloadAccess authenticator (token-app-property=sub, identity-path=data/poc-workloads)
+# resolves this host from the JWT-SVID 'sub' claim.
+#
+# NOTE (v1.0): SWA also auto-creates a host under
+#   data/swa/trust-domains/<trust-domain>/workloads/<spiffe-id>
+# after attestation. If you prefer that path, point identity-path there and drop
+# this self-defined host. See setup/swa/README.md.
+---
+- !policy
+  id: poc-workloads
+  owner: !group /Conjur_Cloud_Admins
+  body:
+  - !host
+    id: {{ .SWA_SPIFFE_ID }}
+    annotations:
+      authn-jwt/{{ .SWA_AUTHN_ID }}/sub: {{ .SWA_SPIFFE_ID }}

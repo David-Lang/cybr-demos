@@ -1,0 +1,16 @@
+# Example tfvars. The go.sh pipeline generates terraform.tfvars from setup/vars.env
+# (and the live cluster JWKS) automatically; this file is only for manual runs.
+
+trust_domain    = "tiger-prod.swa.cyberark.cloud"
+server_group    = "k8s-workloads"
+node_group      = "k8s-nodegroup"
+cluster_name    = "minikube"
+agent_namespace = "swa-system"
+agent_sa        = "swa-agent"
+server_sa       = "swa-server"
+server_audience = "conjur"
+psat_audience   = "swa-server"
+cluster_issuer  = "https://kubernetes.default.svc.cluster.local"
+
+# Paste the output of: kubectl get --raw /openid/v1/jwks
+cluster_jwks = "{\"keys\":[]}"

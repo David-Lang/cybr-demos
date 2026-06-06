@@ -1,0 +1,21 @@
+# Extracted SWA release artifacts (binaries, charts, container images ~195MB) — never commit
+setup/swa/release/
+setup/swa/.terraformrc
+setup/swa/plugin-mirror/
+
+# Rendered config (contains tenant-specific values / tokens)
+setup/vars.env
+setup/**/*.yaml.rendered
+setup/swa/values-swa-server.yaml
+setup/swa/values-swa-agent.yaml
+setup/conjur/*.yaml
+!setup/conjur/*.tmpl.yaml
+workload/deployment.yaml
+
+# Terraform state and local files
+setup/swa/terraform/.terraform/
+setup/swa/terraform/.terraform.lock.hcl
+setup/swa/terraform/terraform.tfstate
+setup/swa/terraform/terraform.tfstate.*
+setup/swa/terraform/terraform.tfvars
+setup/swa/terraform/swa_outputs.env

@@ -1,0 +1,15 @@
+# Policy branch: data
+# mode: append-policy
+#
+# Grants the SWA workload host consumer access to the demo safe. The
+# delegation/consumers group is created by the Conjur Synchronizer after
+# "Conjur Sync" is added as a member of the safe in Privilege Cloud.
+---
+- !policy
+  id: vault
+  body:
+    - !grant
+      roles:
+        - !group {{ .SAFE_NAME }}/delegation/consumers
+      members:
+        - !host /data/poc-workloads/{{ .SWA_SPIFFE_ID }}
