@@ -1,5 +1,5 @@
 Category: "Secret Manager"
-Name: "K8s SWA"
+Name: "K8s SWA (minikube)"
 Docs: "https://docs.cyberark.com/secrets-manager-saas/latest/en/content/conjurcloud/ccl-swa-overview.htm"
 DemoScript: "demo.sh"
 SetupScript: "go.sh"

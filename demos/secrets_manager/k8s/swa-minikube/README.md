@@ -1,4 +1,7 @@
-# Demo: Secure Workload Access (SWA) on Kubernetes
+# Demo: Secure Workload Access (SWA) on Kubernetes (minikube)
+
+> **Folder:** `demos/secrets_manager/k8s/swa-minikube/` — local minikube + official SWA release zip.
+> For the separate upstream giftapp/Rancher demo, see [`../../swa_k8s/`](../../swa_k8s/).
 
 CyberArk **Secure Workload Access (SWA)** issues SPIFFE-compliant workload identities and
 integrates with Secrets Manager so a Kubernetes workload can fetch a short-lived **JWT-SVID**
@@ -41,7 +44,7 @@ not supported on the `authn-jwt` path.
 
 ```bash
 export CYBR_DEMOS_PATH=/path/to/cybr-demos
-cd demos/secrets_manager/k8s/swa
+cd demos/secrets_manager/k8s/swa-minikube
 
 cp setup/vars.env.example setup/vars.env
 vi setup/vars.env                 # SAFE_NAME, trust domain, control-plane URL, release path

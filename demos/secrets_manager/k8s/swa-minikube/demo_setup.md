@@ -127,7 +127,7 @@ sequenceDiagram
 
 ```bash
 export CYBR_DEMOS_PATH=/path/to/cybr-demos
-cd demos/secrets_manager/k8s/swa
+cd demos/secrets_manager/k8s/swa-minikube
 
 cp setup/vars.env.example setup/vars.env   # edit values
 bash check_prereqs.sh

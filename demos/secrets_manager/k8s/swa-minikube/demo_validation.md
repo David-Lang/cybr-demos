@@ -9,7 +9,7 @@ secret.
 
 ```bash
 export CYBR_DEMOS_PATH=/path/to/cybr-demos
-cd demos/secrets_manager/k8s/swa
+cd demos/secrets_manager/k8s/swa-minikube
 set -a; source setup/vars.env; source swa_demo_lib.sh; swa_demo_init; set +a
 bash ready_check.sh
 ```

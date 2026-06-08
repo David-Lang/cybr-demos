@@ -61,7 +61,9 @@ This demo includes these main patterns:
 | `eso/` | External Secrets Operator — general Conjur Cloud walkthrough (`refreshInterval: 15s`) | `bash eso/demo.sh` |
 | `eso-reloader/` | ESO + Stakater Reloader — same 15s refresh; sample app (volume + env vars) and rolling restart on secret change | `bash eso-reloader/demo.sh` |
 | `sidecar/` | CyberArk Secrets Provider for K8s — sidecar mode, `k8s_secrets` destination, 15s refresh (same `k8s-eso` safe as ESO) | `bash sidecar/setup.sh` then `bash sidecar/demo.sh` |
-| `swa/` | Secure Workload Access — SPIFFE workload identity (in-cluster SWA Server + Agent), JWT-SVID exchanged via `authn-jwt/secureWorkloadAccess` on minikube | `bash swa/go.sh` then `bash swa/demo.sh` |
+| `swa-minikube/` | Secure Workload Access — SPIFFE workload identity on **minikube** (official SWA release + in-cluster Server/Agent), JWT-SVID via `authn-jwt/secureWorkloadAccess` | `bash swa-minikube/go.sh` then `bash swa-minikube/demo.sh` |
+
+**Not this folder:** upstream [`../swa_k8s/`](../swa_k8s/) is a separate Rancher/giftapp-based SWA walkthrough. Use **`swa-minikube/`** for the minikube + Conjur Cloud SaaS flow built here.
 
 ### `eso/` manifests — namespace and refresh
 
