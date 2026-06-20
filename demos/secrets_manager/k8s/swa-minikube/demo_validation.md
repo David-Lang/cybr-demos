@@ -15,7 +15,18 @@ bash ready_check.sh
 ```
 
 `ready_check.sh` confirms the Server, Agent, and workload are healthy and that a secret was
-retrieved via JWT-SVID.
+retrieved via JWT-SVID. Run `bash smoke.sh` for the full M1 → M2 → M3 acceptance chain.
+
+## Milestone smoke checks
+
+| Target | Asserts |
+|--------|---------|
+| `bash smoke_m1.sh` | SWA Server + Agent ready; RSA trust domain in terraform |
+| `bash smoke_m2.sh` | `authn-jwt/secureWorkloadAccess` enabled; JWT-SVID auth (if workload deployed) |
+| `bash ready_check.sh` | M3 — workload secret retrieval + optional spiffe-info / acme-carrier |
+| `bash smoke.sh` | All three, in order |
+
+Incremental bootstrap: `go_m1.sh` → `go_m2.sh` → `go_m3.sh`.
 
 ## About
 
@@ -105,10 +116,11 @@ echo "$SVID" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq .
 - **Proves:** the workload holds a short-lived, cryptographically signed identity issued by SWA —
   not a long-lived credential.
 - **Note on lifetime:** the init container fetches the SVID once at pod start (TTL from the trust
-  domain `token_ttl`, 3600s in this demo). After it expires the app can no longer authenticate until
-  the pod restarts — `demo.sh` auto-restarts the workload at the start of a run so the walkthrough is
-  always live. In production, a sidecar (e.g. `spiffe-helper`) or the SPIFFE CSI driver refreshes the
-  SVID continuously.
+  domain `token_ttl`, 3600s in this demo). `swa_get_live_workload_svid` in `swa_demo_lib.sh`
+  (used by `smoke_m2.sh`, `ready_check.sh`, and `demo.sh`) rollout-restarts the workload when the
+  on-disk JWT is expired. In production, use `spiffe-helper` or the SPIFFE CSI driver for
+  continuous refresh — the bundled `swa-agent` image is distroless and cannot host a shell loop
+  sidecar.
 
 ## Pattern 3: Secret retrieval via authn-jwt/secureWorkloadAccess
 
@@ -122,7 +134,10 @@ echo "$SVID" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq .
 
 ```bash
 kubectl logs -n "$SWA_APP_NAMESPACE" deploy/swa-demo-app -c app --tail=5
-# -> "retrieved via SWA JWT-SVID -> username=... password=..."
+# -> "[trace] svid.fetch.ok sub=spiffe://..."
+# -> "[trace] authn-jwt.ok http=200"
+# -> "[trace] secret.read.ok username_id=..."
+# -> "[app] ... retrieved via SWA JWT-SVID -> username=... password=********"
 ```
 
 - **Proves:** end to end — Privilege Cloud account -> Conjur Sync -> Conjur Cloud -> JWT-SVID auth ->
@@ -226,6 +241,45 @@ curl -s -o /dev/null -w '%{http_code}\n' --data-urlencode "jwt=${FORGED}" \
 - **Proves:** a stolen token can't be altered or replayed, and copying the container does not grant
   the copy the original's access. The identity boundary holds at runtime.
 
+## Pattern 6: spiffe-info visual inspector
+
+Optional UI from [spiffe-info](https://github.com/MattiasGees/spiffe-info) — live JWT-SVID,
+X.509-SVID, and trust-bundle tabs from the Workload API socket.
+
+```bash
+bash setup/swa/deploy_spiffe_info.sh
+kubectl port-forward -n "$SWA_APP_NAMESPACE" svc/spiffe-info 8080:80
+# open http://localhost:8080
+```
+
+- **Proves:** SPIFFE identity is inspectable without custom tooling — colour-coded JWT claims,
+  certificate metadata, PEM download.
+
+## Pattern 7: Foreign trust domain (TLS boundary)
+
+The `acme-carrier` pod in namespace `acme-external` serves HTTPS with a **self-signed** cert whose
+SAN URI is `spiffe://acme.courier/carrier/parcel`. It is **not** signed by your SWA trust domain.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Trusted workload (swa-demo-app)
+    participant Acme as acme-carrier (foreign TD)
+    App->>Acme: TLS dial (default CA bundle)
+    Acme-->>App: presents self-signed cert (acme.courier)
+    Note over App: curl/OpenSSL reject — unknown authority
+```
+
+```bash
+bash setup/swa/deploy_acme.sh
+kubectl exec -n "$SWA_APP_NAMESPACE" deploy/swa-demo-app -c app -- \
+  curl -sS --max-time 5 https://acme-carrier.acme-external.svc.cluster.local:8443/ 2>&1 \
+  | grep -i 'unknown authority\|certificate verify'
+```
+
+- **Proves:** trust domains are isolation boundaries at TLS — different from the imposter beat (which
+  shows Conjur **authorization** denial for a valid SWA-issued SVID with the wrong SPIFFE ID).
+
 ## Compare The Patterns
 
 | Pattern | What it secures | Where enforced |
@@ -234,6 +288,8 @@ curl -s -o /dev/null -w '%{http_code}\n' --data-urlencode "jwt=${FORGED}" \
 | `k8s` workload attestation | which pod identity is issued | SWA Agent (kubelet) |
 | `authn-jwt/secureWorkloadAccess` | which workload can read which secret | Conjur Cloud (policy + safe) |
 | identity boundary (red-team) | tampered tokens + imposter workloads are denied | signature verify + `sub`->host mapping |
+| foreign trust domain | cross-TD mTLS rejected | TLS verify (unknown CA) |
+| spiffe-info inspector | live SVID / trust bundle visibility | Workload API socket |
 
 vs. the other K8s demos in this repo: ESO/sidecar authenticate with the **raw Kubernetes service
 account JWT**; SWA inserts an attestation layer and issues a **purpose-built SPIFFE SVID**, decoupling

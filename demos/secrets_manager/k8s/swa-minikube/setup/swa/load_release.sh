@@ -12,19 +12,21 @@ echo "[INFO] SWA release staging"
 echo "[INFO] release root: $SWA_RELEASE_ROOT"
 
 # ── 1) Locate + extract the release zip ──────────────────────────────────────
-zip_path="${SWA_RELEASE_ZIP:-}"
-if [[ -z "$zip_path" ]]; then
-  # Newest matching zip in SWA_RELEASE_DIR.
-  zip_path="$(find "${SWA_RELEASE_DIR:-$HOME/Downloads}" -maxdepth 1 -name 'Secure Workload Access*.zip' -print 2>/dev/null \
-    | sort | tail -1)"
-fi
-if [[ -z "$zip_path" || ! -f "$zip_path" ]]; then
+zip_path="$(swa_release_zip_path)"
+if [[ -n "$zip_path" && -f "$zip_path" ]]; then
+  :
+elif [[ -d "$SWA_RELEASE_ROOT/helm" && -d "$SWA_RELEASE_ROOT/container-images" ]]; then
+  echo "[INFO] release already extracted — zip not required ($SWA_RELEASE_ROOT)"
+  zip_path=""
+else
   echo "[ERROR] Could not find the SWA release zip." >&2
   echo "        Set SWA_RELEASE_ZIP=/path/to/'Secure Workload Access_1.0_*.zip' in setup/vars.env" >&2
-  echo "        or drop it in SWA_RELEASE_DIR (${SWA_RELEASE_DIR:-$HOME/Downloads})." >&2
+  echo "        or drop it in SWA_RELEASE_DIR (empty/unset falls back to ~/Downloads)." >&2
   exit 1
 fi
-echo "[INFO] release zip: $zip_path"
+if [[ -n "$zip_path" ]]; then
+  echo "[INFO] release zip: $zip_path"
+fi
 
 if [[ -d "$SWA_RELEASE_ROOT/helm" && -d "$SWA_RELEASE_ROOT/container-images" ]]; then
   echo "[INFO] release already extracted — skipping (delete $SWA_RELEASE_ROOT to force)"

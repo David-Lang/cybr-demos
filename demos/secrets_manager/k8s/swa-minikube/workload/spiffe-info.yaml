@@ -1,0 +1,75 @@
+# Optional SPIFFE identity inspector — connects to the node-local SWA Agent socket.
+# Uses the same service account as swa-demo-app so the UI shows the workload SPIFFE ID.
+# Deploy: bash setup/swa/deploy_spiffe_info.sh
+# Browse: kubectl port-forward -n swa-demo svc/spiffe-info 8080:80
+# Image: https://github.com/MattiasGees/spiffe-info
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spiffe-info
+  namespace: swa-demo
+  labels:
+    app: spiffe-info
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spiffe-info
+  template:
+    metadata:
+      labels:
+        app: spiffe-info
+    spec:
+      serviceAccountName: swa-demo-app
+      containers:
+        - name: spiffe-info
+          image: ghcr.io/mattiasgees/spiffe-info:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: "unix:///tmp/swa-agent/public/api.sock"
+            - name: PORT
+              value: "80"
+            - name: JWT_AUDIENCE
+              value: "conjur"
+          volumeMounts:
+            - name: swa-agent-socket
+              mountPath: /tmp/swa-agent
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: swa-agent-socket
+          hostPath:
+            path: /tmp/swa-agent
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spiffe-info
+  namespace: swa-demo
+  labels:
+    app: spiffe-info
+spec:
+  selector:
+    app: spiffe-info
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

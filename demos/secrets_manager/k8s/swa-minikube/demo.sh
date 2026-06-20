@@ -36,6 +36,137 @@ fi
 set +e
 
 APP_DEPLOY="swa-demo-app"
+SPIFFE_INFO_PORT="${SPIFFE_INFO_PORT:-8080}"
+SPIFFE_INFO_PF_PID=""
+
+spiffe_info_cleanup() {
+  if [[ -n "$SPIFFE_INFO_PF_PID" ]]; then
+    kill "$SPIFFE_INFO_PF_PID" 2>/dev/null || true
+    wait "$SPIFFE_INFO_PF_PID" 2>/dev/null || true
+    SPIFFE_INFO_PF_PID=""
+  fi
+}
+trap spiffe_info_cleanup EXIT
+
+# Ensure spiffe-info is reachable on localhost (starts one background port-forward for the run).
+spiffe_info_ensure() {
+  local port="$SPIFFE_INFO_PORT"
+  local i base="http://127.0.0.1:${port}"
+  if ! kubectl get deploy/spiffe-info -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1; then
+    return 1
+  fi
+  if curl -sf --max-time 2 "${base}/api/jwt-svid" >/dev/null 2>&1; then
+    return 0
+  fi
+  kubectl port-forward -n "$SWA_APP_NAMESPACE" svc/spiffe-info "${port}:80" >/dev/null 2>&1 &
+  SPIFFE_INFO_PF_PID=$!
+  for i in $(seq 1 20); do
+    if curl -sf --max-time 2 "${base}/api/jwt-svid" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  spiffe_info_cleanup
+  return 1
+}
+
+spiffe_info_open_browser() {
+  local url="http://127.0.0.1:${SPIFFE_INFO_PORT}/"
+  if command -v open >/dev/null 2>&1; then
+    open "$url" 2>/dev/null || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url" 2>/dev/null || true
+  fi
+}
+
+# Step 5 beat: Workload API inspector — terminal mirror + auto browser, one terminal.
+spiffe_info_demo_beat() {
+  local port="$SPIFFE_INFO_PORT"
+  local base="http://127.0.0.1:${port}"
+  local jwt_json api_sub api_exp api_aud now ttl pct bar filled i
+  local pod_sub="${1:-}"
+
+  if ! kubectl get deploy/spiffe-info -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1; then
+    ui_label "Deploying spiffe-info inspector..."
+    if bash "$demo_path/setup/swa/deploy_spiffe_info.sh" >/dev/null 2>&1; then
+      ui_ok "spiffe-info deployed"
+    else
+      ui_warn "spiffe-info unavailable — continuing with terminal decode only"
+      return 1
+    fi
+  fi
+
+  ui_md <<'MD'
+## Same passport — live from the Workload API
+
+**spiffe-info** connects to the node-local agent socket (same as the workload) and
+surfaces what the SPIFFE Workload API returns — no second terminal, no manual curl.
+We'll mirror it here, then pop the visual inspector in your browser.
+MD
+
+  ui_label "Connecting to spiffe-info (background port-forward — stays up for this run):"
+  say "kubectl port-forward -n $SWA_APP_NAMESPACE svc/spiffe-info ${port}:80  # background"
+  if ! spiffe_info_ensure; then
+    ui_warn "Could not reach spiffe-info on port ${port} (in use? try SPIFFE_INFO_PORT=18080 bash demo.sh)"
+    return 1
+  fi
+  ui_ok "Inspector live at ${base}"
+
+  jwt_json="$(curl -sf --max-time 5 "${base}/api/jwt-svid" 2>/dev/null || true)"
+  if [[ -z "$jwt_json" ]]; then
+    ui_warn "spiffe-info /api/jwt-svid returned nothing"
+    return 1
+  fi
+
+  api_sub="$(printf '%s' "$jwt_json" | jq -r '.claims.sub // .spiffeId // empty' 2>/dev/null)"
+  api_exp="$(printf '%s' "$jwt_json" | jq -r '.claims.exp // empty' 2>/dev/null)"
+  api_aud="$(printf '%s' "$jwt_json" | jq -r '.claims.aud[0] // .claims.aud // .audience[0] // empty' 2>/dev/null)"
+
+  ui_label "Workload API — JWT-SVID (same data as the web UI JWT tab):"
+  printf '%s' "$jwt_json" | jq '{spiffeId, algorithm, keyId, audience, claims: .claims | {sub, aud, iss, exp, iat}}' 2>/dev/null | ui_box "$C_BLUE"
+
+  if [[ -n "$pod_sub" && -n "$api_sub" ]]; then
+    if [[ "$pod_sub" == "$api_sub" && "$api_sub" == "$SWA_SPIFFE_ID" ]]; then
+      ui_ok "Cross-check: pod file, Workload API, and policy SPIFFE ID all match"
+    elif [[ "$pod_sub" == "$api_sub" ]]; then
+      ui_ok "Cross-check: pod file and Workload API sub match"
+      ui_warn "Policy expects: $SWA_SPIFFE_ID"
+    else
+      ui_warn "sub mismatch — pod: $pod_sub"
+      ui_warn "              API:  $api_sub"
+    fi
+  fi
+
+  if [[ "$api_exp" =~ ^[0-9]+$ ]]; then
+    now="$(date +%s)"
+    ttl=$(( api_exp - now ))
+    if [[ "$ttl" -gt 0 ]]; then
+      pct=$(( ttl * 100 / 3600 ))
+      [[ "$pct" -gt 100 ]] && pct=100
+      filled=$(( pct / 5 ))
+      bar=""
+      for (( i=0; i<20; i++ )); do
+        [[ "$i" -lt "$filled" ]] && bar="${bar}█" || bar="${bar}░"
+      done
+      ui_label "Validity (mirrors the web UI bar):"
+      say "[${bar}] ~${ttl}s remaining  aud=${api_aud:-?}"
+    fi
+  fi
+
+  bundle_count="$(curl -sf --max-time 5 "${base}/api/trust-bundles" 2>/dev/null \
+    | jq 'length' 2>/dev/null || echo 0)"
+  if [[ "${bundle_count:-0}" -gt 0 ]]; then
+    ui_ok "Trust bundles: ${bundle_count} CA certificate(s) on the agent (Trust Bundles tab in UI)"
+    say "Step 6 will verify JWT signatures against this material via Conjur JWKS"
+  fi
+
+  ui_label "Opening visual inspector in your default browser..."
+  spiffe_info_open_browser
+  ui_ok "Browser → ${base}  (JWT-SVID · X.509-SVID · Trust Bundles tabs)"
+  say "Glance at the colour-coded JWT while we continue — port-forward stays in the background"
+
+  return 0
+}
 
 # ── presentation helpers ───────────────────────────────────────────────────
 ui_banner() {
@@ -180,6 +311,17 @@ ensure_fresh_svid() {
   local last
   last="$(kubectl logs -n "$SWA_APP_NAMESPACE" deploy/"$APP_DEPLOY" -c app --tail=1 2>/dev/null || true)"
   printf '%s' "$last" | grep -q "retrieved via SWA" && return 0
+  # Self-heal: an expired SWA server cert (common after the laptop sleeps) stops
+  # the agent minting SVIDs and crash-loops the init container. Detect and fix.
+  if ! swa_control_plane_healthy; then
+    say "SWA control plane degraded (expired cert after sleep?) — auto-healing (~60s)..."
+    swa_heal_control_plane
+    if swa_control_plane_healthy; then
+      ui_ok "Control plane recovered"
+    else
+      ui_warn "Control plane still degraded — see: kubectl logs -n $SWA_NAMESPACE ds/swa-agent"
+    fi
+  fi
   say "Refreshing the workload's SVID for a clean run (one-time, ~40s)..."
   kubectl rollout restart deployment/"$APP_DEPLOY" -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1
   kubectl rollout status deployment/"$APP_DEPLOY" -n "$SWA_APP_NAMESPACE" --timeout=120s >/dev/null 2>&1
@@ -261,7 +403,7 @@ fi
 ui_pause
 
 # ═══ 1 ═════════════════════════════════════════════════════════════════════
-ui_step "1" "11" "SPIFFE in plain language — the vocabulary"
+ui_step "1" "12" "SPIFFE in plain language — the vocabulary"
 ui_md <<'MD'
 Four terms power this entire demo. Learn these and the rest is easy.
 
@@ -291,7 +433,7 @@ ui_note "A common, open identity standard means one model for workload identity 
 ui_pause
 
 # ═══ 2 ═════════════════════════════════════════════════════════════════════
-ui_step "2" "11" "The control plane — SWA Server + Agent"
+ui_step "2" "12" "The control plane — SWA Server + Agent"
 ui_md <<'MD'
 SWA runs two components inside the cluster, both managed by CyberArk Conjur
 Cloud (the control plane):
@@ -319,7 +461,7 @@ ui_note "Identity is issued where the workloads run — no central secret to ste
 ui_pause
 
 # ═══ 3 ═════════════════════════════════════════════════════════════════════
-ui_step "3" "11" "Node attestation — how the Agent earns trust (k8s_psat)"
+ui_step "3" "12" "Node attestation — how the Agent earns trust (k8s_psat)"
 ui_md <<'MD'
 Before the Agent can issue **any** identity, it must prove which node it runs
 on. SWA uses **k8s_psat** (Kubernetes Projected Service Account Token):
@@ -340,7 +482,7 @@ ui_note "A workload's identity can only originate from a node CyberArk has crypt
 ui_pause
 
 # ═══ 4 ═════════════════════════════════════════════════════════════════════
-ui_step "4" "11" "Workload attestation — the pod earns its SPIFFE ID"
+ui_step "4" "12" "Workload attestation — the pod earns its SPIFFE ID"
 ui_md <<'MD'
 When our pod started, its init container connected to the node-local Agent over
 the Workload API socket. The Agent confirmed the caller's **namespace** and
@@ -364,13 +506,14 @@ ui_note "Access follows verifiable workload properties, not human-managed names 
 ui_pause
 
 # ═══ 5 ═════════════════════════════════════════════════════════════════════
-ui_step "5" "11" "The SVID up close — decode the passport"
+ui_step "5" "12" "The SVID up close — decode the passport"
 ui_md <<'MD'
 Let's open the actual JWT-SVID the pod holds. The init container fetched it with
 `swa-agent api fetch jwt -a @AUD@` and wrote it to a shared volume. A JWT has
 three parts — **header.payload.signature** — all base64url-encoded.
 MD
 svid_json="$(kubectl exec -n "$SWA_APP_NAMESPACE" deploy/"$APP_DEPLOY" -c app -- cat /spiffe/svid.json 2>/dev/null || true)"
+pod_sub=""
 if [[ -z "$svid_json" ]]; then
   ui_warn "SVID file not found — the pod may still be starting (kubectl get pods -n $SWA_APP_NAMESPACE)"
 else
@@ -382,6 +525,7 @@ else
     b64url_decode "$header_b64" | jq . 2>/dev/null | ui_box "$C_BLUE"
     ui_label "Payload — the claims (who, for whom, from where, until when):"
     b64url_decode "$payload_b64" | jq . 2>/dev/null | ui_box "$C_BLUE"
+    pod_sub="$(b64url_decode "$payload_b64" | jq -r '.sub' 2>/dev/null || true)"
     exp="$(b64url_decode "$payload_b64" | jq -r '.exp' 2>/dev/null)"
     now="$(date +%s)"
     if [[ "$exp" =~ ^[0-9]+$ ]]; then
@@ -400,11 +544,16 @@ else
     printf '%s\n' "$svid_json" | head -c 600 | ui_box
   fi
 fi
+if [[ "${SKIP_SPIFFE_INFO:-}" != "1" ]]; then
+  spiffe_info_demo_beat "$pod_sub" || true
+else
+  say "SKIP_SPIFFE_INFO=1 — skipping Workload API inspector beat"
+fi
 ui_note "Short-lived, signed, audience-bound credentials mean a stolen token is near-worthless: it expires in minutes and only Conjur will accept it. The opposite of a long-lived API key in a repo."
 ui_pause
 
 # ═══ 6 ═════════════════════════════════════════════════════════════════════
-ui_step "6" "11" "Authorization — mapping the SVID to a secret in Conjur"
+ui_step "6" "12" "Authorization — mapping the SVID to a secret in Conjur"
 ui_md <<'MD'
 An identity is not access. Conjur Cloud decides what this SPIFFE ID may read,
 via the **authn-jwt/@AUTHN@** authenticator and policy-as-code. At runtime:
@@ -429,7 +578,7 @@ ui_note "Access is least-privilege and auditable as code: each workload sees onl
 ui_pause
 
 # ═══ 7 ═════════════════════════════════════════════════════════════════════
-ui_step "7" "11" "The source of truth — Privilege Cloud + Conjur Sync"
+ui_step "7" "12" "The source of truth — Privilege Cloud + Conjur Sync"
 ui_md <<'MD'
 The secret never originated in Kubernetes. It lives in a Privilege Cloud safe
 (**@SAFE@**) and is replicated to Conjur Cloud by **Conjur Sync**. The workload
@@ -457,7 +606,7 @@ ui_note "One governed source of truth for secrets (Privilege Cloud) feeds every 
 ui_pause
 
 # ═══ 8 ═════════════════════════════════════════════════════════════════════
-ui_step "8" "11" "The payoff — a pod with no credentials reads a real secret"
+ui_step "8" "12" "The payoff — a pod with no credentials reads a real secret"
 ui_md <<'MD'
 The workload presents **only** its JWT-SVID; Conjur verifies the identity and
 the policy and returns the secret. No password in the image, no API key in the
@@ -497,7 +646,7 @@ ui_note "Developers ship apps with zero secrets in code or config. Security gove
 ui_pause
 
 # ═══ 9 ═════════════════════════════════════════════════════════════════════
-ui_step "9" "11" "Rotate the secret live — change it upstream, watch the pod follow"
+ui_step "9" "12" "Rotate the secret live — change it upstream, watch the pod follow"
 ui_md <<'MD'
 The real test of a secrets platform: rotate the credential at the **source** and
 see consumers pick it up with **no redeploy and no new identity**. We'll change
@@ -562,7 +711,7 @@ ui_note "Rotate at the source and every consumer follows automatically. No redep
 ui_pause
 
 # ═══ 10 ════════════════════════════════════════════════════════════════════
-ui_step "10" "11" "Red-team the boundary — try to break in (live)"
+ui_step "10" "12" "Red-team the boundary — try to break in (live)"
 ui_md <<'MD'
 Talk is cheap. Let's **attack** the system live and watch it hold. Two classic
 attacks against machine credentials:
@@ -675,7 +824,49 @@ ui_note "Identity is bound to the workload's real properties, not its image or c
 ui_pause
 
 # ═══ 11 ════════════════════════════════════════════════════════════════════
-ui_step "11" "11" "Demo complete"
+ui_step "11" "12" "Trust boundary — foreign trust domain rejected at TLS"
+ui_md <<'MD'
+Attack #3 is different from the imposter: the **acme-carrier** workload lives in
+trust domain `acme.courier` with a **self-signed** certificate — not signed by
+your SWA trust domain. When a client dials it using default TLS verification,
+Go/curl reject the handshake before any application data crosses the wire:
+
+`x509: certificate signed by unknown authority`
+
+Cross-trust-domain **federation** is on the SWA roadmap; until then, trust
+domains are hard boundaries — no toggle, no override.
+MD
+if ! kubectl get deploy/acme-carrier -n acme-external >/dev/null 2>&1; then
+  if ui_confirm "Deploy acme-carrier (foreign trust domain) now? (~30s)"; then
+    ui_run bash "$demo_path/setup/swa/deploy_acme.sh"
+  fi
+fi
+if kubectl get deploy/acme-carrier -n acme-external >/dev/null 2>&1; then
+  ui_label "Dial acme-carrier from the trusted workload pod (default CA bundle):"
+  acme_host="acme-carrier.acme-external.svc.cluster.local:8443"
+  tls_out="$(kubectl exec -n "$SWA_APP_NAMESPACE" deploy/"$APP_DEPLOY" -c app -- \
+    sh -c "curl -sS -o /dev/null -w '%{http_code}' --max-time 5 https://${acme_host}/ 2>&1 || true" 2>/dev/null || true)"
+  if printf '%s' "$tls_out" | grep -qiE 'unknown authority|certificate verify failed|SSL certificate problem'; then
+    ui_fail "TLS rejected — foreign CA not in SWA trust bundle"
+    say "$(printf '%s' "$tls_out" | head -3)"
+    ui_ok "Trust-domain boundary enforced — handshake failed before any secret exchange"
+  elif printf '%s' "$tls_out" | grep -q '^200$'; then
+    ui_warn "Unexpected HTTP 200 — acme-carrier accepted without SWA trust (investigate)"
+  else
+    ui_fail "TLS handshake failed (expected)"
+    say "$(printf '%s' "$tls_out" | head -3)"
+  fi
+  ui_label "Foreign cert SAN (SPIFFE URI on a non-SWA identity):"
+  ui_run kubectl exec -n acme-external deploy/acme-carrier -- \
+    sh -c "apk add --no-cache openssl >/dev/null 2>&1; echo | openssl s_client -connect localhost:8443 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -A1 'Subject Alternative Name' || true"
+else
+  ui_warn "acme-carrier not deployed — run: bash setup/swa/deploy_acme.sh"
+fi
+ui_note "Trust domains are isolation boundaries today. A workload in another domain cannot impersonate yours at the mTLS layer — even with a plausible SPIFFE-shaped URI in its cert."
+ui_pause
+
+# ═══ 12 ════════════════════════════════════════════════════════════════════
+ui_step "12" "12" "Demo complete"
 ui_md <<'MD'
 ## What we demonstrated
 
@@ -683,11 +874,12 @@ ui_md <<'MD'
 - SWA Server + Agent issuing identities **inside** the cluster
 - Node attestation (k8s_psat) — only verified nodes can issue
 - Workload attestation — identity bound to namespace + service account
-- A live JWT-SVID decoded claim by claim (signed, audience-bound, short-lived)
+- A live JWT-SVID decoded claim by claim — plus **spiffe-info** Workload API mirror + browser UI
 - **authn-jwt/@AUTHN@** mapping the SPIFFE ID to least-privilege access as code
 - Secret sourced from Privilege Cloud via Conjur Sync
 - **Live retrieval** on demand, and **live rotation** with zero redeploy
 - **Red-team:** a tampered SVID rejected, a look-alike imposter denied
+- **Trust boundary:** foreign trust domain rejected at TLS (acme.courier)
 
 ## Executive takeaway
 

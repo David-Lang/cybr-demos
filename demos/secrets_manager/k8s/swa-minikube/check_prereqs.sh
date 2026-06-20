@@ -21,6 +21,8 @@ for c in curl jq bash mktemp kubectl helm terraform unzip; do
   command -v "$c" >/dev/null 2>&1 || fail "Missing required command: $c"
 done
 pass "curl, jq, kubectl, helm, terraform, unzip present"
+img_suffix="$(bash -c "source '$demo_path/swa_demo_lib.sh' && swa_arch_image_suffix" 2>/dev/null || echo '?')"
+pass "SWA image arch suffix for this host: ${img_suffix} (release must include *-${img_suffix}.tar)"
 if ! command -v minikube >/dev/null 2>&1; then
   printf '[WARN] minikube not on PATH — image loading will be skipped (load images manually).\n'
 else
@@ -46,10 +48,16 @@ done
 pass "TENANT_ID=$TENANT_ID TENANT_SUBDOMAIN=$TENANT_SUBDOMAIN (secret not printed)"
 
 printf -- '\n--- 3) SWA release artifact ---\n'
-zip_path="${SWA_RELEASE_ZIP:-}"
-[[ -z "$zip_path" ]] && zip_path="$(find "${SWA_RELEASE_DIR:-$HOME/Downloads}" -maxdepth 1 -name 'Secure Workload Access*.zip' 2>/dev/null | sort | tail -1)"
-[[ -n "$zip_path" && -f "$zip_path" ]] || fail "SWA release zip not found. Set SWA_RELEASE_ZIP or drop it in SWA_RELEASE_DIR."
-pass "release zip: $zip_path"
+# shellcheck source=/dev/null
+source "$demo_path/swa_demo_lib.sh"
+zip_path="$(swa_release_zip_path)"
+if [[ -n "$zip_path" && -f "$zip_path" ]]; then
+  pass "release zip: $zip_path"
+elif [[ -d "$SWA_RELEASE_ROOT/helm" && -d "$SWA_RELEASE_ROOT/container-images" ]]; then
+  pass "release already extracted at $SWA_RELEASE_ROOT (zip not required for re-runs)"
+else
+  fail "SWA release zip not found. Set SWA_RELEASE_ZIP or drop it in SWA_RELEASE_DIR (empty SWA_RELEASE_DIR falls back to ~/Downloads)."
+fi
 
 printf -- '\n--- 4) Kubernetes cluster ---\n'
 kubectl get nodes >/dev/null 2>&1 || fail "kubectl get nodes failed — start minikube and set the context."
@@ -65,5 +73,14 @@ pass "Platform token acquired (${#identity_token} chars)"
 conjur_token="$(get_conjur_token "$TENANT_SUBDOMAIN" "$identity_token" 2>/dev/null || true)"
 [[ -n "$conjur_token" ]] || fail "get_conjur_token failed — check TENANT_SUBDOMAIN."
 pass "Conjur token acquired (${#conjur_token} chars)"
+
+printf -- '\n--- 6) Platform discovery ---\n'
+if curl -fsSL --max-time 8 \
+  "https://platform-discovery.cyberark.cloud/api/v2/services/subdomain/${TENANT_SUBDOMAIN}" \
+  | jq -er '.identity_administration.api' >/dev/null 2>&1; then
+  pass "platform-discovery resolves Identity URL for ${TENANT_SUBDOMAIN}"
+else
+  printf '[WARN] platform-discovery probe failed — tenant may still work if credentials are valid\n'
+fi
 
 printf '\n========== All checks passed. Run: bash go.sh ==========\n\n'

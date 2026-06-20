@@ -65,7 +65,7 @@ spec:
             - |
               set -eu
               apk add --no-cache curl jq ca-certificates >/dev/null 2>&1 || true
-              echo "[app] starting SWA secret-retrieval loop"
+              echo "[trace] app.start sm_fqdn=${SM_FQDN} authn=${SWA_AUTHN_ID}"
               while true; do
                 # Extract the raw JWT-SVID from whatever shape swa-agent wrote.
                 SVID="$(jq -r 'if type=="array" then .[0] else . end | (.svid // .token // .jwt // .svids[0].svid // .)' /spiffe/svid.json 2>/dev/null || true)"
@@ -73,19 +73,30 @@ spec:
                   *.*.*) : ;;  # looks like a JWT
                   *) SVID="$(tr -d "[:space:]" < /spiffe/svid.json)";;
                 esac
-                CTOKEN="$(curl -s --data-urlencode "jwt=${SVID}" \
-                  -H "Accept-Encoding: base64" \
-                  "https://${SM_FQDN}/api/authn-jwt/${SWA_AUTHN_ID}/conjur/authenticate" || true)"
-                if [ -z "${CTOKEN}" ] || printf '%s' "${CTOKEN}" | grep -qi "error"; then
-                  echo "[app] authn-jwt failed (SVID expired? authenticator not ready?). Retrying in 30s."
-                  echo "[app] response: ${CTOKEN}"
+                if [ -z "${SVID}" ] || [ "${SVID}" = "null" ]; then
+                  echo "[trace] svid.fetch.err reason=empty_file"
                   sleep 30
                   continue
                 fi
+                SUB="$(printf '%s' "${SVID}" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r '.sub' 2>/dev/null || true)"
+                EXP="$(printf '%s' "${SVID}" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r '.exp' 2>/dev/null || true)"
+                echo "[trace] svid.fetch.ok sub=${SUB:-unknown} exp=${EXP:-unknown}"
+                AUTH_CODE="$(curl -s -o /tmp/ctoken -w '%{http_code}' \
+                  --data-urlencode "jwt=${SVID}" \
+                  -H "Accept-Encoding: base64" \
+                  "https://${SM_FQDN}/api/authn-jwt/${SWA_AUTHN_ID}/conjur/authenticate" || true)"
+                CTOKEN="$(cat /tmp/ctoken 2>/dev/null || true)"
+                if [ "${AUTH_CODE}" != "200" ] || [ -z "${CTOKEN}" ] || printf '%s' "${CTOKEN}" | grep -qi "error"; then
+                  echo "[trace] authn-jwt.err http=${AUTH_CODE:-000} response=${CTOKEN}"
+                  sleep 30
+                  continue
+                fi
+                echo "[trace] authn-jwt.ok http=${AUTH_CODE}"
                 U="$(curl -s -H "Authorization: Token token=\"${CTOKEN}\"" \
                   "https://${SM_FQDN}/api/secrets/conjur/variable/${SECRET_USERNAME_ID}" || true)"
                 P="$(curl -s -H "Authorization: Token token=\"${CTOKEN}\"" \
                   "https://${SM_FQDN}/api/secrets/conjur/variable/${SECRET_PASSWORD_ID}" || true)"
+                echo "[trace] secret.read.ok username_id=${SECRET_USERNAME_ID}"
                 echo "[app] $(date -u +%H:%M:%S) retrieved via SWA JWT-SVID -> username=${U} password=********"
                 sleep 30
               done

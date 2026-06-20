@@ -32,6 +32,19 @@ Point at: `swa-server` Deployment and `swa-agent` DaemonSet, both Running.
 > the decoded claims: the `sub` is the workload's SPIFFE ID, it's scoped to the `conjur` audience,
 > and it expires. This is the workload's passport, minted on the node, never stored long-term."
 
+**Step 5 in `demo.sh`** decodes the JWT in the terminal, then **automatically** (single terminal):
+
+1. Background port-forward to spiffe-info (stays up until demo exits)
+2. Mirrors Workload API claims + ASCII validity bar in the terminal
+3. Cross-checks pod `sub` vs API `sub` vs policy SPIFFE ID
+4. Opens your browser to the colour-coded UI (`open` on macOS)
+
+> "Same passport — two views. We decoded the pod file; spiffe-info now asks the Workload API live
+> and pops the visual inspector. All three `sub` values should match. Trust bundle count previews
+> what Conjur verifies in the next step."
+
+Skip: `SKIP_SPIFFE_INFO=1 bash demo.sh` · Port clash: `SPIFFE_INFO_PORT=18080 bash demo.sh`
+
 ## Step 4 — Conjur maps identity to access
 
 > "Conjur Cloud validates that SVID against the trust domain's JWKS, maps the SPIFFE ID to a host in
@@ -68,6 +81,15 @@ Point at: the before/after password lines and "zero redeploy". (Sync typically l
 > attacker nothing."
 
 Point at: the side-by-side (trusted ALLOW vs imposter DENY). The imposter namespace is auto-cleaned.
+
+## Step 7 — Foreign trust domain (TLS boundary)
+
+> "One more boundary test. The acme-carrier runs in a **different trust domain** with a self-signed
+> cert — not signed by our SWA trust domain. When the trusted workload dials it, TLS fails with
+> `certificate signed by unknown authority`. That's a hard trust-domain wall — federation isn't here
+> yet, and there's no override."
+
+Point at: curl error from step 11. spiffe-info is offered interactively in step 5 (browser UI).
 
 ## Close
 

@@ -1,0 +1,60 @@
+# Foreign-trust-domain workload for the trust-boundary demo beat.
+# Self-signed TLS cert with SPIFFE URI spiffe://acme.courier/carrier/parcel — NOT signed
+# by the SWA trust domain. Dialing it with the SWA trust bundle fails at mTLS/TLS verify.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acme-carrier
+  namespace: acme-external
+  labels:
+    app: acme-carrier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: acme-carrier
+  template:
+    metadata:
+      labels:
+        app: acme-carrier
+    spec:
+      containers:
+        - name: acme-carrier
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: https
+              containerPort: 8443
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache openssl >/dev/null 2>&1
+              mkdir -p /certs
+              openssl req -x509 -newkey rsa:2048 \
+                -keyout /certs/key.pem -out /certs/cert.pem \
+                -days 1 -nodes -subj "/CN=acme.courier root" \
+                -addext "subjectAltName=URI:spiffe://acme.courier/carrier/parcel" 2>/dev/null
+              echo "[acme-carrier] listening :8443 — foreign trust domain acme.courier (self-signed)"
+              exec openssl s_server -accept 8443 -cert /certs/cert.pem -key /certs/key.pem -www -quiet
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: acme-carrier
+  namespace: acme-external
+  labels:
+    app: acme-carrier
+spec:
+  selector:
+    app: acme-carrier
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https

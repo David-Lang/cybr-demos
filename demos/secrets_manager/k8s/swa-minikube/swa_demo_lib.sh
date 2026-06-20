@@ -76,6 +76,101 @@ swa_release_paths() {
   export SWA_TF_PROVIDER_BIN="$tf_bin"
 }
 
+# Resolve the SWA release zip path. Treats an empty SWA_RELEASE_DIR as unset.
+swa_release_zip_path() {
+  local zip_path release_dir
+  zip_path="${SWA_RELEASE_ZIP:-}"
+  if [[ -n "$zip_path" && -f "$zip_path" ]]; then
+    printf '%s' "$zip_path"
+    return 0
+  fi
+  release_dir="${SWA_RELEASE_DIR:-}"
+  [[ -n "$release_dir" ]] || release_dir="$HOME/Downloads"
+  find "$release_dir" -maxdepth 1 -name 'Secure Workload Access*.zip' -print 2>/dev/null \
+    | sort | tail -1 || true
+}
+
+# Extract a raw JWT-SVID string from swa-agent JSON output.
+swa_extract_svid_from_json() {
+  jq -r '
+    (.. | objects | select(has("svid")) | .svid) //
+    (if type=="array" then .[0] else . end | (.token // .jwt))
+  ' 2>/dev/null | head -1
+}
+
+# Read the workload pod's JWT-SVID from /spiffe/svid.json (empty on failure).
+swa_read_workload_svid() {
+  local deploy="${1:-swa-demo-app}" container="${2:-app}"
+  local j
+  j="$(kubectl exec -n "$SWA_APP_NAMESPACE" deploy/"$deploy" -c "$container" -- \
+    cat /spiffe/svid.json 2>/dev/null || true)"
+  [[ -n "$j" ]] || return 1
+  printf '%s' "$j" | swa_extract_svid_from_json
+}
+
+# Return 0 when the JWT payload exp is in the past (or unparsable).
+swa_svid_is_expired() {
+  local svid="$1" payload_b64 exp now
+  [[ "$svid" == *.*.* ]] || return 0
+  payload_b64="${svid#*.}"; payload_b64="${payload_b64%%.*}"
+  exp="$(printf '%s' "$payload_b64" | tr '_-' '/+' \
+    | { p="$(cat)"; pad=$(( (4 - ${#p} % 4) % 4 )); printf '%s%*s' "$p" "$pad" '' | tr ' ' '='; } \
+    | base64 -d 2>/dev/null | jq -r '.exp' 2>/dev/null || true)"
+  [[ "$exp" =~ ^[0-9]+$ ]] || return 0
+  now="$(date +%s)"
+  (( now >= exp ))
+}
+
+# Restart the workload so the init container fetches a fresh JWT-SVID.
+swa_refresh_workload_svid() {
+  local deploy="${1:-swa-demo-app}" i
+  kubectl rollout restart deployment/"$deploy" -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1 || return 1
+  kubectl rollout status deployment/"$deploy" -n "$SWA_APP_NAMESPACE" --timeout=120s >/dev/null 2>&1 || return 1
+  for i in $(seq 1 12); do
+    swa_read_workload_svid "$deploy" app >/dev/null 2>&1 && return 0
+    sleep 5
+  done
+  return 1
+}
+
+# Return a usable JWT-SVID, restarting the workload when the on-disk token is expired.
+swa_get_live_workload_svid() {
+  local deploy="${1:-swa-demo-app}" svid
+  svid="$(swa_read_workload_svid "$deploy" app 2>/dev/null || true)"
+  if [[ "$svid" == *.*.* ]] && ! swa_svid_is_expired "$svid"; then
+    printf '%s' "$svid"
+    return 0
+  fi
+  swa_refresh_workload_svid "$deploy" || return 1
+  swa_read_workload_svid "$deploy" app
+}
+
+# Return 0 when the SWA control plane is healthy: server ready, agent ready, and
+# no expired-certificate errors in recent agent logs. The expired-cert case is
+# common after the laptop sleeps — the server's serving cert ages out, the agent
+# can no longer attest or mint SVIDs, and workload init containers crash-loop.
+swa_control_plane_healthy() {
+  kubectl get deploy/swa-server -n "$SWA_NAMESPACE" >/dev/null 2>&1 || return 1
+  [[ "$(kubectl get deploy/swa-server -n "$SWA_NAMESPACE" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)" == "1" ]] || return 1
+  local desired ready
+  desired="$(kubectl get ds/swa-agent -n "$SWA_NAMESPACE" -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo 0)"
+  ready="$(kubectl get ds/swa-agent -n "$SWA_NAMESPACE" -o jsonpath='{.status.numberReady}' 2>/dev/null || echo 0)"
+  [[ "${desired:-0}" -gt 0 && "${ready:-0}" == "${desired:-0}" ]] || return 1
+  if kubectl logs -n "$SWA_NAMESPACE" ds/swa-agent --tail=30 2>/dev/null | grep -qi "expired certificate"; then
+    return 1
+  fi
+  return 0
+}
+
+# Restart the SWA control plane (server then agent) to re-bootstrap fresh certs.
+# Idempotent; safe to call when already healthy.
+swa_heal_control_plane() {
+  kubectl rollout restart deploy/swa-server -n "$SWA_NAMESPACE" >/dev/null 2>&1 || true
+  kubectl rollout status  deploy/swa-server -n "$SWA_NAMESPACE" --timeout=180s >/dev/null 2>&1 || true
+  kubectl rollout restart ds/swa-agent     -n "$SWA_NAMESPACE" >/dev/null 2>&1 || true
+  kubectl rollout status  ds/swa-agent     -n "$SWA_NAMESPACE" --timeout=180s >/dev/null 2>&1 || true
+}
+
 # Acquire an ISPSS identity token and exchange it for a Conjur Cloud access token.
 # Sets SWA_IDENTITY_TOKEN and SWA_CONJUR_TOKEN.
 swa_get_tokens() {

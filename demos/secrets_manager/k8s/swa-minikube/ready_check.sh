@@ -11,7 +11,7 @@ rc=0
 ok()   { printf '[OK]   %s\n' "$1"; }
 bad()  { printf '[FAIL] %s\n' "$1"; rc=1; }
 
-printf '\n========== SWA demo — readiness ==========\n\n'
+printf '\n========== SWA demo — readiness (M3) ==========\n\n'
 
 # SWA Server
 if kubectl get deploy/swa-server -n "$SWA_NAMESPACE" >/dev/null 2>&1 \
@@ -46,10 +46,14 @@ retrieved() {
 }
 if retrieved 20; then
   ok "Workload retrieved a secret via JWT-SVID"
+  if kubectl logs -n "$SWA_APP_NAMESPACE" deploy/swa-demo-app -c app --tail=30 2>/dev/null | grep -q '\[trace\] authn-jwt.ok'; then
+    ok "Structured trace events present ([trace] authn-jwt.ok)"
+  else
+    printf '       [INFO] redeploy workload for [trace] log lines (bash setup/swa/deploy_workload.sh)\n'
+  fi
 elif kubectl get deploy/swa-demo-app -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1; then
-  printf '       refreshing workload SVID (init-fetched SVID may have expired)...\n'
-  kubectl rollout restart deployment/swa-demo-app -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1
-  kubectl rollout status deployment/swa-demo-app -n "$SWA_APP_NAMESPACE" --timeout=120s >/dev/null 2>&1
+  printf '       refreshing workload SVID (token may have expired)...\n'
+  swa_refresh_workload_svid swa-demo-app || true
   i=0
   while [ "$i" -lt 12 ]; do
     if retrieved 5; then break; fi
@@ -65,7 +69,19 @@ else
   bad "Workload deployment not found (run: bash go.sh)"
 fi
 
+if kubectl get deploy/spiffe-info -n "$SWA_APP_NAMESPACE" >/dev/null 2>&1; then
+  ok "spiffe-info UI deployed (port-forward svc/spiffe-info 8080:80)"
+else
+  printf '       [INFO] spiffe-info not deployed — bash setup/swa/deploy_spiffe_info.sh\n'
+fi
+
+if kubectl get deploy/acme-carrier -n acme-external >/dev/null 2>&1; then
+  ok "acme-carrier deployed (trust-boundary demo beat)"
+else
+  printf '       [INFO] acme-carrier not deployed — bash setup/swa/deploy_acme.sh\n'
+fi
+
 printf '\n'
-[[ $rc -eq 0 ]] && printf '========== READY — run: bash demo.sh ==========\n\n' \
-               || printf '========== NOT READY — see [FAIL] above ==========\n\n'
+[[ $rc -eq 0 ]] && printf '========== M3 READY — run: bash demo.sh ==========\n\n' \
+               || printf '========== M3 NOT READY — see [FAIL] above ==========\n\n'
 exit $rc
