@@ -12,83 +12,229 @@ You will compare two scripts that run the same Azure SQL query:
 
 - `query_db_hardcoded.sh` has database connection secrets in the script.
 - `query_db_secured.sh` has no hardcoded secrets and receives them at runtime.
+- `run_secured_query.sh` uses Summon to fetch secrets from CyberArk Secrets Manager.
 
 The SQL query remains inline in both scripts. The remediation is about secret handling, not query logic.
 
-## 1. Run The Hardcoded Script
+## Idira Tenant Setup
 
-```bash
-./query_db_hardcoded.sh
-```
+Complete these steps in the Idira tenant before the final secured run. You will use both Privilege Cloud and Secrets Manager.
 
-The script should return rows from the Azure SQL database.
+1. Locate the current SQL account in Privilege Cloud.
 
-## 2. Find The Hardcoded Secrets
+   Open the assigned student safe and find the Microsoft SQL Server account for this activity. Record these values:
 
-Open the script:
+   ```text
+   address  -> SQL_SERVER
+   username -> SQL_USERNAME
+   password -> SQL_PASSWORD
+   ```
 
-```bash
-sed -n '1,80p' query_db_hardcoded.sh
-```
+   Use the database name provided by the instructor for `SQL_DATABASE`.
 
-Identify the values that should not be stored in code:
+2. Add the current SQL values to the hardcoded script for the starting state:
 
-- SQL server
-- database username
-- database password
+   ```bash
+   vi query_db_hardcoded.sh
+   ```
 
-## 3. Inspect The Secured Script
+   Replace the placeholder values with the current SQL connection values, including the username and password:
 
-```bash
-sed -n '1,120p' query_db_secured.sh
-```
+   ```bash
+   SQL_SERVER=<sql-server-address>
+   SQL_DATABASE=<database-name>
+   SQL_USERNAME=<current-sql-username>
+   SQL_PASSWORD=<current-sql-password>
+   ```
 
-Notice that the script still runs `sqlcmd`, but it reads connection values from environment variables:
+   Save the file. This is intentionally insecure and creates the starting point for the remediation.
 
-- `SQL_SERVER`
-- `SQL_DATABASE`
-- `SQL_USERNAME`
-- `SQL_PASSWORD`
+3. Add the `Conjur Sync` user to the student safe.
 
-## 4. Inspect The CyberArk Mapping
+   In Privilege Cloud, open the student safe, add `Conjur Sync` as a safe member, and grant the required sync permissions. Include `View users` and `Access without confirmation`.
 
-```bash
-cat secrets.yml
-```
+4. Grant the workload identity access to the student safe.
 
-This file maps environment variables to CyberArk safe-backed variables:
+   In Secrets Manager, find the workload identity for the Azure user-assigned managed identity, or UMAI, used by this lab VM.
 
-```text
-SQL_SERVER -> data/vault/set_safe/set_account/address
-SQL_USERNAME -> data/vault/set_safe/set_account/username
-SQL_PASSWORD -> data/vault/set_safe/set_account/password
-```
+   Add that workload identity to the student safe's consumers group or equivalent safe access policy. Grant it permission to read the SQL account variables for `address`, `username`, and `password`.
 
-## 5. Inspect The Summon Wrapper
+   This is the identity `summon-conjur` uses when `run_secured_query.sh` authenticates. Without this safe access, Summon can authenticate but cannot read the SQL account properties.
 
-```bash
-sed -n '1,120p' run_secured_query.sh
-```
+5. In Secrets Manager, copy the variable paths for the SQL account properties:
 
-Find the Summon command:
+   ```text
+   address
+   username
+   password
+   ```
 
-```bash
-summon --provider summon-conjur -f ./secrets.yml ./query_db_secured.sh
-```
+## Ubuntu Activity Steps
 
-Summon reads `secrets.yml`, retrieves the authorized values from CyberArk, injects them into the child process, and starts `query_db_secured.sh`.
+1. Open your assigned workspace and inspect the files:
 
-## 6. Run The Secured Script
+   ```bash
+   cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
+   ll
+   ```
 
-```bash
-./run_secured_query.sh
-```
+   You should see files like:
 
-The secured script should return the same database result as the hardcoded script.
+   ```text
+   README.md
+   conjur_authn_azure.env -> /opt/labs/shared/conjur_authn_azure.env
+   query_db_hardcoded.sh
+   query_db_secured.sh
+   run_secured_query.sh
+   secrets.yml
+   student_guide.md
+   ```
 
-## 7. Explain The Flow
+2. Update and inspect the hardcoded script:
 
-Be ready to explain this sequence:
+   ```bash
+   vi query_db_hardcoded.sh
+   ```
+
+   Enter the current SQL connection values, including the username and password:
+
+   ```bash
+   SQL_SERVER=<sql-server-address>
+   SQL_DATABASE=<database-name>
+   SQL_USERNAME=<current-sql-username>
+   SQL_PASSWORD=<current-sql-password>
+   ```
+
+3. Run the hardcoded script:
+
+   ```bash
+   ./query_db_hardcoded.sh
+   ```
+
+   Expected result:
+
+   ```text
+   Id          SeriesTitle            PrimarySetting         LeadCharacter          StoryHook
+   ----------- ---------------------- ---------------------- ---------------------- ----------------------
+             1 Star Trek              USS Enterprise         Jean Luc               First contact
+             2 Voyager                USS Voyager            Kathryn Janeway        Return voyage
+             3 Deep Space             Station Nine           Benjamin Sisko         Wormhole defense
+             4 Galactica              Battlestar Galactica   William Adama          Fleet survival
+             5 The Expanse            Rocinante              James Holden           Political crisis
+
+   (5 rows affected)
+   ```
+
+4. Run the secured script directly:
+
+   ```bash
+   ./query_db_secured.sh
+   ```
+
+   This should fail because the secured script expects Summon to inject the secret values:
+
+   ```text
+   ./query_db_secured.sh: line 4: SQL_SERVER: SQL_SERVER is required
+   ```
+
+5. Run the Summon wrapper before fixing `secrets.yml`:
+
+   ```bash
+   ./run_secured_query.sh
+   ```
+
+   If `secrets.yml` still has placeholder paths, Summon should fail with a missing variable error similar to:
+
+   ```text
+   CONJ00076E Variable conjur:variable:data/vault/set_safe/set_account/address is empty or not found.
+   ```
+
+6. Update `secrets.yml` with the actual Secrets Manager paths:
+
+   ```bash
+   vi secrets.yml
+   ```
+
+   Replace the placeholder paths:
+
+   ```yaml
+   SQL_SERVER: !var data/vault/set_safe/set_account/address
+   SQL_USERNAME: !var data/vault/set_safe/set_account/username
+   SQL_PASSWORD: !var data/vault/set_safe/set_account/password
+   ```
+
+   With the paths copied from Secrets Manager. Example:
+
+   ```yaml
+   SQL_SERVER: !var data/vault/<student-safe>/<sql-account>/address
+   SQL_USERNAME: !var data/vault/<student-safe>/<sql-account>/username
+   SQL_PASSWORD: !var data/vault/<student-safe>/<sql-account>/password
+   ```
+
+7. Run the secured script through Summon again:
+
+   ```bash
+   ./run_secured_query.sh
+   ```
+
+   If the safe, account, property path, or UMAI permissions are still wrong, Summon may fail with a specific path:
+
+   ```text
+   CONJ00076E Variable conjur:variable:data/vault/<student-safe>/<sql-account>/address is empty or not found.
+   ```
+
+   Recheck the Secrets Manager path and confirm the UMAI has access to the student safe.
+
+8. Run the secured script again after fixing the path or permissions:
+
+   ```bash
+   ./run_secured_query.sh
+   ```
+
+   Expected result:
+
+   ```text
+   Id          SeriesTitle            PrimarySetting         LeadCharacter          StoryHook
+   ----------- ---------------------- ---------------------- ---------------------- ----------------------
+             1 Star Trek              USS Enterprise         Jean Luc               First contact
+             2 Voyager                USS Voyager            Kathryn Janeway        Return voyage
+             3 Deep Space             Station Nine           Benjamin Sisko         Wormhole defense
+             4 Galactica              Battlestar Galactica   William Adama          Fleet survival
+             5 The Expanse            Rocinante              James Holden           Political crisis
+
+   (5 rows affected)
+   ```
+
+## Bonus: Rotation Test
+
+After the secured script works, use Privilege Cloud to rotate the SQL account password, then rerun both scripts from Ubuntu.
+
+1. In Privilege Cloud, open the student safe and locate the SQL account used in `secrets.yml`.
+2. Rotate or change the account password in Privilege Cloud.
+3. Wait for the account to show the rotation completed successfully.
+4. Return to the Ubuntu workspace:
+
+   ```bash
+   cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
+   ```
+
+5. Rerun the hardcoded script:
+
+   ```bash
+   ./query_db_hardcoded.sh
+   ```
+
+   The hardcoded script should fail because it still contains the old password.
+
+6. Rerun the secured script through Summon:
+
+   ```bash
+   ./run_secured_query.sh
+   ```
+
+   The secured script should still return rows because Summon retrieves the current value from CyberArk at runtime.
+
+## Runtime Flow
 
 ```text
 run_secured_query.sh
@@ -104,5 +250,7 @@ run_secured_query.sh
 
 - You can identify the hardcoded secrets in `query_db_hardcoded.sh`.
 - You can explain why `query_db_secured.sh` does not contain those secrets.
-- You can point to where Summon is called.
-- You can explain which values come from CyberArk and which value is normal configuration.
+- You can update `secrets.yml` with the correct Secrets Manager paths.
+- You can explain why `query_db_secured.sh` fails without Summon.
+- You can explain why the UMAI needs safe access before Summon can retrieve secrets.
+- Bonus: You can rotate the SQL password in Privilege Cloud and show that the hardcoded script fails while the secured script still works.

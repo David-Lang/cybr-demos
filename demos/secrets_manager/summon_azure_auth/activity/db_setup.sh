@@ -38,7 +38,7 @@ Environment:
   SQL_PASSWORD, SQLCMD_BIN, INSTALL_SQLCMD_SCRIPT, DROP_EXISTING
 
 Examples:
-  ./db_setup.sh --keyvault lab-bca538-student1-kv
+  ./db_setup.sh --keyvault student1-kv
   SQL_SERVER=server.database.windows.net SQL_DATABASE=db SQL_USERNAME=user SQL_PASSWORD=pass ./db_setup.sh
 EOF
 }
