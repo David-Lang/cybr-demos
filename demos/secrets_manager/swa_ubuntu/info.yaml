@@ -1,7 +1,0 @@
-Category: "secrets_manager"
-Name: "SWA Ubuntu"
-Docs: "https://docs.cyberark.com/secrets-manager-cloud/latest/en/content/conjurcloud/ccl-swa-getstarted-vm.htm"
-DemoScript: "demo.sh"
-SetupScript: "setup.sh"
-Enabled: false
-IsSetup: false

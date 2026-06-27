@@ -1,0 +1,60 @@
+# Hardcoded Secret Remediation - __STUDENT__
+
+This activity shows how to remove hardcoded database credentials from a script without changing the SQL query logic.
+
+## Files
+
+- `query_db_hardcoded.sh`
+  The starting script. It contains database connection values directly in the file.
+- `query_db_secured.sh`
+  The secured script. It reads database connection values from environment variables.
+- `run_secured_query.sh`
+  Wrapper that calls Summon and then runs `query_db_secured.sh`.
+- `secrets.yml`
+  Maps environment variable names to CyberArk safe-backed variables.
+- `student_guide.md`
+  Step-by-step activity guide.
+- `conjur_authn_azure.env`
+  Existing Azure authenticator runtime configuration for this lab VM.
+
+## Activity
+
+Run the hardcoded script:
+
+```bash
+./query_db_hardcoded.sh
+```
+
+Inspect the hardcoded credentials:
+
+```bash
+sed -n '1,80p' query_db_hardcoded.sh
+```
+
+Inspect the secured script:
+
+```bash
+sed -n '1,120p' query_db_secured.sh
+```
+
+Inspect the Summon wrapper:
+
+```bash
+sed -n '1,120p' run_secured_query.sh
+```
+
+Inspect the CyberArk variable map:
+
+```bash
+cat secrets.yml
+```
+
+Run the secured version:
+
+```bash
+./run_secured_query.sh
+```
+
+## Expected Result
+
+Both scripts query the same Azure SQL database. The secured version removes the hardcoded server, username, and password from the application script and injects them at runtime with Summon.

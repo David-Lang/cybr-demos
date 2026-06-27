@@ -17,6 +17,22 @@ if [[ ! -d "$demo_path" ]]; then
   exit 1
 fi
 
+# ── Cloud provider flags ──────────────────────────────────────────────────────
+# Inherit from env (survives docker-group re-exec) then override from CLI args.
+SETUP_AWS="${SETUP_AWS:-false}"
+SETUP_AZURE="${SETUP_AZURE:-false}"
+SETUP_GCP="${SETUP_GCP:-false}"
+
+for _arg in "$@"; do
+  case "$_arg" in
+    --aws)   SETUP_AWS=true ;;
+    --azure) SETUP_AZURE=true ;;
+    --gcp)   SETUP_GCP=true ;;
+    *) echo "[ERROR] unknown option: $_arg  (valid: --aws --azure --gcp)" >&2; exit 1 ;;
+  esac
+done
+export SETUP_AWS SETUP_AZURE SETUP_GCP
+
 req=(
   "$compute_init_path/install_docker.sh"
   "$compute_init_path/install_terraform.sh"
@@ -70,7 +86,7 @@ ensure_prerequisites() {
 
   if [[ "${SWA_SETUP_DOCKER_GROUP_REEXEC:-}" != "1" ]] && command -v sg >/dev/null 2>&1 && sg docker -c "docker info >/dev/null 2>&1"; then
     echo "[INFO] restarting setup with docker group membership active"
-    exec sg docker -c "export CYBR_DEMOS_PATH='$CYBR_DEMOS_PATH'; export SWA_SETUP_DOCKER_GROUP_REEXEC=1; bash '$script_path'"
+    exec sg docker -c "export CYBR_DEMOS_PATH='$CYBR_DEMOS_PATH' SETUP_AWS='$SETUP_AWS' SETUP_AZURE='$SETUP_AZURE' SETUP_GCP='$SETUP_GCP' SWA_SETUP_DOCKER_GROUP_REEXEC=1; bash '$script_path'"
   fi
 
   echo "[ERROR] docker is installed but is not usable by this shell" >&2
@@ -112,6 +128,56 @@ fi
 
 # Deploy giftapp-hardcoded and giftapp-swa
 run_step "$demo_path/setup/k8s" "./setup.sh"
+
+# ── Optional cloud provider setups ───────────────────────────────────────────
+cloud_path="$demo_path/setup/cloud"
+
+if [[ "$SETUP_AWS" == "true" || "$SETUP_AZURE" == "true" || "$SETUP_GCP" == "true" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$CYBR_DEMOS_PATH/demos/tenant_vars.sh"
+  # shellcheck disable=SC1091
+  source "$cloud_path/vars.env"
+  set +a
+
+  run_cloud_step() {
+    local cloud="$1"
+    local dir="$cloud_path/$cloud"
+    local creds_file="$cloud_path/${cloud}_credentials.env"
+
+    if [[ ! -f "$creds_file" ]]; then
+      echo "[ERROR] Credentials file not found: $creds_file" >&2
+      echo "[ERROR] Create this file and add your ${cloud^^} credentials" >&2
+      exit 1
+    fi
+
+    echo
+    echo "[INFO] step: $cloud cloud setup"
+    (
+      cd "$dir"
+      set -a
+      # shellcheck disable=SC1090
+      source "$creds_file"
+      set +a
+      bash -euo pipefail "./setup.sh"
+    )
+  }
+
+  if [[ "$SETUP_AWS" == "true" ]]; then
+    install_from_compute_init "aws" "$compute_init_path/install_awscli.sh"
+    run_cloud_step "aws"
+  fi
+
+  if [[ "$SETUP_AZURE" == "true" ]]; then
+    install_from_compute_init "az" "$compute_init_path/install_azurecli.sh"
+    run_cloud_step "azure"
+  fi
+
+  if [[ "$SETUP_GCP" == "true" ]]; then
+    install_from_compute_init "gcloud" "$compute_init_path/install_gcpcli.sh"
+    run_cloud_step "gcp"
+  fi
+fi
 
 echo
 echo "[INFO] done — run 'bash demo.sh' to explore"

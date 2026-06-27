@@ -1,0 +1,7 @@
+Category: "secrets_manager"
+Name: "Summon Azure Auth"
+Docs: "https://github.com/cyberark/summon-conjur"
+DemoScript: "demo.sh"
+SetupScript: "setup.sh"
+Enabled: false
+IsSetup: false

@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ -f ./conjur_authn_azure.env ]; then
+  # shellcheck disable=SC1091
+  source ./conjur_authn_azure.env
+fi
+
+if ! command -v summon >/dev/null 2>&1; then
+  echo "ERROR: summon is not installed" >&2
+  exit 1
+fi
+
+if [ ! -f ./secrets.yml ]; then
+  echo "ERROR: secrets.yml not found" >&2
+  exit 1
+fi
+
+if [ ! -x ./query_db_secured.sh ]; then
+  echo "ERROR: query_db_secured.sh is missing or not executable" >&2
+  exit 1
+fi
+
+export SQL_DATABASE=__SQL_DATABASE_Q__
+
+summon --provider summon-conjur -f ./secrets.yml ./query_db_secured.sh

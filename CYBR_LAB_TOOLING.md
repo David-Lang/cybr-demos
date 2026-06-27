@@ -70,15 +70,57 @@ cybr-lab-output <lab-id>
 
 The output includes the lab ID, host addresses, and reusable connection commands derived from the CloudFormation outputs.
 
-## Use A Lab For Demo Work
+## Connect To A Lab
 
-Use `cybr-lab-output` to get the jumpbox SSH command, then run demo-specific setup and validation commands on the lab host.
-
-Example pattern:
+Use `cybr-lab-output` to get the host, then SSH:
 
 ```bash
 cybr-lab-output
-ssh -i "$SSH_KEY_PATH" ubuntu@<jumpbox-ip>
+ssh -i "$SSH_KEY_PATH" ubuntu@<lab-host>
+```
+
+## Lab Environment Variables
+
+Tenant credentials and the lab ID are injected into every login shell via `/etc/profile.d/cyberark.sh`. The file is written by cloud-init at instance launch and contains:
+
+```bash
+LAB_ID=...               # unique ID for this lab (used in safe names, namespaces, etc.)
+TENANT_ID=...            # CyberArk ISP tenant GUID
+TENANT_SUBDOMAIN=...     # subdomain of *.id.cyberark.cloud
+CLIENT_ID=...            # ISP service account username
+CLIENT_SECRET=...        # ISP service account password
+INSTALLER_USR=...        # ISP installer user
+INSTALLER_PWD=...        # ISP installer password
+```
+
+**Interactive session** — variables load automatically when you SSH normally:
+
+```bash
+ssh -i "$SSH_KEY_PATH" ubuntu@<lab-host>
+echo $LAB_ID   # available immediately
+```
+
+**Non-interactive / scripted commands** — a plain `ssh host "cmd"` does not source `/etc/profile.d/`. Use a login shell explicitly:
+
+```bash
+ssh -i "$SSH_KEY_PATH" ubuntu@<lab-host> "bash -lc 'echo \$LAB_ID'"
+```
+
+Or when piping a longer script:
+
+```bash
+ssh -i "$SSH_KEY_PATH" ubuntu@<lab-host> bash -lc << 'EOF'
+cd /opt/cybr-demos/demos/secrets_manager/swa_k8s
+bash setup.sh --aws
+EOF
+```
+
+## Use A Lab For Demo Work
+
+Use `cybr-lab-output` to get the host, SSH with a login shell so the tenant vars are loaded, then run demo setup:
+
+```bash
+ssh -i "$SSH_KEY_PATH" ubuntu@<lab-host>
 cd /opt/cybr-demos/demos/<category>/<demo>
 bash setup.sh
 bash validate.sh

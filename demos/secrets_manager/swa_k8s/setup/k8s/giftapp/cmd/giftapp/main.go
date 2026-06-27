@@ -67,6 +67,7 @@ func main() {
 		loadWithSWA(context.Background(), state)
 		writeJSON(w, state)
 	})
+	mux.HandleFunc("/csp-test", newCSPTestHandler(mode, getenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/swa-agent/public/api.sock")))
 
 	certPath := getenv("SSL_CERT_PATH", "/certs/giftapp.pem")
 	keyPath := getenv("SSL_KEY_PATH", "/certs/giftapp.key")
