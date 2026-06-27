@@ -59,7 +59,7 @@ This will:
     "cybr-demos": {
       "command": "node",
       "args": [
-        "/Users/david.lang/Library/CloudStorage/GoogleDrive-dalang@paloaltonetworks.com/My Drive/_GolandProjects/cybr-demos/mcp-server/index.js"
+        "/absolute/path/to/cybr-demos/mcp-server/index.js"
       ]
     }
   }
@@ -79,14 +79,14 @@ Add:
     "cybr-demos": {
       "command": "node",
       "args": [
-        "/Users/david.lang/Library/CloudStorage/GoogleDrive-dalang@paloaltonetworks.com/My Drive/_GolandProjects/cybr-demos/mcp-server/index.js"
+        "/absolute/path/to/cybr-demos/mcp-server/index.js"
       ]
     }
   }
 }
 ```
 
-**Note:** The path above is pre-filled with your project location. Just copy it!
+**Note:** Replace `/absolute/path/to/cybr-demos` with the absolute path to your local clone of this repository.
 
 ### 4. Restart Your Client
 
