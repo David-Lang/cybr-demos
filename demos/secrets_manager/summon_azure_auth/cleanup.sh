@@ -63,7 +63,11 @@ patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "data/$LAB_ID" "$(cat <<
 EOF
 )" >/dev/null || true
 
-printf "Deleting demo account and safe: %s\n" "$SAFE_NAME"
+printf "Deleting the student-created safe and its account (best-effort): %s\n" "$SAFE_NAME"
+# The safe + account are created by the student in the activity (not at deploy),
+# so these are best-effort on teardown. delete_account_ssh_user_1 deletes the
+# first account in the safe by id, so it also removes the vaulted postgres
+# account. Privilege Cloud safe retention (SFWS0017) may defer safe deletion.
 delete_account_ssh_user_1 "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" >/dev/null || true
 delete_safe "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" >/dev/null || true
 

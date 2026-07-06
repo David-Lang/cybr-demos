@@ -24,6 +24,7 @@ if [ ! -x ./query_db_secured.sh ]; then
   exit 1
 fi
 
-export SQL_DATABASE=__SQL_DATABASE_Q__
-
+# Summon authenticates with the VM's Azure managed identity (authn-azure), reads
+# secrets.yml, injects PGUSER/PGPASSWORD into the environment, and runs the
+# secured query. No secret is stored on disk.
 summon --provider summon-conjur -f ./secrets.yml ./query_db_secured.sh

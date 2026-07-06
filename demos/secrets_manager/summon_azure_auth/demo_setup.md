@@ -10,12 +10,16 @@ Run the full setup from the demo directory:
 ./setup.sh
 ```
 
-That script performs the complete repo deployment flow:
+That script performs deployment enablement (it does **not** create the safe or vault the credential):
 
 1. Installs Summon and the `summon-conjur` provider.
-2. Runs `setup/vault/setup.sh` to create the demo safe and sample account.
+2. Validates that an active PostgreSQL credential platform exists on the tenant.
 3. Runs `setup/conjur/setup.sh` to create/configure `authn-azure` and the workload identity.
 4. Renders `secrets.yml` from `secrets.tmpl.yml` using the resolved safe name.
+
+The safe and account are created by the **student** in the activity. After the
+safe syncs into Conjur, run `setup/conjur/grant_consumers.sh` (control plane) to
+grant the workload read access to the safe's consumers group.
 
 For a non-interactive install-plus-validation run on a prepared host:
 
@@ -49,8 +53,13 @@ Prerequisites:
 
 The setup uses `setup/vars.env` as the shared demo configuration file. Set these values before running setup:
 
-- `SAFE_NAME`
 - `AUTHN_AZURE_SERVICE_ID`
+
+`SAFE_NAME` defaults to the **VM name** (the host's short hostname, which Azure
+sets to `{labid}-{noun}-{verb}-{4char}` and is kept within the 28-char safe cap).
+Override it by exporting `SAFE_NAME` (or `VM_NAME`) before setup — needed only if
+setup does not run on the target VM, or a long custom instance name would exceed
+28 characters.
 
 These values can usually be discovered from Azure IMDS and may be left blank:
 
@@ -82,17 +91,17 @@ Constraints and assumptions:
 
 This host runtime later authenticates to CyberArk and injects variables into the child process.
 
-### Stage 2: Provision the Demo Safe
+### Stage 2: Validate the Postgres Credential Platform
 
-`setup/vault/setup.sh`:
+Deployment validates that an **active PostgreSQL credential platform** exists on
+the tenant (via `postgres_platform_available`). The student needs it to onboard
+the DB account and SRS needs it to rotate the credential, so setup fails early if
+it is missing. Override the match keyword with `POSTGRES_PLATFORM_ID`.
 
-- creates the demo safe
-- adds the required safe members
-- adds `Conjur Sync`
-- creates `account-ssh-user-1`
-- waits for the synchronized safe delegation group to appear in Conjur
-
-This establishes the secret source that Summon consumes.
+The safe and the `postgres-appuser` account are **not** created here — the student creates
+the safe and vaults the credential in the activity. After the safe syncs into
+Conjur, run `setup/conjur/grant_consumers.sh` (control plane) to grant the
+workload read access to the safe's consumers group.
 
 ### Stage 3: Provision Azure Authenticator and Workload
 
@@ -115,31 +124,37 @@ This stage creates both control points needed at runtime:
 
 ### Stage 4: Render the Runtime Secret Map
 
-After the safe exists, `setup.sh` renders `secrets.yml` from `secrets.tmpl.yml`.
+`setup.sh` renders `secrets.yml` from `secrets.tmpl.yml` for the post-vault smoke
+test (`demo.sh`). It points to the account the student vaults:
 
-The rendered file points to:
+- `data/vault/<safe-name>/postgres-appuser/username`
+- `data/vault/<safe-name>/postgres-appuser/password`
 
-- `data/vault/<safe-name>/account-ssh-user-1/address`
-- `data/vault/<safe-name>/account-ssh-user-1/password`
-- `data/vault/<safe-name>/account-ssh-user-1/username`
+It resolves only after the student vaults that account and the workload is
+granted access (`grant_consumers.sh`). The workshop itself uses the activity's
+own `secrets.yml`, rendered per student by `activity/setup_activity.sh`.
 
 ## What Gets Deployed
 
 Local host artifacts:
 
 - `conjur_authn_azure.env`
-- `secrets.yml`
+- `secrets.yml` (post-vault smoke-test map)
 - Summon binaries and provider
+- the VM-local Postgres container + seeded demo table (`activity/db_setup.sh`)
+- the rendered student workspace under `/opt/labs`
 
 CyberArk-side resources:
 
-- demo safe named by `SAFE_NAME`
-- sample account `account-ssh-user-1`
 - Conjur authenticator service under `conjur/authn-azure/<service-id>`
 - `provider-uri` variable value for the Azure tenant
 - Conjur workload host under `data/<LAB_ID>/azure-apps/<host-name>`
 - Conjur grant into the `authn-azure` `apps` group
-- Conjur grant into the safe delegation consumers group
+
+NOT created at deploy (the student does this in the activity):
+
+- the safe (named after the VM) and the vaulted `postgres-appuser` account
+- the safe-consumers grant — applied afterward by `setup/conjur/grant_consumers.sh`
 
 ## Cleanup Scope
 

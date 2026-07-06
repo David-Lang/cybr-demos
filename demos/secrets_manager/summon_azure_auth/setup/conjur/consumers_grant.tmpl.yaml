@@ -1,0 +1,13 @@
+# metadata
+# mode: append-policy
+#
+# Grants the workload identity read access to the demo safe's synced consumers
+# group. Applied by grant_consumers.sh AFTER the safe is created (in the
+# activity) and has synchronized into Conjur — it is intentionally NOT part of
+# the deploy-time workload policy, which must not depend on a safe existing.
+---
+- !grant
+  roles:
+    - !group vault/{{ .SAFE_NAME }}/delegation/consumers
+  members:
+    - !group /data/{{ .LAB_ID }}/azure-apps

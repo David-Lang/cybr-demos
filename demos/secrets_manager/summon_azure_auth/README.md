@@ -47,20 +47,24 @@ sequenceDiagram
 ## Key Files
 
 - `PLAN.md`
-  Tracks build and lab-test progress.
+  Tracks build/lab-test progress and the workshop delivery design.
+- `setup_vm.sh`
+  VM orchestrator the deployment app runs: repo → `setup.sh` → `activity/db_setup.sh` → docker/psql → `activity/setup_activity.sh`.
 - `setup.sh`
-  Installs Summon, provisions the safe, provisions/configures the Azure authenticator and workload, and renders `secrets.yml`.
-- `setup/vault/setup.sh`
-  Creates the demo safe, grants required members, and creates `account-ssh-user-1`.
+  Deployment enablement: installs Summon, validates the tenant PostgreSQL platform, provisions/configures the Azure authenticator + workload identity, and renders `secrets.yml`. Does NOT create the safe.
 - `setup/conjur/setup.sh`
   Creates the `authn-azure` service if needed, sets `provider-uri`, grants the workload, validates Azure IMDS, and writes `conjur_authn_azure.env`.
+- `setup/conjur/grant_consumers.sh`
+  Grants the workload read access to the safe's consumers group — run after the student creates the safe and it syncs.
+- `activity/db_setup.sh`
+  Stands up the VM-local Postgres container with the initial credential and seeds the demo table.
+- `activity/setup_activity.sh`
+  Renders the per-student workspace (hardcoded/secured `psql` scripts + pre-filled `secrets.yml`).
 - `setup/vars.env`
-  Shared demo configuration for safe name, Azure authenticator service ID, and Azure managed identity details.
-- `demo.sh`
-  Loads the runtime environment, validates Azure metadata access, and runs Summon.
-- `consumer.sh`
-  Prints the injected variables so the retrieval result is visible.
+  Shared config: `SAFE_NAME` (defaults to the VM name), Azure authenticator service id, `POSTGRES_PLATFORM_ID`, and Azure identity details.
+- `demo.sh` / `consumer.sh`
+  Post-vault smoke test: retrieves the vaulted Postgres credential via Summon and shows it was injected (`PGUSER` present, `PGPASSWORD` length).
 - `secrets.tmpl.yml`
-  Template for the safe-backed `!var` paths.
+  Template for the post-vault smoke-test `!var` paths (`postgres-appuser`).
 - `test_runner.sh`
-  Runs setup and validation non-interactively and captures artifacts.
+  Non-interactive validation of the activity setup (orchestrator + hardcoded query).

@@ -1,9 +1,18 @@
 #!/bin/bash
+# Non-interactive validation of the workshop ACTIVITY SETUP (the automatable
+# part): runs the VM orchestrator, then proves the hardcoded query works against
+# the VM-local Postgres.
+#
+# The secured (Summon) and rotate (SRS) steps require the student to vault the
+# credential and the Idira System connector, so they are NOT covered here.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$SCRIPT_DIR"
 ARTIFACTS_DIR="$DEMO_DIR/artifacts"
+LABS_ROOT="${LABS_ROOT:-/opt/labs}"
+STUDENT_PREFIX="${STUDENT_PREFIX:-student}"
+ACTIVITY_DIR_NAME="${ACTIVITY_DIR_NAME:-hardcoded-secret-remediation}"
 
 if [ -f /etc/profile.d/cyberark.sh ]; then
   # shellcheck disable=SC1091
@@ -16,40 +25,23 @@ log_step() {
   printf "\n[%s] %s\n" "$1" "$2"
 }
 
-require_file() {
-  local file_path="$1"
-  if [ ! -f "$file_path" ]; then
-    printf "ERROR: Required file not found: %s\n" "$file_path" >&2
-    exit 1
-  fi
-}
-
 cd "$DEMO_DIR"
 
-log_step "1/4" "Run demo setup"
-./setup.sh | tee "$ARTIFACTS_DIR/setup.log"
+log_step "1/2" "Run the VM orchestrator (setup_vm.sh --skip-clone)"
+./setup_vm.sh --skip-clone | tee "$ARTIFACTS_DIR/setup_vm.log"
 
-log_step "2/4" "Load runtime environment"
-require_file "$DEMO_DIR/conjur_authn_azure.env"
-# shellcheck disable=SC1091
-source "$DEMO_DIR/conjur_authn_azure.env"
-env | grep -E '^(CONJUR|AUTHN_AZURE|WORKLOAD_|AZURE_|SUMMON_AZURE)' | sort > "$ARTIFACTS_DIR/runtime_env.log"
-
-log_step "3/4" "Capture Azure managed identity metadata"
-resource="$(jq -rn --arg value "${AZURE_IMDS_RESOURCE:-https://management.azure.com/}" '$value|@uri')"
-metadata_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${resource}"
-if [ -n "${AZURE_CLIENT_ID:-}" ]; then
-  client_id="$(jq -rn --arg value "$AZURE_CLIENT_ID" '$value|@uri')"
-  metadata_url="${metadata_url}&client_id=${client_id}"
+log_step "2/2" "Prove the hardcoded query works against the local Postgres"
+workspace="$LABS_ROOT/${STUDENT_PREFIX}1/$ACTIVITY_DIR_NAME"
+if [ ! -x "$workspace/query_db_hardcoded.sh" ]; then
+  printf "ERROR: rendered workspace not found: %s\n" "$workspace" >&2
+  exit 1
 fi
-curl -fsS -H Metadata:true "$metadata_url" | jq '{client_id, resource, token_type, expires_on}' | tee "$ARTIFACTS_DIR/azure_identity.log"
+"$workspace/query_db_hardcoded.sh" | tee "$ARTIFACTS_DIR/hardcoded_query.log"
 
-log_step "4/4" "Run Summon demo"
-./demo.sh | tee "$ARTIFACTS_DIR/demo.log"
+# Expect the seeded rows (row 1 is Star Trek).
+grep -q "Star Trek" "$ARTIFACTS_DIR/hardcoded_query.log"
 
-grep -Eq '^SECRET1: .+' "$ARTIFACTS_DIR/demo.log"
-grep -Eq '^SECRET2: .+' "$ARTIFACTS_DIR/demo.log"
-grep -Eq '^SECRET3: .+' "$ARTIFACTS_DIR/demo.log"
-
-printf "\nTest run completed successfully.\n"
+printf "\nActivity-setup validation completed.\n"
 printf "Artifacts: %s\n" "$ARTIFACTS_DIR"
+printf "Note: the secured (Summon) and rotate (SRS) steps require the student to\n"
+printf "vault the credential and the Idira System connector — validate those manually.\n"

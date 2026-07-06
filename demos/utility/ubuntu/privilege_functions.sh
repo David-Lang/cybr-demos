@@ -284,3 +284,32 @@ add_ip_to_privilege_cloud_allowlist() {
     sleep 600
   fi
 }
+
+get_platforms() {
+  # $1 isp_subdomain, $2 identity_token, [$3 search]
+  local url="https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms"
+  if [ -n "${3:-}" ]; then
+    url="${url}?search=$3"
+  fi
+  curl --silent --location "$url" \
+    --header "Authorization: Bearer $2" \
+    --header "Accept: application/json"
+}
+
+postgres_platform_available() {
+  # $1 isp_subdomain, $2 identity_token, [$3 keyword; default "postgre"]
+  # Returns 0 if an active platform whose id/name/systemType contains the keyword
+  # exists on the tenant, else 1. Used to validate the tenant can onboard/rotate
+  # the demo Postgres credential.
+  local keyword="${3:-postgre}"
+  local response
+  response="$(get_platforms "$1" "$2")" || return 1
+  printf '%s' "$response" | jq -e --arg kw "$keyword" '
+      (.Platforms // [])
+      | map(select(
+          ((.general.active // true) == true)
+          and (((.general.id // "") + " " + (.general.name // "") + " " + (.general.systemType // "")) | ascii_downcase | contains($kw | ascii_downcase))
+        ))
+      | length > 0
+    ' >/dev/null 2>&1
+}

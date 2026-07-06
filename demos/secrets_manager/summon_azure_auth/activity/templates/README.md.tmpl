@@ -1,60 +1,32 @@
 # Hardcoded Secret Remediation - __STUDENT__
 
-This activity shows how to remove hardcoded database credentials from a script without changing the SQL query logic.
+This activity removes a hardcoded database password from a script without
+changing the SQL query — you vault it in CyberArk and retrieve it at runtime.
+
+The database is a local PostgreSQL already running on this VM. The scripts use
+`psql`; the only thing that changes between them is how the password is handled.
 
 ## Files
 
-- `query_db_hardcoded.sh`
-  The starting script. It contains database connection values directly in the file.
-- `query_db_secured.sh`
-  The secured script. It reads database connection values from environment variables.
-- `run_secured_query.sh`
-  Wrapper that calls Summon and then runs `query_db_secured.sh`.
-- `secrets.yml`
-  Maps environment variable names to CyberArk safe-backed variables.
-- `student_guide.md`
-  Step-by-step activity guide.
-- `conjur_authn_azure.env`
-  Existing Azure authenticator runtime configuration for this lab VM.
+- `query_db_hardcoded.sh` — starting script with the password inline (anti-pattern).
+- `query_db_secured.sh` — no secret; reads `PGUSER`/`PGPASSWORD` from the environment.
+- `run_secured_query.sh` — runs `query_db_secured.sh` under Summon.
+- `secrets.yml` — maps `PGUSER`/`PGPASSWORD` to your vaulted CyberArk account (pre-filled; do not edit).
+- `student_guide.md` — step-by-step guide (expose → vault → secure → rotate).
+- `conjur_authn_azure.env` — Azure authenticator runtime config for this VM.
 
-## Activity
-
-Run the hardcoded script:
+## Activity (short form)
 
 ```bash
-./query_db_hardcoded.sh
+./query_db_hardcoded.sh     # 1. Expose: works, but the password is in the file
+cat query_db_hardcoded.sh   #    see the hardcoded PGPASSWORD
+# 2. Vault the credential in CyberArk (see student_guide.md)
+./run_secured_query.sh      # 3. Secure: same result, no secret in the script
+# 4. Rotate with SRS, then rerun both — hardcoded fails, secured still works
 ```
 
-Inspect the hardcoded credentials:
+## Expected result
 
-```bash
-sed -n '1,80p' query_db_hardcoded.sh
-```
-
-Inspect the secured script:
-
-```bash
-sed -n '1,120p' query_db_secured.sh
-```
-
-Inspect the Summon wrapper:
-
-```bash
-sed -n '1,120p' run_secured_query.sh
-```
-
-Inspect the CyberArk variable map:
-
-```bash
-cat secrets.yml
-```
-
-Run the secured version:
-
-```bash
-./run_secured_query.sh
-```
-
-## Expected Result
-
-Both scripts query the same Azure SQL database. The secured version removes the hardcoded server, username, and password from the application script and injects them at runtime with Summon.
+Both scripts return the same rows from `example_table`. The secured version has
+no server, username, or password in the file — Summon injects the current
+credential at runtime using the VM's Azure managed identity.
