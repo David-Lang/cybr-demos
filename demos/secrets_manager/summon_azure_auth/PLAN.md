@@ -28,7 +28,19 @@ Create a repo-standard Secrets Manager demo based on `summon_aws_auth` that runs
 - [x] Update README, setup, and validation documentation.
 - [x] Run syntax checks locally.
 - [ ] Test end-to-end in a fresh Azure Ubuntu lab.
-- [ ] Record lab-specific fixes discovered during test.
+  - In progress (2026-07-07, idira-vegas `faa3`, driven from the app's "Summon"
+    action). `setup.sh` (authn-azure + workload + platform validation) passes;
+    blocked past `db_setup.sh` until the docker fix below; full green not yet
+    confirmed.
+- [x] Record lab-specific fixes discovered during test.
+  - **IMDS 400 / no managed identity:** the provisioning app now attaches a
+    per-VM user-assigned identity, and the `Microsoft.ManagedIdentity` resource
+    provider must be registered on the subscription (one-time, control plane).
+  - **`usermod: user 'ubuntu' does not exist`:** `compute_init/ubuntu/
+    install_docker.sh` hardcoded the `ubuntu` user; Azure VMs use `azureuser`.
+    Made the docker-group user portable (`DOCKER_GROUP_USER` → `$SUDO_USER` →
+    first of azureuser/ubuntu, skip if none) and set `DEBIAN_FRONTEND=
+    noninteractive` for the no-TTY run-command context.
 
 ## New Lab Test Checklist
 
