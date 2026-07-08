@@ -33,7 +33,10 @@ same in both scripts; only credential handling changes.
 
 ## 1. Expose: run the hardcoded script
 
+From your workspace directory:
+
 ```bash
+cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
 ./query_db_hardcoded.sh
 ```
 
