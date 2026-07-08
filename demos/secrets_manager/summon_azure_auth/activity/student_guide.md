@@ -6,7 +6,7 @@ The authoritative, ready-to-run guide is generated per student at:
 /opt/labs/<student>/hardcoded-secret-remediation/student_guide.md
 ```
 
-It is rendered from `templates/student_guide.md.tmpl` with your safe/account
+It is rendered from `templates/student_guide.tmpl.md` with your safe/account
 names and connection details filled in. Use that copy on the VM.
 
 ## What the activity covers

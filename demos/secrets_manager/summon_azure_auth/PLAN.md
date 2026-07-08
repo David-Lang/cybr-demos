@@ -232,6 +232,25 @@ model (self-rotate vs reconcile).
 
 ## Guide Integration (app "Guide" side pane)
 
+**Status: IMPLEMENTED (Slices 1–3, 2026-07-07, `gardenia`, deployed to `faa3`).**
+The design below is the original target; the shipped version differs in a few
+deliberate ways (see `idira-vegas-lab/PLAN.md` → GUI layout rework → Guide
+feature for the app-side detail):
+- **One endpoint, VM-sourced:** `GET /api/guide/{vm}/{activity}` reads the VM's
+  *rendered* `student_guide.md` via Azure run-command and caches it per
+  `vm|activity` (not a `GUIDE_DIR` hostPath mount; no separate step/full/verify
+  endpoints). Returns full HTML + parsed steps in one payload.
+- **Completion = localStorage**, per `vm|activity|step` — not Postgres.
+- **Checkbox stepper, no auto-progress, no verify** (verify hooks deferred; the
+  `<!-- verify: -->` convention is not yet consumed).
+- **Full guide** is its own Views toggle (`fullguide` → `#view-guide`), separate
+  from the stepper panel, which has Activity + Compute selectors.
+- Steps derived from `##` headings; commands = fenced blocks (Copy buttons).
+- Depends on the multi-region layout rework (now DONE).
+
+Original design (target reference):
+
+
 Target: the side-rail **Guide** tab (`data-panel="guide"` in
 `idira-vegas-lab/app/static/index.html`), today a placeholder. **Design:**
 
@@ -316,13 +335,16 @@ no rebuild) or bake at build. No runtime network calls.
 - [ ] Confirm `demos/setup_env.sh` takes creds from the (control-plane) env.
 - [ ] Author guide Markdown under `activity/guide/` (`##`-per-step + optional
       `<!-- verify: <token> -->`) covering expose → vault → secure → rotate.
-- [ ] App: deliver guide to the pod (hostPath mount of the EC2 clone, or bake).
-- [ ] App (Go): add goldmark + bluemonday; implement `/api/guide`,
-      `/api/guide/step/{id}`, `/api/guide/full`, `/api/guide/progress`
-      (Postgres), and `/api/guide/verify/{token}`.
-- [ ] App: Guide-panel stepper (sidebar) + full-guide main-panel view;
-      completion tracking, resume, percent; inject the student's VM connect
-      string; Verify buttons for hooked steps.
+- [x] App: deliver guide to the pod — **done (differently):** read the VM's
+      rendered `student_guide.md` via Azure run-command, cached per
+      `vm|activity` (no hostPath mount / bake).
+- [x] App (Go): add goldmark + bluemonday; guide endpoint — **done:** single
+      `GET /api/guide/{vm}/{activity}` (full HTML + parsed steps). Progress is
+      localStorage (not Postgres); no `/step`, `/full`, or `/verify` endpoints.
+- [x] App: Guide-panel stepper (sidebar) + full-guide main-panel view;
+      completion tracking + percent — **done** (checkbox completion in
+      localStorage; Copy buttons per code block; Connect/SSH first step).
+      **Deferred:** resume-at-last-incomplete, Verify buttons for hooked steps.
 - [ ] Define SRS target onboarding + rotation-account model; connector source in
       `pg_hba`; whether the SIA connector doubles as the DB connector.
 - [ ] Map verify tokens to existing readiness probes; finalize the token set.

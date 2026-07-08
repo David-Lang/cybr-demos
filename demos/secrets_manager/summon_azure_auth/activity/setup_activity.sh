@@ -109,12 +109,12 @@ for ((N = 1; N <= STUDENT_COUNT; N++)); do
   student_dir="$LABS_ROOT/$STUDENT/$ACTIVITY_DIR_NAME"
   mkdir -p "$student_dir"
 
-  render_file "$TEMPLATE_DIR/README.md.tmpl" "$student_dir/README.md"
-  render_file "$TEMPLATE_DIR/student_guide.md.tmpl" "$student_dir/student_guide.md"
-  render_file "$TEMPLATE_DIR/query_db_hardcoded.sh.tmpl" "$student_dir/query_db_hardcoded.sh"
-  render_file "$TEMPLATE_DIR/query_db_secured.sh.tmpl" "$student_dir/query_db_secured.sh"
-  render_file "$TEMPLATE_DIR/run_secured_query.sh.tmpl" "$student_dir/run_secured_query.sh"
-  render_file "$TEMPLATE_DIR/secrets.yml.tmpl" "$student_dir/secrets.yml"
+  render_file "$TEMPLATE_DIR/README.tmpl.md" "$student_dir/README.md"
+  render_file "$TEMPLATE_DIR/student_guide.tmpl.md" "$student_dir/student_guide.md"
+  render_file "$TEMPLATE_DIR/query_db_hardcoded.tmpl.sh" "$student_dir/query_db_hardcoded.sh"
+  render_file "$TEMPLATE_DIR/query_db_secured.tmpl.sh" "$student_dir/query_db_secured.sh"
+  render_file "$TEMPLATE_DIR/run_secured_query.tmpl.sh" "$student_dir/run_secured_query.sh"
+  render_file "$TEMPLATE_DIR/secrets.tmpl.yml" "$student_dir/secrets.yml"
 
   ln -sfn "$LABS_ROOT/shared/conjur_authn_azure.env" "$student_dir/conjur_authn_azure.env"
   chmod +x "$student_dir/query_db_hardcoded.sh" "$student_dir/query_db_secured.sh" "$student_dir/run_secured_query.sh"

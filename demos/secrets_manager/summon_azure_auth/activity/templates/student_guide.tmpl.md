@@ -1,10 +1,22 @@
 # Student Guide: Hardcoded Secret Remediation (__STUDENT__)
 
-Workspace:
+You do this activity on your lab VM. Start by connecting to it — don't assume
+you're already on the box.
+
+## Connect: SSH to your compute
+
+You reach your VM over **SIA SSH** — brokered access, no inbound port or static
+key. From your workstation terminal, use the **SSH link on your compute card** in
+the app (the `Copy` button next to it).
+
+Once connected, open your workspace and look around:
 
 ```bash
 cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
+ls
 ```
+
+You should see the query scripts, `secrets.yml`, and this guide.
 
 ## Goal
 
