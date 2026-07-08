@@ -236,10 +236,16 @@ model (self-rotate vs reconcile).
 The design below is the original target; the shipped version differs in a few
 deliberate ways (see `idira-vegas-lab/PLAN.md` → GUI layout rework → Guide
 feature for the app-side detail):
-- **One endpoint, VM-sourced:** `GET /api/guide/{vm}/{activity}` reads the VM's
-  *rendered* `student_guide.md` via Azure run-command and caches it per
-  `vm|activity` (not a `GUIDE_DIR` hostPath mount; no separate step/full/verify
-  endpoints). Returns full HTML + parsed steps in one payload.
+- **One endpoint, app-rendered from a local cybr-demos clone:** `GET
+  /api/guide/{vm}/{activity}` renders the guide from the app's **own shallow
+  clone of cybr-demos at the workshop ref** (matching what was deployed onto the
+  VM), not from the VM. An activity registry maps each activity → its guide
+  template path (`.../activity/templates/student_guide.tmpl.md`); the app fills
+  the VM-specific placeholders (safe name = VM name, connector address = private
+  IP, fixed DB defaults) and caches per `vm|activity|ref`. Fast — the original
+  design read the VM's rendered file via an Azure run-command, which was the
+  load-latency bottleneck and has been removed. (Requires `git` in the app image
+  + pod GitHub egress for the one-time clone.)
 - **Completion = localStorage**, per `vm|activity|step` — not Postgres.
 - **Checkbox stepper, no auto-progress, no verify** (verify hooks deferred; the
   `<!-- verify: -->` convention is not yet consumed).
@@ -335,9 +341,10 @@ no rebuild) or bake at build. No runtime network calls.
 - [ ] Confirm `demos/setup_env.sh` takes creds from the (control-plane) env.
 - [ ] Author guide Markdown under `activity/guide/` (`##`-per-step + optional
       `<!-- verify: <token> -->`) covering expose → vault → secure → rotate.
-- [x] App: deliver guide to the pod — **done (differently):** read the VM's
-      rendered `student_guide.md` via Azure run-command, cached per
-      `vm|activity` (no hostPath mount / bake).
+- [x] App: deliver guide to the pod — **done (A2):** the app keeps a shallow
+      clone of cybr-demos at the workshop ref and renders the guide template
+      locally (fixed placeholders + VM name/IP). No hostPath mount, no VM
+      run-command. Templates renamed to the `<name>.tmpl.<ext>` convention.
 - [x] App (Go): add goldmark + bluemonday; guide endpoint — **done:** single
       `GET /api/guide/{vm}/{activity}` (full HTML + parsed steps). Progress is
       localStorage (not Postgres); no `/step`, `/full`, or `/verify` endpoints.
