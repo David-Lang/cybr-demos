@@ -18,6 +18,12 @@ source ./conjur_authn_azure.env
 
 This demo proves that a local Linux process can authenticate to CyberArk with Azure managed identity, map that Azure identity to a Conjur host, and retrieve safe-backed variables through Summon without using a Conjur API key.
 
+> This validates the **post-vault secured path**. It requires the student to have
+> already vaulted the `postgres-appuser` account into the safe (named after the
+> VM) and the workload to have been granted access
+> (`setup/conjur/grant_consumers.sh`). To validate only the activity *setup*
+> (through the hardcoded query), run `bash ./test_runner.sh`.
+
 ## About
 
 The main components are:
@@ -63,9 +69,9 @@ sequenceDiagram
     Conjur->>Conjur: Check authn-azure apps grant
     Conjur->>Conjur: Check vault/<safe>/delegation/consumers grant
     Conjur->>Vault: Read synchronized account variables
-    Vault-->>Conjur: Return address, password, username
+    Vault-->>Conjur: Return username, password
     Conjur-->>Provider: Return resolved variable values
-    Provider-->>App: Inject SECRET1, SECRET2, SECRET3
+    Provider-->>App: Inject PGUSER, PGPASSWORD
 ```
 
 Read the diagram left to right:
@@ -112,9 +118,9 @@ Success looks like this:
 
 - IMDS returns a token for the expected managed identity
 - `CONJUR_AUTHN_TYPE` is `azure`
-- `secrets.yml` points to `data/vault/<safe-name>/account-ssh-user-1/...`
+- `secrets.yml` points to `data/vault/<safe-name>/postgres-appuser/...`
 - `demo.sh` prints the Conjur appliance, service ID, and host ID
-- `consumer.sh` prints non-empty values for `SECRET1`, `SECRET2`, and `SECRET3`
+- `consumer.sh` prints `PGUSER` and confirms `PGPASSWORD` was injected (length shown)
 
 What this proves:
 
@@ -205,5 +211,5 @@ Both must succeed for the demo to work. Authentication alone is not enough if th
 - If Summon cannot retrieve a token from metadata, set `SUMMON_AZURE_FETCH_TOKEN="true"` in `setup/vars.env`, re-run setup, and retry `demo.sh`.
 - If authentication fails, compare the configured resource group and managed identity name with the Azure resource. The user-assigned identity name is case-sensitive.
 - If authentication succeeds but Summon cannot resolve variables, inspect `secrets.yml` and confirm the safe name matches the synchronized safe.
-- If secret lookup fails after a safe change, confirm `account-ssh-user-1` still exists in the demo safe and that synchronization has completed.
+- If secret lookup fails after a safe change, confirm `postgres-appuser` still exists in the safe and that synchronization has completed.
 - For a full unattended validation run with captured logs, execute `bash ./test_runner.sh`.

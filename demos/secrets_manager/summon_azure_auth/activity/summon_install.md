@@ -18,7 +18,11 @@ sudo apt-get update
 sudo apt-get install -y ca-certificates curl jq tar
 ```
 
-If this activity queries Azure SQL with `sqlcmd`, install Microsoft SQL tools separately before running the database scripts.
+If this activity queries a local PostgreSQL with `psql`, install the client:
+
+```bash
+sudo apt-get install -y postgresql-client
+```
 
 ## 2. Install Summon
 
@@ -241,18 +245,19 @@ export CONJUR_AUTHN_JWT_TOKEN="$(curl -fsS -H Metadata:true "$url" | jq -r '.acc
 
 ## 8. Create secrets.yml
 
-Map process environment variables to CyberArk variable paths:
+Map process environment variables to CyberArk variable paths. `psql` reads
+`PGUSER`/`PGPASSWORD` natively, so map those directly to the vaulted account:
 
 ```yaml
-SQL_SERVER: !var data/vault/set_safe/set_account/address
-SQL_USERNAME: !var data/vault/set_safe/set_account/username
-SQL_PASSWORD: !var data/vault/set_safe/set_account/password
+PGUSER: !var data/vault/<SAFE_NAME>/postgres-appuser/username
+PGPASSWORD: !var data/vault/<SAFE_NAME>/postgres-appuser/password
 ```
 
-Keep non-secret values such as the database name in normal configuration:
+Keep non-secret connection values as normal configuration (set in the script):
 
 ```bash
-export SQL_DATABASE="trainingdb"
+export PGHOST=localhost
+export PGDATABASE=trainingdb
 ```
 
 ## 9. Run The Secured Script

@@ -97,8 +97,11 @@ for var_name in "${cloud_required_vars[@]}"; do
 done
 
 printf "==========================================\n"
-printf "Demo: Summon Azure Auth\n"
+printf "Demo: Summon Azure Auth (post-vault smoke test)\n"
 printf "==========================================\n\n"
+printf "Retrieves the vaulted Postgres credential via Summon to prove the secured\n"
+printf "path works. Requires the student to have vaulted the account and the\n"
+printf "workload to have been granted access (setup/conjur/grant_consumers.sh).\n\n"
 
 printf "Conjur appliance: %s\n" "$CONJUR_APPLIANCE_URL"
 printf "Conjur authn type: %s\n" "$CONJUR_AUTHN_TYPE"
