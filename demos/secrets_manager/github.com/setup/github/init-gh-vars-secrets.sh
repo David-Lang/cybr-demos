@@ -19,7 +19,7 @@ Value sources:
     SM_JWT_AUTHN_ID
     SM_SECRET_ID_1
     SM_SECRET_ID_2
-    TRUFFLEHOG_REPOS              optional
+    TRUFFLEHOG_OWNER             optional
     SM_USERNAME                   secret
     SM_API_KEY                    secret
 
@@ -285,7 +285,7 @@ REPO_REQUIRED_VARS=(
 )
 
 REPO_OPTIONAL_VARS=(
-  TRUFFLEHOG_REPOS
+  TRUFFLEHOG_OWNER
 )
 
 REPO_SECRETS=(

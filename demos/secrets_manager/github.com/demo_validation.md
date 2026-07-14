@@ -88,7 +88,7 @@ GH_REF=main ./demo.sh   # override the ref
 ```
 
 `demo.sh` dispatches the core workflows, conditionally runs `sm-plugin-jwt-terraform`
-(when `TFVAR_sm_secret_id_1` is set) and `trufflehog-multi-scan` (when `TRUFFLEHOG_REPOS`
+(when `TFVAR_sm_secret_id_1` is set) and `trufflehog-multi-scan` (when `TRUFFLEHOG_OWNER`
 is set), and lists the resulting runs. The patterns below explain what each proves.
 
 ## Pattern 1: GitHub OIDC JWT (plugin and direct)

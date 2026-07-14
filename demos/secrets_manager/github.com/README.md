@@ -52,7 +52,7 @@ sequenceDiagram
 - `demo.sh`
   Runs the demo: triggers the GitHub Actions workflows on `GH_REF` (default `aardvark`) via the `gh` CLI and lists the runs.
 - `setup/vars.env`
-  Shared demo configuration: `SAFE_NAME`, `JWT_CLAIM_IDENTITY`, `GH_REPO`, `GH_ENVIRONMENTS`, `TRUFFLEHOG_REPOS`, `TFVAR_*` (all env-overridable).
+  Shared demo configuration: `SAFE_NAME`, `JWT_CLAIM_IDENTITY`, `GH_REPO`, `GH_ENVIRONMENTS`, `TRUFFLEHOG_OWNER`, `TFVAR_*` (all env-overridable).
 - `setup/vault/setup.sh`
   Creates the demo safe, grants required members, and creates `account-ssh-user-1`.
 - `setup/conjur/setup.sh`
