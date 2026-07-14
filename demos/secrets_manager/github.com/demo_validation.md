@@ -43,7 +43,16 @@ For the api-key pattern, the first two OIDC steps are replaced by the workload h
 
 ## Core Validation
 
-Confirm the server side is healthy before running any workflow. Obtain a Conjur token (see the demo helpers `get_identity_token` / `get_conjur_token`), then:
+The fastest check is the automated one, which `setup.sh` also runs as its final stage:
+
+```bash
+cd "$CYBR_DEMOS_PATH/demos/secrets_manager/github.com"
+./setup/validate.sh
+```
+
+It confirms the JWT authenticator, the workload host, the safe delegation group, and the
+GitHub repository variables/secrets/environments. To spot-check manually, obtain a Conjur
+token (see the demo helpers `get_identity_token` / `get_conjur_token`), then:
 
 - Authenticator status is healthy:
 
@@ -67,6 +76,20 @@ curl -s -H "Authorization: Token token=\"$CONJUR_TOKEN\"" \
   "https://$TENANT_SUBDOMAIN.secretsmgr.cyberark.cloud/api/resources/conjur?kind=group" \
   | jq -r '.[].id' | grep "$SAFE_NAME/delegation/consumers"
 ```
+
+## Run The Demo
+
+Trigger all applicable workflows with the demo runner (leverages the `gh` CLI):
+
+```bash
+cd "$CYBR_DEMOS_PATH/demos/secrets_manager/github.com"
+./demo.sh            # runs on GH_REF (default: aardvark)
+GH_REF=main ./demo.sh   # override the ref
+```
+
+`demo.sh` dispatches the core workflows, conditionally runs `sm-plugin-jwt-terraform`
+(when `TFVAR_sm_secret_id_1` is set) and `trufflehog-multi-scan` (when `TRUFFLEHOG_REPOS`
+is set), and lists the resulting runs. The patterns below explain what each proves.
 
 ## Pattern 1: GitHub OIDC JWT (plugin and direct)
 

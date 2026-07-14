@@ -48,15 +48,19 @@ sequenceDiagram
 ## Key Files
 
 - `setup.sh`
-  Provisions the safe, the JWT authenticator, and the workload, then maps the values and configures the GitHub repository.
+  Bootstrap + validation: provisions the safe, the JWT authenticator, and the workload, maps the values, configures the GitHub repository, then runs `setup/validate.sh`.
+- `demo.sh`
+  Runs the demo: triggers the GitHub Actions workflows on `GH_REF` (default `aardvark`) via the `gh` CLI and lists the runs.
 - `setup/vars.env`
-  Shared demo configuration: `SAFE_NAME` and `JWT_CLAIM_IDENTITY` (env-overridable).
+  Shared demo configuration: `SAFE_NAME`, `JWT_CLAIM_IDENTITY`, `GH_REPO`, `GH_ENVIRONMENTS`, `TRUFFLEHOG_REPOS`, `TFVAR_*` (all env-overridable).
 - `setup/vault/setup.sh`
   Creates the demo safe, grants required members, and creates `account-ssh-user-1`.
 - `setup/conjur/setup.sh`
   Creates and activates the `github1` JWT authenticator and the `github-actor` workload, and grants safe access.
 - `setup/github/setup.sh`
-  Renders `settings_variables.env` with the `CONJUR_*` values GitHub needs.
+  Maps `CONJUR_*` to `SM_*`, rotates the api-key credential, and configures the GitHub repo via `setup/github/init-gh-vars-secrets.sh`.
+- `setup/validate.sh`
+  Confirms the server side (authenticator, workload, safe delegation) and the GitHub repo (variables, secrets, environments) are in place.
 - `remove.sh`
   Removes the workload and safe artifacts created by setup.
 

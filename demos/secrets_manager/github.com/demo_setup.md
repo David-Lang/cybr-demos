@@ -11,11 +11,14 @@ cd "$CYBR_DEMOS_PATH/demos/secrets_manager/github.com"
 ./setup.sh
 ```
 
-`setup.sh` sources `setup/vars.env` and runs three stages in order:
+`setup.sh` validates required inputs, sources `setup/vars.env`, and runs these stages in order:
 
 1. `setup/vault/setup.sh` — create the demo safe and a sample account.
 2. `setup/conjur/setup.sh` — create and activate the `github1` JWT authenticator and the workload identity.
-3. `setup/github/setup.sh` — render `settings_variables.env` with the values GitHub needs.
+3. `setup/github/setup.sh` — map `CONJUR_* -> SM_*`, rotate the api-key credential, and configure the GitHub repo.
+4. `setup/validate.sh` — confirm the server side and the GitHub repo configuration are in place.
+
+After setup, run the demo (trigger the workflows) with `./demo.sh` (see `demo_validation.md`).
 
 To reset before another attempt:
 

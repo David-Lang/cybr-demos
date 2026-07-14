@@ -30,3 +30,7 @@ cd "$demo_path/setup/conjur"
 # Github Setup
 cd "$demo_path/setup/github"
 ./setup.sh
+
+# Validation (bootstrap + validate live in setup)
+cd "$demo_path/setup"
+./validate.sh
