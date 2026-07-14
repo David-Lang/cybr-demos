@@ -6,7 +6,7 @@ set -euo pipefail
 
 demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/github.com"
 
-# Load demo inputs (GH_REPO, GH_ENVIRONMENTS, TRUFFLEHOG_REPOS, TFVAR_*).
+# Load demo inputs (GH_REPO, GH_ENVIRONMENTS, TRUFFLEHOG_OWNER, TFVAR_*).
 set -a
 # shellcheck disable=SC1091
 source "$demo_path/setup/vars.env"
@@ -42,11 +42,11 @@ main() {
   # Terraform reuses the same secret id as the other demos (no AWS JSON needed).
   run_workflow "sm-plugin-jwt-terraform.yml"
 
-  # Multi-scan needs a repo list.
-  if [ -n "${TRUFFLEHOG_REPOS:-}" ]; then
+  # Multi-scan scans all public repos of a GitHub owner (TRUFFLEHOG_OWNER).
+  if [ -n "${TRUFFLEHOG_OWNER:-}" ]; then
     run_workflow "trufflehog-multi-scan.yml"
   else
-    skip_workflow "trufflehog-multi-scan.yml (set TRUFFLEHOG_REPOS to run)"
+    skip_workflow "trufflehog-multi-scan.yml (set TRUFFLEHOG_OWNER to a GitHub account/owner to run)"
   fi
 
   printf "\nDispatched. Recent runs:\n\n"

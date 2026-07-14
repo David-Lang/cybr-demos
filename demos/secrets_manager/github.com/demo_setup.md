@@ -54,7 +54,7 @@ The setup uses `setup/vars.env` as the shared demo configuration file. It reads 
 - `JWT_CLAIM_IDENTITY` — the GitHub `actor` claim value (your GitHub username). Required; the default is a placeholder.
 - `GH_REPO` — target GitHub repository `owner/repo` (default `David-Lang/idira-poc-github-actions`).
 - `GH_ENVIRONMENTS` — environments to create/seed (default `dev staging main terraform`).
-- `TRUFFLEHOG_REPOS` — optional repo list for the trufflehog demo.
+- `TRUFFLEHOG_OWNER` — optional GitHub account/owner whose public repos the trufflehog multi-scan scans.
 - `TFVAR_SSL_CERT`, `TFVAR_sm_secret_id_1` — optional Terraform overrides (derived if blank).
 
 ## Setup Flow
@@ -121,7 +121,7 @@ CyberArk-side resources:
 
 GitHub-side resources (in `GH_REPO`):
 
-- repository variables: `SM_URL`, `SM_ACCOUNT`, `SM_JWT_AUTHN_ID`, `SM_SECRET_ID_1`, `SM_SECRET_ID_2` (and optional `TRUFFLEHOG_REPOS`)
+- repository variables: `SM_URL`, `SM_ACCOUNT`, `SM_JWT_AUTHN_ID`, `SM_SECRET_ID_1`, `SM_SECRET_ID_2` (and optional `TRUFFLEHOG_OWNER`)
 - repository secrets: `SM_USERNAME`, `SM_API_KEY`
 - environments: `dev`, `staging`, `main`, and `terraform` (with `TFVAR_*`)
 

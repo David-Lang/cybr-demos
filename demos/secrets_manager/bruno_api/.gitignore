@@ -1,0 +1,8 @@
+# Local working state (cloned collection + generated env + run reports)
+.collection/
+*.report.json
+
+# Belt-and-suspenders: never commit secret-bearing Bruno envs, even if a clone's
+# ignore rules change. The generated env is <name>.secret.bru.
+*.secret.bru
+**/*.secret.bru
