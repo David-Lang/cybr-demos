@@ -1,0 +1,7 @@
+Category: "Conjur Cloud"
+Name: "bruno_api"
+Docs: "https://github.com/David-Lang/cybr-demos/tree/main/demos/secrets_manager/bruno_api"
+DemoScript: "demo.sh"
+SetupScript: "setup.sh"
+Enabled: false
+IsSetup: false
