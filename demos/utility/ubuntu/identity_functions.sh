@@ -118,6 +118,53 @@ set_user_lock_state() {
 
 }
 
+get_service_user_id() {
+  # $1 isp_id, $2 identity_token
+  # Returns the id (UUID) of the user the identity token belongs to.
+  if [ $# -ne 2 ]; then
+    echo "Usage: get_service_user_id isp_id identity_token" >&2
+    return 1
+  fi
+
+  local response user_id
+  response=$(curl --silent --location --request POST \
+    "https://$1.id.cyberark.cloud/UserMgmt/GetUserInfo" \
+    --header "X-CENTRIFY-NATIVE-CLIENT: true" \
+    --header "Authorization: Bearer $2" \
+    --data '')
+
+  user_id=$(printf '%s' "$response" | jq -r '.Result.Id // empty' 2>/dev/null)
+  if [ -z "$user_id" ]; then
+    printf "\nERROR: GetUserInfo did not return a user Id.\nResponse: %s\n" "$response" >&2
+    return 1
+  fi
+
+  printf '%s' "$user_id"
+}
+
+add_user_to_role() {
+  # $1 isp_id, $2 identity_token, $3 role_name, $4 user_id
+  # Adds a user to a CyberArk Identity role (idempotent).
+  if [ $# -ne 4 ]; then
+    echo "Usage: add_user_to_role isp_id identity_token role_name user_id" >&2
+    return 1
+  fi
+
+  local response success
+  response=$(curl --silent --location --request POST \
+    "https://$1.id.cyberark.cloud/roles/updaterole" \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer $2" \
+    --header "X-IDAP-NATIVE-CLIENT: true" \
+    --data "$(jq -cn --arg n "$3" --arg u "$4" '{Name:$n, Users:{Add:[$u]}}')")
+
+  success=$(printf '%s' "$response" | jq -r '.success // empty' 2>/dev/null)
+  if [ "$success" != "true" ]; then
+    printf "\nERROR: updaterole failed for role %s.\nResponse: %s\n" "$3" "$response" >&2
+    return 1
+  fi
+}
+
 reset_user_password() {
   # $1 isp_id, $2 identity_token, $3 user_uuid, $4 user_secret
   if [ $# -ne 4 ]; then
@@ -153,5 +200,3 @@ reset_user_password() {
   # Optional: echo response for debugging
   # printf '%s\n' "$response"
 }
-
-

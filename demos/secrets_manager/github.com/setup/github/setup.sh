@@ -26,7 +26,7 @@ main() {
   # 3. Provision the api-key credential. The workload host created by the conjur
   #    setup is annotated authn/api-key: true, so we rotate its key here and push
   #    it straight to GitHub (never written to disk).
-  local workload_id="data/workloads/github-actor/${JWT_CLAIM_IDENTITY}"
+  local workload_id="data/workloads/github-repo/${JWT_CLAIM_IDENTITY}"
   printf "\n\nProvisioning api-key credential for host/%s\n" "$workload_id"
   local identity_token conjur_token api_key
   identity_token=$(get_identity_token "$isp_id" "$client_id" "$client_secret")

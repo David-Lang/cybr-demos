@@ -19,6 +19,10 @@ if [ -z "${GH_REPO:-}" ] || [ "${GH_REPO#*INPUT_REQUIRED}" != "$GH_REPO" ]; then
   exit 1
 fi
 
+# ISP Setup (ensure the service user has the Conjur Cloud Admin role)
+cd "$demo_path/setup/isp"
+./setup.sh
+
 # Vault Setup
 cd "$demo_path/setup/vault"
 ./setup.sh

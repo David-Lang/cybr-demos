@@ -24,7 +24,7 @@ main() {
   : "${JWT_CLAIM_IDENTITY:?JWT_CLAIM_IDENTITY must be set}"
   : "${GH_REPO:?GH_REPO must be set}"
 
-  local workload="data/workloads/github-actor/${JWT_CLAIM_IDENTITY}"
+  local workload="data/workloads/github-repo/${JWT_CLAIM_IDENTITY}"
 
   printf "\n== Secrets Manager server side ==\n"
   local id_token conjur_token
