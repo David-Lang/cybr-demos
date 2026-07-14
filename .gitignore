@@ -28,3 +28,6 @@ test_assets/*
 **/aws_credentials.env
 **/azure_credentials.env
 **/gcp_credentials.env
+
+# Agent working plan (convention: keep planning docs out of git)
+AGENT_PLAN.md

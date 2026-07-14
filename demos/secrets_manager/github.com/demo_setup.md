@@ -1,0 +1,112 @@
+# GitHub Actions Demo Setup
+
+This demo provisions the CyberArk Secrets Manager (Idira) server side for GitHub Actions integrations. It creates a JWT authenticator for GitHub OIDC, a workload identity for a GitHub `actor`, and a Privilege Cloud safe whose secrets are synchronized into Secrets Manager. It then emits the values the GitHub workflows in the `idira-github-actions` repo consume.
+
+## Main Entry Point
+
+Run the full setup from the demo directory:
+
+```bash
+cd "$CYBR_DEMOS_PATH/demos/secrets_manager/github.com"
+./setup.sh
+```
+
+`setup.sh` sources `setup/vars.env` and runs three stages in order:
+
+1. `setup/vault/setup.sh` — create the demo safe and a sample account.
+2. `setup/conjur/setup.sh` — create and activate the `github1` JWT authenticator and the workload identity.
+3. `setup/github/setup.sh` — render `settings_variables.env` with the values GitHub needs.
+
+To reset before another attempt:
+
+```bash
+./remove.sh
+```
+
+## Deployment Context
+
+This is a control-plane setup, not a host or Kubernetes deployment. The "workload" is a GitHub Actions job that authenticates to Secrets Manager using the repository's GitHub OIDC token.
+
+The repo-specific setup path matters because:
+
+- the safe is provisioned by this repo's shared Privilege Cloud helpers,
+- the JWT authenticator and workload policies are created from templates in `setup/conjur/`,
+- the workload identity is derived from the GitHub `actor` claim you provide,
+- the GitHub-side values are rendered into `setup/github/settings_variables.env` for handoff.
+
+## Required Environment
+
+Prerequisites:
+
+- Linux/macOS with `bash`, `curl`, and `jq`.
+- `CYBR_DEMOS_PATH` exported and pointing to this repo checkout.
+- Tenant variables available through `demos/setup_env.sh` (`demos/tenant_vars.sh` or environment): `LAB_ID`, `TENANT_ID`, `TENANT_SUBDOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`.
+- The service account (`CLIENT_ID`/`CLIENT_SECRET`) must have policy-admin rights (`Conjur_Cloud_Admins`) to create authenticators and workloads.
+- A healthy Conjur Sync so the safe delegation group appears in Secrets Manager.
+
+The setup uses `setup/vars.env` as the shared demo configuration file. It reads these values from the environment (falling back to defaults):
+
+- `SAFE_NAME` — the Privilege Cloud safe to create/use (default `poc-github`).
+- `JWT_CLAIM_IDENTITY` — the GitHub `actor` claim value (your GitHub username). Required; the default is a placeholder.
+
+## Setup Flow
+
+### Stage 1: Provision the Demo Safe
+
+`setup/vault/setup.sh`:
+
+- authenticates with the tenant service account,
+- creates the safe named by `SAFE_NAME`,
+- adds the Privilege Cloud administrators and `Conjur Sync` as members,
+- creates the sample account `account-ssh-user-1`,
+- waits for the synchronized safe delegation group (`vault/<safe>/delegation/consumers`) to appear in Conjur.
+
+### Stage 2: Provision the JWT Authenticator and Workload
+
+`setup/conjur/setup.sh`:
+
+- applies `authenticator_consumers.yaml` (the `data/authenticator/consumers` group),
+- applies `jwt_service_github1.yaml` to create the `conjur/authn-jwt/github1` authenticator,
+- sets the authenticator variables:
+  - `jwks-uri = https://token.actions.githubusercontent.com/.well-known/jwks`
+  - `issuer = https://token.actions.githubusercontent.com`
+  - `token-app-property = actor`
+  - `identity-path = data/workloads/github-actor`
+- activates `authn-jwt/github1`,
+- renders and applies `workload1.yaml`, creating the host `data/workloads/github-actor/<JWT_CLAIM_IDENTITY>` (annotated `authn/api-key: true`) and granting it to the authenticator consumers group and to `vault/<safe>/delegation/consumers`.
+
+### Stage 3: Render the GitHub Handoff Values
+
+`setup/github/setup.sh` renders `settings_variables.env` from `settings_variables.tmpl.env`, producing:
+
+- `CONJUR_ACCOUNT="conjur"`
+- `CONJUR_JWT_AUTHN_ID="github1"`
+- `CONJUR_SECRET_ID_1="data/vault/<safe>/account-ssh-user-1/username"`
+- `CONJUR_SECRET_ID_2="data/vault/<safe>/account-ssh-user-1/password"`
+- `CONJUR_URL="https://<subdomain>.secretsmgr.cyberark.cloud/api"`
+
+## GitHub Handoff (client side)
+
+This demo provisions the server side only. The GitHub repository variables, secrets, and environments are populated by the `idira-github-actions` repo. Its `scripts/bootstrap-poc.sh` runs this `setup.sh`, maps `CONJUR_* -> SM_*`, provisions the api-key credential by rotating the workload host's API key, and calls `scripts/init-gh-vars-secrets.sh`.
+
+## What Gets Deployed
+
+Local artifacts:
+
+- `setup/github/settings_variables.env` (rendered handoff values)
+- `setup/conjur/workload1.yaml` (rendered workload policy)
+
+CyberArk-side resources:
+
+- demo safe named by `SAFE_NAME`, with `account-ssh-user-1`
+- JWT authenticator `conjur/authn-jwt/github1` (activated)
+- workload host `data/workloads/github-actor/<JWT_CLAIM_IDENTITY>`
+- grants into the authenticator consumers group and the safe delegation consumers group
+
+## Troubleshooting Setup
+
+- If the safe setup waits indefinitely for synchronization, confirm `Conjur Sync` was added and the synchronizer is healthy.
+- If authenticator or workload creation fails with an authorization error, confirm the service account has `Conjur_Cloud_Admins` rights.
+- If `JWT_CLAIM_IDENTITY` is still the placeholder, export a real GitHub `actor` value before running setup.
+- If a run fails sourcing the framework, confirm `CYBR_DEMOS_PATH` is exported and `demos/setup_env.sh` resolves the tenant variables.
+- To reset the server side before retrying, run `./remove.sh`.
