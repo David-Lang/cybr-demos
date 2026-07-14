@@ -31,3 +31,7 @@ test_assets/*
 
 # Agent working plan (convention: keep planning docs out of git)
 AGENT_PLAN.md
+
+# github.com demo generated artifacts
+demos/secrets_manager/github.com/setup/github/settings_variables.env
+demos/secrets_manager/github.com/setup/conjur/workload1.yaml

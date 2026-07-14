@@ -48,7 +48,7 @@ sequenceDiagram
 ## Key Files
 
 - `setup.sh`
-  Provisions the safe, the JWT authenticator, and the workload, then renders the GitHub handoff values.
+  Provisions the safe, the JWT authenticator, and the workload, then maps the values and configures the GitHub repository.
 - `setup/vars.env`
   Shared demo configuration: `SAFE_NAME` and `JWT_CLAIM_IDENTITY` (env-overridable).
 - `setup/vault/setup.sh`
@@ -60,6 +60,6 @@ sequenceDiagram
 - `remove.sh`
   Removes the workload and safe artifacts created by setup.
 
-## GitHub Handoff
+## GitHub Configuration
 
-This demo provisions the Secrets Manager server side. The GitHub repository variables, secrets, and environments are populated by the `idira-github-actions` repo, whose `scripts/bootstrap-poc.sh` runs this setup, maps `CONJUR_* -> SM_*`, provisions the api-key credential, and calls `scripts/init-gh-vars-secrets.sh`.
+This demo is authoritative for both sides. `setup/github/setup.sh` maps the rendered `CONJUR_*` values to the `SM_*` names the workflows consume, provisions the api-key credential (by rotating the workload host key), and calls `setup/github/init-gh-vars-secrets.sh` to create the repository variables, secrets, and environments in `GH_REPO`. The `idira-github-actions` repo holds only the workflows, Terraform config, and docs. Requires the `gh` CLI authenticated for `GH_REPO`.

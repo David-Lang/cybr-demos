@@ -9,6 +9,16 @@ set -a
 source "$demo_path/setup/vars.env"
 set +a
 
+# Validate required demo inputs early so a run fails fast with a clear message.
+if [ -z "${JWT_CLAIM_IDENTITY:-}" ] || [ "${JWT_CLAIM_IDENTITY#*INPUT_REQUIRED}" != "$JWT_CLAIM_IDENTITY" ]; then
+  printf 'ERROR: JWT_CLAIM_IDENTITY must be set to the GitHub actor value (in vars.env or the environment).\n' >&2
+  exit 1
+fi
+if [ -z "${GH_REPO:-}" ] || [ "${GH_REPO#*INPUT_REQUIRED}" != "$GH_REPO" ]; then
+  printf 'ERROR: GH_REPO must be set to the target owner/repo (in vars.env or the environment).\n' >&2
+  exit 1
+fi
+
 # Vault Setup
 cd "$demo_path/setup/vault"
 ./setup.sh

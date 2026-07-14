@@ -109,4 +109,4 @@ gh workflow run sm-plugin-apikey.yml --ref aardvark --repo David-Lang/idira-gith
 - `403`/authorization errors on read: confirm the workload host is granted into `vault/<safe>/delegation/consumers` and the secret path is correct.
 - Empty or missing secret: confirm `account-ssh-user-1` exists in the safe and synchronization has completed.
 - API-key pattern failures: re-provision the key (rotate) and confirm `SM_USERNAME` is the full `host/data/workloads/github-actor/<actor>` id.
-- GitHub side missing variables/secrets: re-run `idira-github-actions/scripts/bootstrap-poc.sh` (or `init-gh-vars-secrets.sh`).
+- GitHub side missing variables/secrets: re-run the demo `setup.sh` (its `setup/github` stage is idempotent and re-seeds the repo via `gh`).
