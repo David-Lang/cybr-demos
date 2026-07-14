@@ -9,6 +9,10 @@
 #     Demo App (CLI or GUI) can authenticate as the workload
 set -euo pipefail
 
+# Locate the repo root from this script if the lab bootstrap hasn't exported it.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CYBR_DEMOS_PATH:=$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 
 demo_path="$CYBR_DEMOS_PATH/demos/secrets_manager/bruno_api"

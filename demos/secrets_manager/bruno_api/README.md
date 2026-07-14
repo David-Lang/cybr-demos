@@ -40,13 +40,14 @@ sequenceDiagram
 
     Note over CLI,Vault: Setup App (service / root token)
     CLI->>ISP: platform token (client_credentials)
+    CLI->>Vault: create safe + accounts (Privilege Cloud API)
     CLI->>SM: create workload + RBAC, rotate workload API key
-    SM->>Vault: safe + accounts (synced)
+    Vault-->>SM: Synchronizer syncs safe -> data/vault/<app> variables
 
     Note over CLI,Vault: Demo App (workload identity)
     CLI->>SM: authenticate as workload (API key) -> session token
-    CLI->>Vault: retrieve secret(s) with session token
-    Vault-->>CLI: secret values
+    CLI->>SM: retrieve secret(s) with session token
+    SM-->>CLI: secret values
 ```
 
 ## Key Files
@@ -55,7 +56,11 @@ sequenceDiagram
   Installs the Bruno CLI, clones the collection, generates a git-ignored Bruno env from
   the service creds, runs the Setup App section, and captures the workload API key.
 - `demo.sh`
-  Runs the Demo App section (workload authenticate + retrieve secrets) via `bru run`.
+  Runs the Demo App section (workload authenticate + retrieve secrets) via `bru run`,
+  narrating each request and response.
+- `remove.sh`
+  Tears down the app created by setup (Conjur workload policy, Privilege Cloud safe +
+  accounts, and the ISP `<app>-admins` role).
 - `info.yaml`
   Demo metadata.
 
@@ -71,6 +76,7 @@ CLI:
 cd "$CYBR_DEMOS_PATH/demos/secrets_manager/bruno_api"
 ./setup.sh      # configure the app + capture the workload key
 ./demo.sh       # authenticate as the workload and retrieve secrets
+./remove.sh     # (optional) tear the app back down
 ```
 
 GUI: see `demo_validation.md` — open the cloned collection in Bruno, select the `cybr.secret`

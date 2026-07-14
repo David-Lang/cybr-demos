@@ -8,6 +8,10 @@
 # Target app resolves from APP_NAME, else "<UseCaseAlmAppName base>-<LAB_ID>".
 set -euo pipefail
 
+# Locate the repo root from this script if the lab bootstrap hasn't exported it.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CYBR_DEMOS_PATH:=$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+
 source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 
 APP_BASE="${UseCaseAlmAppName:-poc-alm-app}"

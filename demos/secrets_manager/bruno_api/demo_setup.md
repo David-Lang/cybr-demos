@@ -22,6 +22,13 @@ cd "$CYBR_DEMOS_PATH/demos/secrets_manager/bruno_api"
 5. Captures the workload API key (using the service/root token) and stores it in the
    Bruno env so the Demo App can authenticate as the workload.
 
+To reset before another attempt (removes the workload policy, safe + accounts, and the
+ISP `<app>-admins` role):
+
+```bash
+./remove.sh
+```
+
 ## Deployment Context
 
 This is a control-plane + API demo. The "workload" is the Bruno request context

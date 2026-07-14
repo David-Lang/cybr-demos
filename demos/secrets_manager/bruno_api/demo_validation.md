@@ -29,10 +29,13 @@ sequenceDiagram
     participant SM as Secrets Manager (Conjur)
     participant Vault as Privilege Cloud Safe
 
+    Note over Vault,SM: Vault Synchronizer syncs the safe into Conjur (one-way, background)
+    Vault-->>SM: accounts -> data/vault/<app>/... variables
+
     App->>SM: POST authn/conjur/host%2Fdata%2F<app>%2F<app>-workload/authenticate (API key)
     SM-->>App: session token
-    App->>Vault: GET secrets/.../account-ssh-user1/password (session token)
-    Vault-->>App: secret value
+    App->>SM: GET secrets/conjur/variable/data/vault/<app>/account-ssh-user1/password (session token)
+    SM-->>App: secret value
 ```
 
 ## Core Validation (CLI)
@@ -42,14 +45,19 @@ cd "$CYBR_DEMOS_PATH/demos/secrets_manager/bruno_api"
 ./demo.sh
 ```
 
-Expect the `bru run` summary to show the Demo App requests passing:
-`Authenticate`, `List Secrets`, `Retrieve Secret`, `Retrieve Secrets (Batch) v2`.
+`demo.sh` narrates the flow: it prints the app/identity context, the planned API
+calls, runs the Demo App section with `bru run`, then shows each request and its
+response. Expect all four requests to pass, in order:
+`Authenticate`, `Retrieve Secret`, `Retrieve Secrets (Batch) v2`, `List Secrets`.
+The Conjur session token is masked in the output; the sample account secret values
+are shown (they are fake lab data).
 
 ## Pattern 1: CLI (`bru run`)
 
 - What it does: runs the Demo App section headless with the `cybr.secret` environment.
-- What to validate: `Authenticate` returns a session token; the retrieve calls return
-  secret values (masked in logs).
+- What to validate: `Authenticate` returns a session token (masked in the output);
+  the retrieve calls return the sample account secret values and `List Secrets` shows
+  only this app's variables.
 - CyberArk behavior: the workload authenticates with its API key (not a human/service
   credential) and is authorized only for its app's safe (least privilege).
 
