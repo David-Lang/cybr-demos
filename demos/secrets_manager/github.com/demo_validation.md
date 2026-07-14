@@ -101,8 +101,8 @@ is set), and lists the resulting runs. The patterns below explain what each prov
   - `sm-plugin-jwt-terraform.yml` (the Conjur Terraform provider authenticates with `authn_type = "jwt"`)
 
 ```bash
-gh workflow run sm-plugin-jwt.yml --ref aardvark --repo David-Lang/idira-github-actions
-gh run watch --repo David-Lang/idira-github-actions
+gh workflow run sm-plugin-jwt.yml --ref aardvark --repo David-Lang/idira-poc-github-actions
+gh run watch --repo David-Lang/idira-poc-github-actions
 ```
 
 - What the result proves: no static credential is stored in GitHub; access is granted only to the matching `actor` identity.
@@ -115,7 +115,7 @@ gh run watch --repo David-Lang/idira-github-actions
 - Validate with `sm-plugin-apikey.yml`:
 
 ```bash
-gh workflow run sm-plugin-apikey.yml --ref aardvark --repo David-Lang/idira-github-actions
+gh workflow run sm-plugin-apikey.yml --ref aardvark --repo David-Lang/idira-poc-github-actions
 ```
 
 - What the result proves: the same identity and authorization model works for non-OIDC callers.

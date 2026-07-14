@@ -39,12 +39,8 @@ main() {
   run_workflow "sm-plugin-jwt-env-aware.yml"
   run_workflow "trufflehog-single-scan.yml"
 
-  # Terraform needs an AWS-credentials JSON secret (TFVAR_sm_secret_id_1).
-  if [ -n "${TFVAR_sm_secret_id_1:-}" ]; then
-    run_workflow "sm-plugin-jwt-terraform.yml"
-  else
-    skip_workflow "sm-plugin-jwt-terraform.yml (set TFVAR_sm_secret_id_1 to an AWS-creds JSON secret to run)"
-  fi
+  # Terraform reuses the same secret id as the other demos (no AWS JSON needed).
+  run_workflow "sm-plugin-jwt-terraform.yml"
 
   # Multi-scan needs a repo list.
   if [ -n "${TRUFFLEHOG_REPOS:-}" ]; then

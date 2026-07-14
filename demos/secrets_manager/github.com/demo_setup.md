@@ -52,7 +52,7 @@ The setup uses `setup/vars.env` as the shared demo configuration file. It reads 
 
 - `SAFE_NAME` — the Privilege Cloud safe to create/use (default `poc-github`).
 - `JWT_CLAIM_IDENTITY` — the GitHub `actor` claim value (your GitHub username). Required; the default is a placeholder.
-- `GH_REPO` — target GitHub repository `owner/repo` (default `David-Lang/idira-github-actions`).
+- `GH_REPO` — target GitHub repository `owner/repo` (default `David-Lang/idira-poc-github-actions`).
 - `GH_ENVIRONMENTS` — environments to create/seed (default `dev staging main terraform`).
 - `TRUFFLEHOG_REPOS` — optional repo list for the trufflehog demo.
 - `TFVAR_SSL_CERT`, `TFVAR_sm_secret_id_1` — optional Terraform overrides (derived if blank).
