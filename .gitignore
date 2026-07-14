@@ -17,6 +17,7 @@ license.txt
 /go.sum
 
 *.idea/*
+.idea/
 
 test_assets/*
 **/secret/*
