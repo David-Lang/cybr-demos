@@ -154,4 +154,64 @@ reset_user_password() {
   # printf '%s\n' "$response"
 }
 
+get_role_id() {
+  # $1 isp_id, $2 identity_token, $3 role_name
+  # Returns the CyberArk Identity role ID for a PrincipalList role by display name.
+  if [ $# -ne 3 ]; then
+    echo "Usage: get_role_id isp_id identity_token role_name" >&2
+    return 1
+  fi
+  local isp_id="$1" token="$2" role_name="$3"
+  local response id
+  response=$(curl --silent --location "https://${isp_id}.id.cyberark.cloud/Redrock/query" \
+    --header "Authorization: Bearer ${token}" \
+    --header "Content-Type: application/json" \
+    --data "$(jq -cn --arg s "Select ID,Name from Role WHERE RoleType='PrincipalList' AND Name='${role_name}'" '{Script:$s}')")
 
+  id=$(printf '%s' "$response" | jq -r '.Result.Results[0].Row.ID // empty' 2>/dev/null)
+  if [ -z "$id" ] || [ "$id" = "null" ]; then
+    printf "\nERROR: role '%s' not found (RoleType=PrincipalList).\nResponse: %s\n" "$role_name" "$response" >&2
+    return 1
+  fi
+  printf '%s' "$id"
+}
+
+add_user_to_role() {
+  # $1 isp_id, $2 identity_token, $3 role_id, $4 user_uuid
+  # Adds a user to a role via /roles/updaterole. Idempotent (adding an existing
+  # member still returns success).
+  if [ $# -ne 4 ]; then
+    echo "Usage: add_user_to_role isp_id identity_token role_id user_uuid" >&2
+    return 1
+  fi
+  local isp_id="$1" token="$2" role_id="$3" user_uuid="$4"
+  local response success
+  response=$(curl --silent --location "https://${isp_id}.id.cyberark.cloud/roles/updaterole" \
+    --header "Authorization: Bearer ${token}" \
+    --header "X-IDAP-NATIVE-CLIENT: true" \
+    --header "Content-Type: application/json" \
+    --data "$(jq -cn --arg r "$role_id" --arg u "$user_uuid" '{Name:$r, Users:{Add:[$u]}}')")
+
+  success=$(printf '%s' "$response" | jq -r '.success // empty' 2>/dev/null)
+  if [ "$success" != "true" ]; then
+    printf "\nERROR: add_user_to_role failed (role_id=%s).\nResponse: %s\n" "$role_id" "$response" >&2
+    return 1
+  fi
+}
+
+ensure_user_in_role() {
+  # $1 isp_id, $2 identity_token, $3 username, $4 role_name
+  # Convenience: resolve the user's UUID + the role's ID by name, then add the
+  # user to the role. Idempotent. Requires the caller's token to have rights to
+  # modify roles.
+  if [ $# -ne 4 ]; then
+    echo "Usage: ensure_user_in_role isp_id identity_token username role_name" >&2
+    return 1
+  fi
+  local isp_id="$1" token="$2" username="$3" role_name="$4"
+  local uuid role_id
+  uuid="$(get_uuid_by_userid "$isp_id" "$token" "$username")" || return 1
+  role_id="$(get_role_id "$isp_id" "$token" "$role_name")" || return 1
+  add_user_to_role "$isp_id" "$token" "$role_id" "$uuid" || return 1
+  printf "Ensured user '%s' is a member of role '%s'\n" "$username" "$role_name" >&2
+}

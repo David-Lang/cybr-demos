@@ -71,6 +71,11 @@ require_input AZURE_SUBSCRIPTION_NAME
 require_input AZURE_RESOURCE_GROUP
 require_input SECRETSHUB_AZURE_APP_CLIENT_ID
 
+# CyberArk Identity role that grants Secrets Hub API access. The service account
+# must be a member or the Secrets Hub calls below return 403. Ensured
+# automatically (the service account has rights to modify roles).
+SECRETSHUB_ADMIN_ROLE="${SECRETSHUB_ADMIN_ROLE:-Secrets Manager - Secrets Hub Admin}"
+
 main() {
   local subdomain="$TENANT_SUBDOMAIN"
   printf "\n== Onboard Azure AKV (%s) — lab %s, tenant %s ==\n" "$AKV_VAULT_NAME" "${LAB_ID:-?}" "$subdomain"
@@ -78,6 +83,9 @@ main() {
   printf "\n[1/5] Authenticating to CyberArk ISPSS...\n"
   local token
   token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
+
+  printf "\n[1b] Ensuring the service account is in the Secrets Hub admin role...\n"
+  ensure_user_in_role "$TENANT_ID" "$token" "$CLIENT_ID" "$SECRETSHUB_ADMIN_ROLE"
 
   printf "\n[2/5] Creating App Safe + Secrets Hub member...\n"
   create_safe "$subdomain" "$token" "$SAFE_NAME"

@@ -7,6 +7,10 @@ rotation-demo Entra app registration).
 
 This activity wires that AKV into CyberArk Secrets Hub:
 
+0. **Ensure the service account is in the Secrets Hub admin role** (`Secrets
+   Manager - Secrets Hub Admin`) via the CyberArk Identity API, so the Secrets
+   Hub calls below don't 403. Idempotent; the service account has rights to
+   modify roles.
 1. **Create the App Safe** (Privilege Cloud) and add the **Secrets Hub member**
    (`SecretsHub`, source-side read access).
 2. **Vault the rotation-demo app registration** as an Azure account in the safe.
