@@ -271,3 +271,68 @@ create_sync_policy() {
     sleep 10
   done
 }
+
+# ---------------------------------------------------------------------------
+# Teardown helpers (used by teardown.sh). All are idempotent + warn-and-continue
+# so re-running or partially-onboarded state still completes.
+# ---------------------------------------------------------------------------
+
+# find_store_id_by_vault_url prints the AZURE_AKV secret store id whose
+# azureVaultUrl matches (trailing slash insensitive), or empty if none.
+find_store_id_by_vault_url() {
+  # $1 subdomain, $2 token, $3 vault_url
+  local subdomain="$1" token="$2" url="$3" response
+  response=$(curl --silent --show-error --location \
+    "https://$subdomain.secretshub.cyberark.cloud/api/secret-stores" \
+    --header "Authorization: Bearer $token" --header 'Accept: application/json')
+  printf '%s' "$response" | jq -r --arg u "$url" '
+    (.secretStores // .stores // [])
+    | map(select(.type == "AZURE_AKV"
+        and (((.data.azureVaultUrl // "") | rtrimstr("/")) == ($u | rtrimstr("/")))))
+    | .[0].id // empty'
+}
+
+# delete_store_sync_policies removes every sync policy that targets the store
+# (a store can't be deleted while policies reference it).
+delete_store_sync_policies() {
+  # $1 subdomain, $2 token, $3 store_id
+  local subdomain="$1" token="$2" store_id="$3" ids pid
+  ids=$(curl --silent --location \
+    "https://$subdomain.secretshub.cyberark.cloud/api/policies" \
+    --header "Authorization: Bearer $token" --header 'Accept: application/json' \
+    | jq -r --arg t "$store_id" '(.policies // .items // .value // [])
+        | map(select(.target.id == $t)) | .[].id // empty')
+  for pid in $ids; do
+    printf "  deleting sync policy %s\n" "$pid" >&2
+    curl --silent --request DELETE \
+      "https://$subdomain.secretshub.cyberark.cloud/api/policies/$pid" \
+      --header "Authorization: Bearer $token" >/dev/null || true
+  done
+}
+
+# delete_secret_store deletes the AZURE_AKV secret store by id.
+delete_secret_store() {
+  # $1 subdomain, $2 token, $3 store_id
+  local subdomain="$1" token="$2" store_id="$3" code
+  code=$(curl --silent --output /dev/null --write-out '%{http_code}' --request DELETE \
+    "https://$subdomain.secretshub.cyberark.cloud/api/secret-stores/$store_id" \
+    --header "Authorization: Bearer $token")
+  printf "  deleted secret store %s (HTTP %s)\n" "$store_id" "$code" >&2
+}
+
+# delete_safe_accounts deletes every account in the given Safe (a Safe with
+# accounts can't always be removed cleanly). Names have no spaces (vault names).
+delete_safe_accounts() {
+  # $1 subdomain, $2 token, $3 safe_name
+  local subdomain="$1" token="$2" safe="$3" ids id
+  ids=$(curl --silent --location \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safeName%20eq%20$safe" \
+    --header "Authorization: Bearer $token" --header 'Accept: application/json' \
+    | jq -r '.value[]?.id // empty')
+  for id in $ids; do
+    printf "  deleting account %s (safe %s)\n" "$id" "$safe" >&2
+    curl --silent --request DELETE \
+      "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+      --header "Authorization: Bearer $token" >/dev/null || true
+  done
+}
