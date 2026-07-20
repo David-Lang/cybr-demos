@@ -128,7 +128,11 @@ create_azure_akv_store() {
   local azure_directory_id="$5" vault_url="$6" sh_app_client_id="$7"
   local subscription_id="$8" subscription_name="$9" resource_group="${10}"
 
-  printf "\nOnboarding AKV as Secrets Hub secret store: %s (%s)\n" "$store_name" "$vault_url"
+  # NOTE: informational output MUST go to stderr — this function's stdout is
+  # captured by the caller (target_id=$(create_azure_akv_store ...)); any stray
+  # stdout pollutes the returned store id and breaks wait_store_scanned + the
+  # sync policy (PLCY0002E).
+  printf "\nOnboarding AKV as Secrets Hub secret store: %s (%s)\n" "$store_name" "$vault_url" >&2
 
   local body response id
   body=$(jq -cn \
@@ -212,7 +216,9 @@ create_sync_policy() {
   local subdomain="$1" token="$2" policy_name="$3" policy_desc="$4"
   local source_id="$5" target_id="$6" safe_name="$7"
 
-  printf "\nCreating Secrets Hub sync policy: %s (safe %s -> store %s)\n" "$policy_name" "$safe_name" "$target_id"
+  # Informational output to stderr — stdout is captured by the caller
+  # (policy_id=$(create_sync_policy ...)).
+  printf "\nCreating Secrets Hub sync policy: %s (safe %s -> store %s)\n" "$policy_name" "$safe_name" "$target_id" >&2
 
   # POST with retry: right after the target store is created it can briefly be
   # not-yet-referenceable, and the policy API returns 400/PLCY0002E. Retry on
