@@ -97,6 +97,36 @@ That script:
 - retrieves the Secrets Manager certificate
 - deploys the Helm chart `setup/k8s/charts/poc-sm`
 
+## Standalone Helm Deploy (No Identity/Conjur Setup)
+
+If the CyberArk Identity / Conjur / Secrets Manager tenant side is already
+configured and you only need to (re)deploy the in-cluster Helm workloads, use:
+
+- `setup/k8s/setup_standalone.sh`
+
+This script deploys External Secrets Operator and the `poc-sm` chart exactly like
+`setup/k8s/setup.sh`, but it does not source `vars.env`/`setup_env.sh` and performs
+no tenant-side (authenticator, safe, workload) configuration.
+
+Fill in the `CONFIG` block at the top of the script, point `kubectl` at the target
+cluster, then run it:
+
+```bash
+kubectl config use-context <your-context>
+./setup/k8s/setup_standalone.sh
+```
+
+Required values in the `CONFIG` block:
+
+- `TENANT_SUBDOMAIN` (the SM FQDN is derived from this)
+- `SM_SERVICE_NAME` (also used as the deployed namespace and `sm_authn_id`)
+- `SM_APP_SERVICE_ACCOUNT`
+- `SM_SECRET_1_ID` / `SM_SECRET_1_NAME`
+- `SM_SECRET_2_ID` / `SM_SECRET_2_NAME`
+
+It deploys against the current `kubectl` context, so it works for Rancher, EKS,
+or ROSA/OpenShift clusters alike.
+
 ## Helm Chart Contents
 
 The chart installs the demo namespace and shared config, plus the individual use cases:
@@ -145,6 +175,7 @@ The repo contains helper scripts for other cluster types:
 
 - `setup/k8s/init_eks.sh`
 - `setup/k8s/init_ocp.sh`
+- `setup/k8s/init_aws_rosa.sh` (Red Hat OpenShift Service on AWS)
 
 Those are useful reference points, but the primary setup path for this demo is Rancher.
 
