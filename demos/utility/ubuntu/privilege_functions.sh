@@ -1,6 +1,37 @@
 #!/bin/bash
 set -euo pipefail
 
+# ensure_platform_active activates a Privilege Cloud target platform by its
+# string PlatformID (e.g. AzureApplicationKeys) if it isn't already active.
+# Built-in platforms ship deactivated; an account can't be onboarded under an
+# inactive platform. Idempotent. Requires admin rights on the token.
+ensure_platform_active() {
+  # $1 isp_subdomain, $2 identity_token, $3 platform_id (string)
+  if [ $# -ne 3 ]; then
+    echo "Usage: ensure_platform_active isp_subdomain identity_token platform_id" >&2
+    return 1
+  fi
+  local subdomain="$1" token="$2" pid="$3" resp numid active
+  resp=$(curl --silent --location \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets?search=$pid" \
+    --header "Authorization: Bearer $token" --header "Accept: application/json")
+  numid=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .ID) // empty' 2>/dev/null)
+  active=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .Active) // empty' 2>/dev/null)
+  if [ -z "$numid" ] || [ "$numid" = "null" ]; then
+    printf "\nWARN: platform '%s' not found; skipping activation.\n" "$pid" >&2
+    return 0
+  fi
+  if [ "$active" = "true" ]; then
+    printf "Platform '%s' already active.\n" "$pid" >&2
+    return 0
+  fi
+  printf "Activating platform '%s' (target id %s)...\n" "$pid" "$numid" >&2
+  curl --silent --show-error --location --request POST \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets/$numid/activate" \
+    --header "Authorization: Bearer $token" >/dev/null
+  printf "Platform '%s' activated.\n" "$pid" >&2
+}
+
  create_safe() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name,
    printf "\nCreating Safe: $3\n"

@@ -76,6 +76,12 @@ require_input SECRETSHUB_AZURE_APP_CLIENT_ID
 # automatically (the service account has rights to modify roles).
 SECRETSHUB_ADMIN_ROLE="${SECRETSHUB_ADMIN_ROLE:-Secrets Manager - Secrets Hub Admin}"
 
+# Privilege Cloud platform the rotation-demo account is onboarded under. The
+# built-in "Microsoft Azure Application Keys Management" (AzureApplicationKeys)
+# ships deactivated; the activity activates it. Overridable.
+ROTATION_ACCOUNT_PLATFORM="${ROTATION_ACCOUNT_PLATFORM:-AzureApplicationKeys}"
+export ROTATION_ACCOUNT_PLATFORM
+
 main() {
   local subdomain="$TENANT_SUBDOMAIN"
   printf "\n== Onboard Azure AKV (%s) — lab %s, tenant %s ==\n" "$AKV_VAULT_NAME" "${LAB_ID:-?}" "$subdomain"
@@ -87,11 +93,34 @@ main() {
   printf "\n[1b] Ensuring the service account is in the Secrets Hub admin role...\n"
   ensure_user_in_role "$TENANT_ID" "$token" "$CLIENT_ID" "$SECRETSHUB_ADMIN_ROLE"
 
+  # The token minted in [1] predates the role grant, so it doesn't carry the
+  # Secrets Hub role. Re-mint and wait until Secrets Hub authorizes (role
+  # membership can take a short while to propagate), so [4]/[5] don't 403.
+  printf "\n[1c] Waiting for Secrets Hub authorization to propagate...\n"
+  local sh_code
+  for _i in $(seq 1 18); do
+    token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
+    sh_code="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --location "https://$subdomain.secretshub.cyberark.cloud/api/secret-stores" \
+      --header "Authorization: Bearer $token")"
+    if [ "$sh_code" = "200" ]; then
+      printf "  Secrets Hub authorized.\n"
+      break
+    fi
+    printf "  not authorized yet (HTTP %s); retrying...\n" "$sh_code"
+    sleep 10
+  done
+  if [ "${sh_code:-}" != "200" ]; then
+    printf "ERROR: Secrets Hub still not authorized (HTTP %s) after role grant.\n" "${sh_code:-?}" >&2
+    exit 1
+  fi
+
   printf "\n[2/5] Creating App Safe + Secrets Hub member...\n"
   create_safe "$subdomain" "$token" "$SAFE_NAME"
   add_safe_read_member "$subdomain" "$token" "$SAFE_NAME" "$SECRETSHUB_MEMBER"
 
   printf "\n[3/5] Vaulting rotation-demo app-registration credential...\n"
+  ensure_platform_active "$subdomain" "$token" "$ROTATION_ACCOUNT_PLATFORM"
   vault_azure_app_account "$subdomain" "$token" "$SAFE_NAME" "$ROTATION_ACCOUNT_NAME" \
     "$ROTATION_APP_CLIENT_ID" "$ROTATION_APP_OBJECT_ID" "$ROTATION_APP_CLIENT_SECRET" \
     "$AZURE_TENANT_ID" "$ROTATION_APP_KEY_ID"

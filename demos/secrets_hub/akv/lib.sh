@@ -35,12 +35,15 @@ vault_azure_app_account() {
 
   printf "\nVaulting Azure app-registration credential as account: %s (safe: %s)\n" "$account_name" "$safe_name"
 
-  # platformId MS_TF is the built-in Microsoft Azure management platform used by
-  # the TF provider's azure_account resource; adjust if the tenant uses another.
+  # platformId: the tenant's Azure app-keys platform (AzureApplicationKeys =
+  # "Microsoft Azure Application Keys Management", a built-in that must be
+  # activated). Overridable via ROTATION_ACCOUNT_PLATFORM.
+  local platform="${ROTATION_ACCOUNT_PLATFORM:-AzureApplicationKeys}"
   local body
   body=$(jq -cn \
     --arg name "$account_name" \
     --arg user "$app_client_id" \
+    --arg platform "$platform" \
     --arg safe "$safe_name" \
     --arg secret "$app_client_secret" \
     --arg appid "$app_client_id" \
@@ -50,7 +53,7 @@ vault_azure_app_account() {
     '{
       name: $name,
       userName: $user,
-      platformId: "MS_TF",
+      platformId: $platform,
       safeName: $safe,
       secretType: "password",
       secret: $secret,
@@ -65,11 +68,19 @@ vault_azure_app_account() {
       }
     }')
 
-  curl --silent --show-error --location \
+  # Non-fatal: vaulting the rotation-demo account is demo payload, not required
+  # for the store/sync-policy pipeline. Warn clearly on error but don't abort.
+  local resp
+  resp="$(curl --silent --show-error --location \
     "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
     --header "Authorization: Bearer $token" \
     --header 'Content-Type: application/json' \
-    --data "$body"
+    --data "$body")"
+  if printf '%s' "$resp" | jq -e '.ErrorCode? // .Details? // empty' >/dev/null 2>&1; then
+    printf "WARN: vaulting the rotation-demo account failed (continuing): %s\n" "$resp" >&2
+  else
+    printf '%s\n' "$resp"
+  fi
 }
 
 # ---------------------------------------------------------------------------
