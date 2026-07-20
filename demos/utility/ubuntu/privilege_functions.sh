@@ -12,8 +12,10 @@ ensure_platform_active() {
     return 1
   fi
   local subdomain="$1" token="$2" pid="$3" resp numid active
+  # NOTE: the ?search= filter matches the display name, not the PlatformID, so
+  # list all target platforms and filter by PlatformID in jq.
   resp=$(curl --silent --location \
-    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets?search=$pid" \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets" \
     --header "Authorization: Bearer $token" --header "Accept: application/json")
   numid=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .ID) // empty' 2>/dev/null)
   active=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .Active) // empty' 2>/dev/null)

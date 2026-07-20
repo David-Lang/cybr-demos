@@ -186,7 +186,10 @@ create_sync_policy() {
 
   printf "\nCreating Secrets Hub sync policy: %s (safe %s -> store %s)\n" "$policy_name" "$safe_name" "$target_id"
 
-  local body response id
+  # POST with retry: right after the target store is created it can briefly be
+  # not-yet-referenceable, and the policy API returns 400/PLCY0002E. Retry on
+  # non-2xx for a short window (a failed create makes no policy, so it's safe).
+  local body response id code deadline
   body=$(jq -cn \
     --arg name "$policy_name" \
     --arg desc "$policy_desc" \
@@ -201,16 +204,23 @@ create_sync_policy() {
       filter: { type: "PAM_SAFE", data: { safeName: $safe } }
     }')
 
-  response=$(curl --silent --show-error --location \
-    "https://$subdomain.secretshub.cyberark.cloud/api/policies" \
-    --header "Authorization: Bearer $token" \
-    --header 'Content-Type: application/json' \
-    --data "$body")
-
-  id=$(printf '%s' "$response" | jq -r '.id // empty')
-  if [ -z "$id" ] || [ "$id" = "null" ]; then
-    printf "\nERROR: create sync policy failed.\nResponse: %s\n" "$response" >&2
-    return 1
-  fi
-  printf '%s' "$id"
+  deadline=$(( $(date +%s) + 120 ))
+  while :; do
+    response=$(curl --silent --show-error --location \
+      "https://$subdomain.secretshub.cyberark.cloud/api/policies" \
+      --header "Authorization: Bearer $token" \
+      --header 'Content-Type: application/json' \
+      --data "$body")
+    id=$(printf '%s' "$response" | jq -r '.id // empty')
+    if [ -n "$id" ] && [ "$id" != "null" ]; then
+      printf '%s' "$id"
+      return 0
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      printf "\nERROR: create sync policy failed.\nResponse: %s\n" "$response" >&2
+      return 1
+    fi
+    printf "  policy not accepted yet (target store may still be propagating); retrying...\n" >&2
+    sleep 10
+  done
 }
