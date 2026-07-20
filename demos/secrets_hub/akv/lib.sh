@@ -70,17 +70,30 @@ vault_azure_app_account() {
 
   # Non-fatal: vaulting the rotation-demo account is demo payload, not required
   # for the store/sync-policy pipeline. Warn clearly on error but don't abort.
-  local resp
-  resp="$(curl --silent --show-error --location \
-    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
-    --header "Authorization: Bearer $token" \
-    --header 'Content-Type: application/json' \
-    --data "$body")"
-  if printf '%s' "$resp" | jq -e '.ErrorCode? // .Details? // empty' >/dev/null 2>&1; then
+  #
+  # Retry on PASWS032E: ensure_platform_active flips the platform on, but the
+  # activation isn't always propagated when the very next account-create runs
+  # (eventual consistency). Retry for a short window before giving up.
+  local resp deadline
+  deadline=$(( $(date +%s) + 90 ))
+  while :; do
+    resp="$(curl --silent --show-error --location \
+      "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
+      --header "Authorization: Bearer $token" \
+      --header 'Content-Type: application/json' \
+      --data "$body")"
+    if ! printf '%s' "$resp" | jq -e '.ErrorCode? // .Details? // empty' >/dev/null 2>&1; then
+      printf '%s\n' "$resp"
+      return 0
+    fi
+    if printf '%s' "$resp" | grep -q 'PASWS032E' && [ "$(date +%s)" -lt "$deadline" ]; then
+      printf "  platform not active yet (propagating); retrying account vaulting...\n" >&2
+      sleep 8
+      continue
+    fi
     printf "WARN: vaulting the rotation-demo account failed (continuing): %s\n" "$resp" >&2
-  else
-    printf '%s\n' "$resp"
-  fi
+    return 0
+  done
 }
 
 # ---------------------------------------------------------------------------
