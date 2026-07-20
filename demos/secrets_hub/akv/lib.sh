@@ -171,6 +171,34 @@ create_azure_akv_store() {
 }
 
 # ---------------------------------------------------------------------------
+# Secrets Hub: wait for a newly-created secret store to finish its initial scan
+# (state=ENABLED, scan.status=SUCCESS). A store isn't a valid sync-policy target
+# until scanned, so creating a policy too soon returns PLCY0002E.
+# ---------------------------------------------------------------------------
+wait_store_scanned() {
+  # $1 subdomain, $2 token, $3 store_id
+  local subdomain="$1" token="$2" store_id="$3" resp status state deadline
+  deadline=$(( $(date +%s) + 300 ))
+  while :; do
+    resp=$(curl --silent --location \
+      "https://$subdomain.secretshub.cyberark.cloud/api/secret-stores/$store_id" \
+      --header "Authorization: Bearer $token")
+    state=$(printf '%s' "$resp" | jq -r '.state // empty')
+    status=$(printf '%s' "$resp" | jq -r '.scan.status // empty')
+    if [ "$state" = "ENABLED" ] && [ "$status" = "SUCCESS" ]; then
+      printf "  store scanned + enabled.\n" >&2
+      return 0
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      printf "  WARN: store not confirmed scanned (state=%s scan=%s); proceeding.\n" "${state:-?}" "${status:-none}" >&2
+      return 0
+    fi
+    printf "  waiting for store scan (state=%s scan=%s)...\n" "${state:-?}" "${status:-none}" >&2
+    sleep 8
+  done
+}
+
+# ---------------------------------------------------------------------------
 # Secrets Hub: create the sync policy (source Privilege Cloud safe -> target
 # AKV store). Prints the created policy id on success.
 # ---------------------------------------------------------------------------

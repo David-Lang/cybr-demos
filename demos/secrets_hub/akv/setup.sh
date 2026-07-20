@@ -133,6 +133,9 @@ main() {
     "$AZURE_SUBSCRIPTION_NAME" "$AZURE_RESOURCE_GROUP")"
   printf "  target store id: %s\n" "$target_id"
 
+  # A store must finish its initial scan before it can be a sync-policy target.
+  wait_store_scanned "$subdomain" "$token" "$target_id"
+
   if [ "${CREATE_SYNC_POLICY:-1}" != "1" ]; then
     printf "\n[5/5] Skipping sync policy (CREATE_SYNC_POLICY=%s).\n" "${CREATE_SYNC_POLICY:-}"
     printf "\n%s\n" "$OK_SENTINEL"
