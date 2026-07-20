@@ -117,7 +117,7 @@ main() {
 
   printf "\n[2/5] Creating App Safe + Secrets Hub member...\n"
   create_safe "$subdomain" "$token" "$SAFE_NAME"
-  add_safe_read_member "$subdomain" "$token" "$SAFE_NAME" "$SECRETSHUB_MEMBER"
+  add_safe_secretshub_member "$subdomain" "$token" "$SAFE_NAME" "$SECRETSHUB_MEMBER"
 
   printf "\n[3/5] Vaulting rotation-demo app-registration credential...\n"
   ensure_platform_active "$subdomain" "$token" "$ROTATION_ACCOUNT_PLATFORM"

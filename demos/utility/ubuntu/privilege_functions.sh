@@ -103,6 +103,47 @@ ensure_platform_active() {
     }"
  }
 
+ add_safe_secretshub_member() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
+   # Grants the exact permissions Secrets Hub needs to sync a safe (per docs:
+   # "Create a secret in PAM"): Retrieve + List accounts, Add account, Update
+   # account properties, View Safe members, Access Safe without confirmation.
+   printf "\nAdding Secrets Hub Member: $4 to Safe: $3\n"
+   curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$3/Members/" \
+   --header "Authorization: Bearer $2" \
+   --header 'Content-Type: application/json' \
+   --data "{
+      \"memberName\":\"$4\",
+      \"searchIn\": \"Vault\",
+      \"membershipExpirationDate\":null,
+      \"permissions\": {
+        \"useAccounts\": false,
+        \"retrieveAccounts\": true,
+        \"listAccounts\": true,
+        \"addAccounts\": true,
+        \"updateAccountContent\": false,
+        \"updateAccountProperties\": true,
+        \"initiateCPMAccountManagementOperations\": false,
+        \"specifyNextAccountContent\": false,
+        \"renameAccounts\": false,
+        \"deleteAccounts\": false,
+        \"unlockAccounts\": false,
+        \"manageSafe\": false,
+        \"manageSafeMembers\": false,
+        \"backupSafe\": false,
+        \"viewAuditLog\": false,
+        \"viewSafeMembers\": true,
+        \"accessWithoutConfirmation\": true,
+        \"createFolders\": false,
+        \"deleteFolders\": false,
+        \"moveAccountsAndFolders\": false,
+        \"requestsAuthorizationLevel1\": false,
+        \"requestsAuthorizationLevel2\": false
+      },
+      \"MemberType\": \"User\"
+    }"
+ }
+
  add_safe_read_member() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
    printf "\nAdding Member: $4 to Safe: $3\n"
