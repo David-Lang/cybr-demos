@@ -1,4 +1,4 @@
-# Student Guide: Hardcoded Secret Remediation (__STUDENT__)
+# Activity Guide: Hardcoded Secret Remediation (__STUDENT__)
 
 You do this activity on your lab VM. Start by connecting to it — don't assume
 you're already on the box.
