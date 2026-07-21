@@ -34,10 +34,9 @@ same in both scripts; only credential handling changes.
 
 ## 1. Expose: run the hardcoded script
 
-From your workspace directory:
+From your workspace directory (you're already there from the Connect step):
 
 ```bash
-cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
 ./query_db_hardcoded.sh
 ```
 
@@ -65,7 +64,7 @@ Expected rows:
 
 ## 2. Vault: onboard the credential in Idira
 
-Sign in to idira and use Privilege Cloud. Use these **exact** names so
+Sign in to **Idira** — your lab's CyberArk tenant ([open the portal](__IDIRA_PORTAL_URL__)) — and open **Privilege Cloud**. Use these **exact** names so
 the pre-filled `secrets.yml` resolves without editing:
 
 1. Create a safe named exactly:
@@ -74,8 +73,13 @@ the pre-filled `secrets.yml` resolves without editing:
    __SAFE_NAME__
    ```
 
-2. Add `Conjur Sync` as a safe member (so Secrets Manager syncs the safe), with
-   `View users` and `Access without confirmation`.
+   This safe name is specific to **your** VM — it matches your compute's name
+   (shown on its card), so yours will differ from everyone else's.
+
+2. Add **Conjur Sync** (found under **System Components**) as a safe member so
+   Secrets Manager syncs the safe. Grant it:
+   - **Access:** Use accounts, Retrieve accounts, List accounts
+   - **Workflow:** Access Safe without confirmation
 
 3. Onboard the PostgreSQL account with these values:
 
