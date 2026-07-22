@@ -64,7 +64,7 @@ Expected rows:
 
 ## 2. Vault: onboard the credential in Idira
 
-Sign in to **Idira** — your lab's CyberArk tenant ([open the portal](__IDIRA_PORTAL_URL__)) — and open **Privilege Cloud**. Use these **exact** names so
+Sign in to **Idira**, your lab's identity tenant ([open the portal](__IDIRA_PORTAL_URL__)), and open **Privilege Cloud**. Use these **exact** names so
 the pre-filled `secrets.yml` resolves without editing:
 
 1. Create a safe named exactly:
