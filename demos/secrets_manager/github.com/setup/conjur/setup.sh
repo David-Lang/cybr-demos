@@ -3,7 +3,7 @@
 # shellcheck disable=SC2059
 set -euo pipefail
 
-source "$CYBR_DEMOS_PATH/demos/isp_vars.env.sh"
+source "$CYBR_DEMOS_PATH/demos/setup_env.sh"
 
 main() {
   set_variables
@@ -59,10 +59,10 @@ set_variables() {
   github1_issuer_value="https://token.actions.githubusercontent.com"
 
   github1_token_app_property_id="conjur/authn-jwt/github1/token-app-property"
-  github1_token_app_property_value="actor"
+  github1_token_app_property_value="repository"
 
   github1_identity_path_id="conjur/authn-jwt/github1/identity-path"
-  github1_identity_path_value="data/workloads/github-actor"
+  github1_identity_path_value="data/workloads/github-repo"
 }
 
 main "$@"

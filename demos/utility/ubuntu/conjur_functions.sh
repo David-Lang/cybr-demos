@@ -100,6 +100,6 @@ rotate_workload_api_key() {
 
   curl --silent \
     --request PUT \
-    --location "https://$1.secretsmgr.cyberark.cloud/api/authn/conjur/api_key?role=host/$3" \
+    --location "https://$1.secretsmgr.cyberark.cloud/api/authn/conjur/api_key?role=host:$3" \
     --header "Authorization: Token token=\"$2\""
 }

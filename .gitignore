@@ -17,6 +17,7 @@ license.txt
 /go.sum
 
 *.idea/*
+.idea/
 
 test_assets/*
 **/secret/*
@@ -27,3 +28,10 @@ test_assets/*
 **/aws_credentials.env
 **/azure_credentials.env
 **/gcp_credentials.env
+
+# Agent working plan (convention: keep planning docs out of git)
+AGENT_PLAN.md
+
+# github.com demo generated artifacts
+demos/secrets_manager/github.com/setup/github/settings_variables.env
+demos/secrets_manager/github.com/setup/conjur/workload1.yaml
