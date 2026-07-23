@@ -227,6 +227,95 @@ ensure_platform_active() {
 
  }
 
+ account_id_by_name() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Echoes the account id whose .name matches account_name (fallback: first
+   # account in the safe). Empty output when the safe has no accounts. Used by
+   # both delete_account_by_name and the idempotent create path.
+   if [ $# -ne 4 ]; then
+     echo "Usage: account_id_by_name isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" safe_enc resp
+   # URL-encode the safe name for the OData filter (safe names can contain
+   # characters that are unsafe in a query string).
+   safe_enc=$(printf '%s' "$safe" | jq -sRr @uri)
+   resp=$(curl --silent --location \
+     "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safeName%20eq%20$safe_enc" \
+     --header "Authorization: Bearer $token" --header "Accept: application/json")
+   printf '%s' "$resp" | jq -r --arg name "$name" \
+     'first(.value[]? | select(.name==$name) | .id) // (.value[0].id // empty)' 2>/dev/null
+ }
+
+ create_postgres_account() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name,
+   # $5 username, $6 password, $7 address, $8 platform_id, [$9 port], [${10} database]
+   #
+   # Onboards a password credential the read path (Summon -> Conjur) resolves via
+   # data/vault/<safe>/<account>/{username,password}. Management is manual
+   # (automaticManagementEnabled=false): the workshop read/grant path does not
+   # require SRS/CPM. Port/Database are added to platformAccountProperties only
+   # when provided. The JSON is jq-built to avoid shell-quoting pitfalls.
+   if [ $# -lt 8 ]; then
+     echo "Usage: create_postgres_account isp_subdomain identity_token safe_name account_name username password address platform_id [port] [database]" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" username="$5" \
+     password="$6" address="$7" platform_id="$8" port="${9:-}" database="${10:-}" payload
+   payload=$(jq -n \
+     --arg name "$name" \
+     --arg address "$address" \
+     --arg userName "$username" \
+     --arg platformId "$platform_id" \
+     --arg secret "$password" \
+     --arg safeName "$safe" \
+     --arg port "$port" \
+     --arg database "$database" \
+     '{
+        name: $name,
+        address: $address,
+        userName: $userName,
+        platformId: $platformId,
+        secretType: "password",
+        secret: $secret,
+        safeName: $safeName,
+        secretManagement: {
+          automaticManagementEnabled: false,
+          manualManagementReason: "Managed manually for the workshop read path"
+        },
+        platformAccountProperties: (
+          {}
+          + (if ($port | length) > 0 then { Port: $port } else {} end)
+          + (if ($database | length) > 0 then { Database: $database } else {} end)
+        )
+      }')
+   printf "\nCreating Account: %s in Safe: %s\n" "$name" "$safe"
+   curl --silent --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
+     --header "Authorization: Bearer $token" \
+     --header 'Content-Type: application/json' \
+     --data "$payload"
+ }
+
+ delete_account_by_name() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Deletes the account matching account_name in safe_name (fallback: first
+   # account). No-op (return 0) when the safe has no matching account.
+   if [ $# -ne 4 ]; then
+     echo "Usage: delete_account_by_name isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" id
+   id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
+   if [ -z "$id" ] || [ "$id" = "null" ]; then
+     printf "\nNo account named '%s' found in Safe '%s'; nothing to delete.\n" "$name" "$safe"
+     return 0
+   fi
+   printf "\nDeleting Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
+   curl --silent --request DELETE \
+     --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+     --header "Authorization: Bearer $token"
+ }
+
  create_app() {
   # $1 isp_subdomain, $2 identity_token, $3 app_id
 
