@@ -22,6 +22,11 @@ ls
 
 You should see the query scripts, `secrets.yml`, and this guide.
 
+> **Already installed on this compute** (by the deployment enablement): **Summon**
+> and its **`summon-conjur`** provider, plus the local PostgreSQL and the
+> `authn-azure` configuration. This is a mention, not a step — Solve and the
+> secured query rely on them being present.
+
 ## What Solve did
 
 `activity/solve.sh` performed the student's vault + grant steps in Idira:

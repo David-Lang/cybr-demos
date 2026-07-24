@@ -33,6 +33,11 @@ changing the query. You will:
 The database is a local PostgreSQL already running on this VM. The query is the
 same in both scripts; only credential handling changes.
 
+> **Already installed on this compute** (by the deployment enablement, so you
+> don't set it up): **Summon** and its **`summon-conjur`** provider, plus the
+> local PostgreSQL and the `authn-azure` configuration. This is a mention, not a
+> step — nothing to install here; you use Summon in the **Secure** step below.
+
 ## 1. Expose: run the hardcoded script
 
 From your workspace directory (you're already there from the Connect step):
