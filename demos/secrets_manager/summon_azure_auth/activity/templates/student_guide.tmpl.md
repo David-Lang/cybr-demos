@@ -37,6 +37,9 @@ same in both scripts; only credential handling changes.
 > don't set it up): **Summon** and its **`summon-conjur`** provider, plus the
 > local PostgreSQL and the `authn-azure` configuration. This is a mention, not a
 > step — nothing to install here; you use Summon in the **Secure** step below.
+>
+> New to Summon? See the **What Is Summon?** guide under **Learning** (switch the
+> Guide panel's kind selector to *Idira Lab*).
 
 ## 1. Expose: run the hardcoded script
 

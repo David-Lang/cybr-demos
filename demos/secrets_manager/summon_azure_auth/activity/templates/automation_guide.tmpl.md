@@ -25,6 +25,9 @@ You should see the query scripts, `secrets.yml`, and this guide.
 > and its **`summon-conjur`** provider, plus the local PostgreSQL and the
 > `authn-azure` configuration. This is a mention, not a step — Solve and the
 > secured query rely on them being present.
+>
+> New to Summon? See the **What Is Summon?** guide under **Learning** (switch the
+> Guide panel's kind selector to *Idira Lab*).
 
 ## 1. Expose: see the starting state (do this BEFORE Solve)
 
