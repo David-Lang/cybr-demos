@@ -85,6 +85,9 @@ if [ -z "$identity_token" ]; then
 fi
 if postgres_platform_available "$TENANT_SUBDOMAIN" "$identity_token"; then
   printf "OK: an active PostgreSQL credential platform is available on %s.\n" "$TENANT_SUBDOMAIN"
+  printf "    Rotation note: the platform's connection command must use the installed ODBC\n"
+  printf "    driver name, e.g. Driver={PostgreSQL Unicode};Server=%%ADDRESS%%;[Database=%%DATABASE%%;]Uid=%%USER%%;Pwd=%%LOGONPASSWORD%%;[Port=%%PORT%%]\n"
+  printf "    A driver-name mismatch causes SRS rotation to fail with IM002 (see demo_setup.md).\n"
 else
   printf "ERROR: No active PostgreSQL credential platform found on the tenant (%s).\n" "$TENANT_SUBDOMAIN" >&2
   printf "Import and activate a PostgreSQL platform in Privilege Cloud before running the\n" >&2
