@@ -67,10 +67,13 @@ if [ -z "$identity_token" ]; then
 fi
 printf "Authentication successful\n"
 
-# Resolve the Idira user the automation runs as (for the safe description).
+# Safe description: the activity name (as shown in the app) + the compute owner
+# it was solved on behalf of. ACTIVITY_NAME / COMPUTE_OWNER are exported by the
+# lab app's run-command; fall back sensibly when run by hand.
 idira_user="$(get_service_user_name "$TENANT_ID" "$identity_token" 2>/dev/null || true)"
-[ -n "$idira_user" ] || idira_user="Idira automation"
-safe_description="Hardcoded Secret Remediation activity - solved by ${idira_user}"
+activity_name="${ACTIVITY_NAME:-Summon}"
+solved_by="${COMPUTE_OWNER:-${idira_user:-the compute owner}}"
+safe_description="${activity_name} - solved by ${solved_by}"
 
 # --- 0. Workload record (authn-azure host) ----------------------------------
 # Create the per-VM workload BEFORE vaulting. Without it authn-azure can
