@@ -9,10 +9,10 @@
 #   3. onboard the PostgreSQL account exposing username + password,
 #   4. grant this VM's workload identity read access (Consumers group),
 #   5. best-effort verify the secured query returns rows,
-#   6. queue a CPM rotation of the vaulted credential (runs asynchronously).
+#   6. queue an SRS rotation of the vaulted credential (runs asynchronously).
 #
-# The account is onboarded with automatic secrets management enabled so the
-# CPM/connector can rotate it.
+# The account is onboarded with automatic secrets management enabled so SRS
+# (the Secrets Rotation Service) can rotate it.
 #
 # Invoked ON the VM by the lab app via Azure run-command, which sources the
 # tenant creds (TENANT_ID/TENANT_SUBDOMAIN/CLIENT_ID/CLIENT_SECRET/LAB_ID).
@@ -158,13 +158,13 @@ else
 fi
 
 # --- 6. Queue rotation (best-effort) ----------------------------------------
-# Queue a CPM rotation of the vaulted credential. The account has automatic
-# secrets management enabled; this asks the CPM/connector to change the password
-# now. It runs asynchronously and only succeeds if a CPM/connector can reach the
-# target, so it is best-effort here (log-and-continue).
+# Queue an SRS rotation of the vaulted credential. The account has automatic
+# secrets management enabled; this asks SRS (via the Idira System connector) to
+# change the password now. It runs asynchronously and only succeeds if SRS/the
+# connector can reach the target, so it is best-effort here (log-and-continue).
 printf "\nQueuing a rotation of the vaulted credential...\n"
 if queue_account_rotation "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "$ACCOUNT_NAME"; then
-  printf "\nRotation queued. The CPM will change the credential asynchronously; watch it in Secrets Manager / Audit.\n"
+  printf "\nRotation queued. SRS will change the credential asynchronously; watch it in Secrets Manager / Audit.\n"
 else
   printf "\nWARN: could not queue rotation (account not found or change not accepted); continuing.\n" >&2
 fi
@@ -178,7 +178,7 @@ printf "  - Safe member:     Conjur Sync\n"
 printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
   "$ACCOUNT_NAME" "$DB_USERNAME" "$POSTGRES_PLATFORM_ID" "$ROTATION_ADDRESS"
 printf "  - Consumers grant: workload -> vault/%s/delegation/consumers\n" "$SAFE_NAME"
-printf "  - Rotation:        queued via CPM (runs asynchronously)\n"
+printf "  - Rotation:        queued via SRS (runs asynchronously)\n"
 printf "========================================\n"
 
 printf "__SOLVE_OK__\n"

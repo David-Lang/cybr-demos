@@ -104,9 +104,10 @@ account may still be syncing; wait a moment and re-run.
 ## 4. Rotation (queued by Solve)
 
 > **Callout:** Solve onboards the account with automatic secrets management
-> enabled and **queues a CPM rotation** as its last step. The CPM/Idira System
-> connector performs the change asynchronously (it reaches this VM's Postgres
-> using the stored `address` `__ROTATION_ADDRESS__`), so it may take a moment.
+> enabled and **queues an SRS rotation** as its last step. SRS (the Secrets
+> Rotation Service), via the Idira System connector, performs the change
+> asynchronously (it reaches this VM's Postgres using the stored `address`
+> `__ROTATION_ADDRESS__`), so it may take a moment.
 
 Once the rotation completes:
 
