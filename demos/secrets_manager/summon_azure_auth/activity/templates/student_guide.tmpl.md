@@ -53,13 +53,13 @@ script can read the database.
 Expected rows:
 
 ```text
- id |   series_title    |   primary_setting    | lead_character  |    story_hook
-----+-------------------+----------------------+-----------------+------------------
-  1 | Star Trek         | USS Enterprise       | Jean Luc        | First contact
-  2 | Voyager           | USS Voyager          | Kathryn Janeway | Return voyage
-  3 | Deep Space        | Station Nine         | Benjamin Sisko  | Wormhole defense
-  4 | Galactica         | Battlestar Galactica | William Adama   | Fleet survival
-  5 | The Expanse       | Rocinante            | James Holden    | Political crisis
+ id |          series_title          |   primary_setting    | lead_character  |    story_hook
+----+--------------------------------+----------------------+-----------------+------------------
+  1 | Star Trek: The Next Generation | USS Enterprise       | Jean Luc        | First contact
+  2 | Star Trek: Voyager             | USS Voyager          | Kathryn Janeway | Return voyage
+  3 | Star Trek: Deep Space Nine     | Station Nine         | Benjamin Sisko  | Wormhole defense
+  4 | Battlestar Galactica           | Battlestar Galactica | William Adama   | Fleet survival
+  5 | The Expanse                    | Rocinante            | James Holden    | Political crisis
 (5 rows)
 ```
 

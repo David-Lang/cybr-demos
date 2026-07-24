@@ -180,26 +180,26 @@ CREATE TABLE IF NOT EXISTS example_table (
 INSERT INTO example_table (series_title, primary_setting, lead_character, story_hook)
 SELECT v.series_title, v.primary_setting, v.lead_character, v.story_hook
 FROM (VALUES
-    ('Star Trek', 'USS Enterprise', 'Jean Luc', 'First contact'),
-    ('Voyager', 'USS Voyager', 'Kathryn Janeway', 'Return voyage'),
-    ('Deep Space', 'Station Nine', 'Benjamin Sisko', 'Wormhole defense'),
-    ('Galactica', 'Battlestar Galactica', 'William Adama', 'Fleet survival'),
+    ('Star Trek: The Next Generation', 'USS Enterprise', 'Jean Luc', 'First contact'),
+    ('Star Trek: Voyager', 'USS Voyager', 'Kathryn Janeway', 'Return voyage'),
+    ('Star Trek: Deep Space Nine', 'Station Nine', 'Benjamin Sisko', 'Wormhole defense'),
+    ('Battlestar Galactica', 'Battlestar Galactica', 'William Adama', 'Fleet survival'),
     ('The Expanse', 'Rocinante', 'James Holden', 'Political crisis'),
     ('Doctor Who', 'TARDIS', 'The Doctor', 'Time travel'),
-    ('Babylon Five', 'Babylon Station', 'John Sheridan', 'Alien diplomacy'),
+    ('Babylon 5', 'Babylon Station', 'John Sheridan', 'Alien diplomacy'),
     ('Firefly', 'Serenity', 'Malcolm Reynolds', 'Cargo jobs'),
-    ('Stargate SG1', 'Stargate Command', 'Jack ONeill', 'Gate missions'),
+    ('Stargate SG-1', 'Stargate Command', 'Jack ONeill', 'Gate missions'),
     ('Stargate Atlantis', 'Atlantis City', 'John Sheppard', 'Ancient tech'),
     ('Farscape', 'Moya', 'John Crichton', 'Lost astronaut'),
     ('Andor', 'Imperial Galaxy', 'Cassian Andor', 'Rebel origins'),
-    ('Mandalorian', 'Outer Rim', 'Din Djarin', 'Bounty code'),
-    ('Lost Space', 'Jupiter Two', 'Maureen Robinson', 'Family survival'),
+    ('The Mandalorian', 'Outer Rim', 'Din Djarin', 'Bounty code'),
+    ('Lost in Space', 'Jupiter Two', 'Maureen Robinson', 'Family survival'),
     ('Foundation', 'Trantor Empire', 'Hari Seldon', 'Future math'),
     ('Dark Matter', 'Raza', 'Android Crew', 'Memory loss'),
     ('Killjoys', 'Lucy Ship', 'Dutch', 'Warrant hunters'),
     ('The Orville', 'USS Orville', 'Ed Mercer', 'Planetary survey'),
     ('Red Dwarf', 'Red Dwarf', 'Dave Lister', 'Last human'),
-    ('Moonbase Alpha', 'Lunar Base', 'John Koenig', 'Moon exile')
+    ('Space: 1999', 'Lunar Base', 'John Koenig', 'Moon exile')
 ) AS v(series_title, primary_setting, lead_character, story_hook)
 WHERE NOT EXISTS (SELECT 1 FROM example_table);
 SQL
