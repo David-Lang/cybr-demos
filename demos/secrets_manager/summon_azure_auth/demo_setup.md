@@ -110,9 +110,8 @@ it is missing. Override the match keyword with `POSTGRES_PLATFORM_ID`.
 > Driver={PostgreSQL Unicode};Server=%ADDRESS%;[Database=%DATABASE%;]Uid=%USER%;Pwd=%LOGONPASSWORD%;[Port=%PORT%]
 > ```
 >
-> The connector host has both the 64-bit and 32-bit psqlODBC drivers installed
-> automatically by `setup/idira/system-connector.sh`; `PostgreSQL Unicode`
-> resolves in both bitnesses.
+> The connector host has the 64-bit psqlODBC driver installed automatically by
+> `setup/idira/system-connector.sh` (SRS runs 64-bit).
 
 The safe and the `postgres-appuser` account are **not** created here — the student creates
 the safe and vaults the credential in the activity. After the safe syncs into
