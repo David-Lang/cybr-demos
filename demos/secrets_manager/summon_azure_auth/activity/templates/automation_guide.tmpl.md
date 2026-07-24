@@ -26,6 +26,9 @@ You should see the query scripts, `secrets.yml`, and this guide.
 
 `activity/solve.sh` performed the student's vault + grant steps in Idira:
 
+0. **Workload** — registered this VM's Azure managed identity as an
+   `authn-azure` workload record (before vaulting), so `authn-azure` has a
+   workload to map the VM's managed-identity token to.
 1. **Safe** — created a safe named exactly `__SAFE_NAME__` (matches your
    compute's name, so yours differs from everyone else's).
 2. **Conjur Sync member** — added **Conjur Sync** to the safe so Secrets Manager
@@ -97,7 +100,7 @@ value.
 ## Reset
 
 Clicking **Reset** re-runs `activity/reset.sh` on the VM, which idempotently
-returns you to a clean student-start: it deletes the account `__ACCOUNT_NAME__`
-and the safe `__SAFE_NAME__` (no-ops if already gone) and leaves `authn-azure`
-and the Conjur workload policy in place. Run Solve again afterward to rebuild the
-finished state.
+returns you to a clean student-start: it deletes the account `__ACCOUNT_NAME__`,
+the safe `__SAFE_NAME__`, and the per-VM `authn-azure` workload record (no-ops if
+already gone), and leaves the authn-azure service enablement in place. Run Solve
+again afterward to rebuild the finished state.

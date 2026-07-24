@@ -24,10 +24,11 @@ Take a database password out of a script and manage it in Idira, without
 changing the query. You will:
 
 1. **Expose** — run a script with a hardcoded password (the anti-pattern).
-2. **Vault** — onboard that credential into Idira and authorize this VM's workload identity to read it.
-3. **Secure** — retrieve it at runtime with Summon + the VM's Azure managed identity (no secret in code).
-4. **Rotate** — rotate it with SRS and watch the secured script keep working while the hardcoded one breaks.
-5. **Validate** — confirm the whole flow in the Secrets Manager audit.
+2. **Create workload** — register this VM's Azure managed identity as an `authn-azure` workload in Idira.
+3. **Vault** — onboard that credential into Idira and authorize this VM's workload identity to read it.
+4. **Secure** — retrieve it at runtime with Summon + the VM's Azure managed identity (no secret in code).
+5. **Rotate** — rotate it with SRS and watch the secured script keep working while the hardcoded one breaks.
+6. **Validate** — confirm the whole flow in the Secrets Manager audit.
 
 The database is a local PostgreSQL already running on this VM. The query is the
 same in both scripts; only credential handling changes.
@@ -62,7 +63,28 @@ Expected rows:
 (5 rows)
 ```
 
-## 2. Vault: onboard the credential in Idira
+## 2. Create the workload (authn-azure)
+
+Before you vault anything, register **this VM** as a workload in Idira so
+`authn-azure` has something to map the VM's managed-identity token to. Without
+this record `authn-azure` can validate the token but has no workload to
+authenticate as, and every secured fetch fails.
+
+In **Idira → Secrets Manager SaaS → Workloads**, add a workload that
+authenticates via **authn-azure** (service `azure-1`). Then set its annotations
+to match **this VM's** Azure identity, taken from the **Azure user-assigned
+managed identity (UAMI)** shown on your compute card:
+
+- `subscription-id` — the subscription the VM's identity lives in
+- `resource-group` — the resource group of the VM's identity
+- `user-assigned-identity` — the name of the VM's UAMI
+
+These three values are specific to **your** compute (read them off your compute
+card), so yours will differ from everyone else's. Together they are what maps the
+VM's managed-identity token to a Conjur workload: `authn-azure` authenticates the
+token, and this record is the workload it authenticates as.
+
+## 3. Vault: onboard the credential in Idira
 
 Sign in to **Idira**, your lab's identity tenant ([open the portal](__IDIRA_PORTAL_URL__)), and open **Privilege Cloud**. Use these **exact** names so
 the pre-filled `secrets.yml` resolves without editing:
@@ -105,7 +127,7 @@ the pre-filled `secrets.yml` resolves without editing:
    to read the account. Without this grant Summon can authenticate but cannot
    read the secret.
 
-## 3. Secure: retrieve at runtime with Summon
+## 4. Secure: retrieve at runtime with Summon
 
 Look at the secured script and the variable map:
 
@@ -128,7 +150,7 @@ If you see `CONJ00076E ... is empty or not found`, the safe/account names do not
 match the values above, the account has not synced yet, or the workload has not
 been granted access to the safe.
 
-## 4. Rotate: prove the value
+## 5. Rotate: prove the value
 
 Rotate the vaulted credential with **SRS** (Secrets Rotation Service). SRS reaches
 this VM's PostgreSQL through the Idira System connector and changes the password.
@@ -140,7 +162,7 @@ After the rotation completes:
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
-## 5. Validate: confirm the flow in the Audit
+## 6. Validate: confirm the flow in the Audit
 
 Everything you just did is auditable. In **Secrets Manager SaaS → Audit**, filter
 for your safe (`__SAFE_NAME__`) or your VM's workload identity and confirm you can
@@ -170,6 +192,7 @@ run_secured_query.sh
 ## Success criteria
 
 - You can point to the hardcoded password in `query_db_hardcoded.sh`.
+- You registered this VM's UAMI as an `authn-azure` workload in Secrets Manager SaaS (matching subscription, resource group, and user-assigned identity).
 - You vaulted the credential into safe `__SAFE_NAME__` as account `__ACCOUNT_NAME__` on the PostgreSQL platform.
 - You added your VM's UAMI to the safe's Consumers group in Secrets Manager SaaS.
 - `./run_secured_query.sh` returns rows with no secret in the script.

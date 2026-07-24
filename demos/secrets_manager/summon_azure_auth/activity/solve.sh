@@ -3,6 +3,7 @@
 #
 # Idempotent. Performs the student's manual vault + grant + verify steps so the
 # finished state can be inspected and the secured query can be run:
+#   0. create the per-VM authn-azure workload record (host + apps grant),
 #   1. create the safe (named after the VM),
 #   2. add the "Conjur Sync" member so Secrets Manager syncs the safe,
 #   3. onboard the PostgreSQL account exposing username + password,
@@ -65,6 +66,14 @@ if [ -z "$identity_token" ]; then
   exit 1
 fi
 printf "Authentication successful\n"
+
+# --- 0. Workload record (authn-azure host) ----------------------------------
+# Create the per-VM workload BEFORE vaulting. Without it authn-azure can
+# authenticate the VM's managed-identity token but has no workload to map it to,
+# so the vaulted credential would be unreadable. Idempotent; fail solve if it
+# fails (the vault is pointless without the workload).
+printf "\nCreating the authn-azure workload record...\n"
+bash "$demo_path/setup/conjur/workload.sh" create
 
 # Ensure the PostgreSQL target platform is active (best-effort; account onboarding
 # fails under an inactive platform).
@@ -133,6 +142,7 @@ fi
 
 printf "\n========================================\n"
 printf "Solve complete. Created / ensured:\n"
+printf "  - Workload:        data/%s/azure-apps/%s (authn-azure)\n" "${LAB_ID:-<lab>}" "${AZURE_WORKLOAD_HOST_NAME:-<vm-identity>}"
 printf "  - Safe:            %s\n" "$SAFE_NAME"
 printf "  - Safe member:     Conjur Sync\n"
 printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
