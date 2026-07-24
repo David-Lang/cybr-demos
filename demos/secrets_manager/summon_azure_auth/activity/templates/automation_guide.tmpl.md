@@ -53,9 +53,11 @@ You should see the query scripts, `secrets.yml`, and this guide.
    `address` is what SRS/the Idira System connector uses to reach this VM's
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
-4. **Consumers grant** — added this VM's Azure user-assigned managed identity
-   (UAMI) to the safe's **Consumers** group, authorizing the workload (which
-   authenticates via `authn-azure`) to read the account.
+4. **Consumers grant** — added this VM's **workload** to the safe's
+   **delegation Consumers** group, authorizing it to read the account. The
+   workload is the `authn-azure` host record that is *bound to* this VM's UAMI
+   (created in step 0); the UAMI itself is not added to the safe — the workload
+   it maps to is.
 
 The vaulted paths that `secrets.yml` references now resolve:
 `data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/{username,password}`.

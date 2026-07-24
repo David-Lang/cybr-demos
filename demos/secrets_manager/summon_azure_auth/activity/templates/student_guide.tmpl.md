@@ -123,13 +123,14 @@ the pre-filled `secrets.yml` resolves without editing:
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
 
-4. Grant this VM's workload identity read access to the credential. In
-   **Secrets Manager SaaS → Roles**, find your VM's **Azure user-assigned
-   managed identity (UAMI)** — the workload identity shown on your compute card —
-   and add it to the safe's **Consumers** group for `__SAFE_NAME__`.
+4. Grant the **workload** you created in step 2 read access to the credential.
+   In **Secrets Manager SaaS**, find your VM's `authn-azure` **workload** — the
+   one bound to your VM's UAMI (shown on your compute card) — and add it to the
+   safe's **delegation Consumers** group for `__SAFE_NAME__`.
 
-   This is what authorizes the workload (which authenticates via `authn-azure`)
-   to read the account. Without this grant Summon can authenticate but cannot
+   It's the **workload** (not the UAMI directly) that becomes a safe consumer:
+   the UAMI is what the workload *maps to* via `authn-azure`, and the workload is
+   what Conjur authorizes. Without this grant Summon can authenticate but cannot
    read the secret.
 
 ## 4. Secure: retrieve at runtime with Summon
@@ -199,7 +200,7 @@ run_secured_query.sh
 - You can point to the hardcoded password in `query_db_hardcoded.sh`.
 - You registered this VM's UAMI as an `authn-azure` workload in Secrets Manager SaaS (matching subscription, resource group, and user-assigned identity).
 - You vaulted the credential into safe `__SAFE_NAME__` as account `__ACCOUNT_NAME__` on the PostgreSQL platform.
-- You added your VM's UAMI to the safe's Consumers group in Secrets Manager SaaS.
+- You added your VM's **workload** (bound to its UAMI) to the safe's **delegation Consumers** group in Secrets Manager SaaS.
 - `./run_secured_query.sh` returns rows with no secret in the script.
 - After SRS rotation, the secured script still works and the hardcoded one fails.
 - The Secrets Manager audit shows your VM's workload identity authenticating and reading `__ACCOUNT_NAME__`, including after rotation.
