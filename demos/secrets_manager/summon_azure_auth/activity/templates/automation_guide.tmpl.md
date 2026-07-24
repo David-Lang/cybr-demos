@@ -1,17 +1,16 @@
 # Activity Guide (Automated): Hardcoded Secret Remediation (__STUDENT__)
 
-This is the **answer key**. Clicking **Solve** runs `activity/solve.sh` on your
-lab VM, which performs the vault + grant steps for you — so you can inspect the
-finished state and run the secured query without doing the manual onboarding.
-
-Solve is idempotent (safe to click more than once). It also **queues a rotation**
-of the vaulted credential at the end (see below).
+This is the **automated ("answer key")** path. You first see the insecure
+starting state on your VM, then click **Solve** to have the vault + grant steps
+done for you, then confirm the credential is now retrieved securely. Solve is
+idempotent (safe to click more than once) and also **queues a rotation** at the
+end.
 
 ## Connect: SSH to your compute
 
-Same as the manual activity. You reach your VM over **SIA SSH** — brokered
-access, no inbound port or static key. From your workstation terminal, use the
-**SSH link on your compute card** in the app (the `Copy` button next to it).
+You reach your VM over **SIA SSH** — brokered access, no inbound port or static
+key. From your workstation terminal, use the **SSH link on your compute card** in
+the app (the `Copy` button next to it).
 
 Once connected, open your workspace:
 
@@ -27,18 +26,42 @@ You should see the query scripts, `secrets.yml`, and this guide.
 > `authn-azure` configuration. This is a mention, not a step — Solve and the
 > secured query rely on them being present.
 
-## What Solve did
+## 1. Expose: see the starting state (do this BEFORE Solve)
 
-`activity/solve.sh` performed the student's vault + grant steps in Idira:
+Confirm the insecure baseline first, so you can see what Solve changes. Run the
+hardcoded query and look at the script:
 
-0. **Workload** — registered this VM's Azure managed identity as an
-   `authn-azure` workload record (before vaulting), so `authn-azure` has a
-   workload to map the VM's managed-identity token to.
-1. **Safe** — created a safe named exactly `__SAFE_NAME__` (matches your
+```bash
+./run_hardcoded_query.sh
+cat query_db_hardcoded.sh
+```
+
+It returns rows — but the password (`PGPASSWORD`) is right there in the file.
+Anyone who can read the script can read the database.
+
+Now try the secured query. It **fails** at this point, because nothing has been
+vaulted yet and the workload has no access:
+
+```bash
+./run_secured_query.sh     # expected to FAIL until you click Solve
+```
+
+## 2. Solve: click Solve on your compute card
+
+In the app, on your compute card's **Summon — Automated** row, click **Solve**.
+This runs `activity/solve.sh` on the VM and performs the manual onboarding for
+you (idempotent). Wait for the row to show **Solved**.
+
+Solve performs the student's vault + grant steps in Idira:
+
+0. **Workload** — registers this VM's Azure managed identity as an `authn-azure`
+   workload record (before vaulting), so `authn-azure` has a workload to map the
+   VM's managed-identity token to.
+1. **Safe** — creates a safe named exactly `__SAFE_NAME__` (matches your
    compute's name, so yours differs from everyone else's).
-2. **Conjur Sync member** — added **Conjur Sync** to the safe so Secrets Manager
+2. **Conjur Sync member** — adds **Conjur Sync** to the safe so Secrets Manager
    syncs it into Conjur.
-3. **Account** — onboarded the PostgreSQL account `__ACCOUNT_NAME__` exposing
+3. **Account** — onboards the PostgreSQL account `__ACCOUNT_NAME__` exposing
    `username` + `password`:
 
    ```text
@@ -53,38 +76,32 @@ You should see the query scripts, `secrets.yml`, and this guide.
    `address` is what SRS/the Idira System connector uses to reach this VM's
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
-4. **Consumers grant** — added this VM's **workload** to the safe's
+4. **Consumers grant** — adds this VM's **workload** to the safe's
    **delegation Consumers** group, authorizing it to read the account. The
    workload is the `authn-azure` host record that is *bound to* this VM's UAMI
    (created in step 0); the UAMI itself is not added to the safe — the workload
    it maps to is.
 
-The vaulted paths that `secrets.yml` references now resolve:
+After Solve, the vaulted paths that `secrets.yml` references resolve:
 `data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/{username,password}`.
 
-## Verify
+## 3. Verify: the secured query now works
 
-From your workspace directory, run the secured query — it retrieves the password
-at runtime with Summon + the VM's managed identity (no secret in code):
+Run the secured query again — this time it retrieves the password at runtime with
+Summon + the VM's managed identity (no secret in code):
 
 ```bash
 ./run_secured_query.sh
 ```
 
-It returns rows. Now look at the anti-pattern it replaces:
-
-```bash
-./run_hardcoded_query.sh
-cat query_db_hardcoded.sh
-```
-
-The hardcoded script has the password (`PGPASSWORD`) right in the file — anyone
-who can read the script can read the database. The secured script has no secret.
+It returns the **same rows** as the hardcoded query in step 1 — but with no
+secret in the script. That is the whole point: same result, credential handled
+securely.
 
 If `run_secured_query.sh` reports `CONJ00076E ... is empty or not found`, the
 account may still be syncing; wait a moment and re-run.
 
-## Rotation (queued by automation)
+## 4. Rotation (queued by Solve)
 
 > **Callout:** Solve onboards the account with automatic secrets management
 > enabled and **queues a CPM rotation** as its last step. The CPM/Idira System
@@ -107,7 +124,7 @@ Verify in **Secrets Manager SaaS → Audit**: filter for your safe
 and the **rotation** event followed by a successful retrieval of the *new*
 value.
 
-## Reset
+## 5. Reset
 
 Clicking **Reset** re-runs `activity/reset.sh` on the VM, which idempotently
 returns you to a clean student-start: it deletes the account `__ACCOUNT_NAME__`,
