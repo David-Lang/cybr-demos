@@ -57,13 +57,15 @@ you (idempotent). Wait for the row to show **Solved**.
 
 Solve performs the student's vault + grant steps in Idira:
 
-0. **Workload** — registers this VM's Azure managed identity as an `authn-azure`
-   workload record (before vaulting), so `authn-azure` has a workload to map the
-   VM's managed-identity token to.
+0. **Workload** — creates a **workload** in Secrets Manager that maps to this
+   VM's Azure managed identity (its Azure ID). This is the record `authn-azure`
+   maps the VM's managed-identity token to.
 1. **Safe** — creates a safe named exactly `__SAFE_NAME__` (matches your
    compute's name, so yours differs from everyone else's).
 2. **Conjur Sync member** — adds **Conjur Sync** to the safe so Secrets Manager
-   syncs it into Conjur.
+   syncs with the safe. (Syncing a safe automatically creates a **Consumers**
+   delegation group for it, which makes it easy to grant workloads access to the
+   safe.)
 3. **Account** — onboards the PostgreSQL account `__ACCOUNT_NAME__` exposing
    `username` + `password`:
 
@@ -79,11 +81,10 @@ Solve performs the student's vault + grant steps in Idira:
    `address` is what SRS/the Idira System connector uses to reach this VM's
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
-4. **Consumers grant** — adds this VM's **workload** to the safe's
-   **delegation Consumers** group, authorizing it to read the account. The
-   workload is the `authn-azure` host record that is *bound to* this VM's UAMI
-   (created in step 0); the UAMI itself is not added to the safe — the workload
-   it maps to is.
+4. **Grant workload access to the safe** — adds this VM's **workload** to the
+   safe's **Consumers** group, authorizing it to read the account. The workload
+   maps to the VM's Azure ID (step 0); it's the workload — not the Azure identity
+   directly — that becomes a safe consumer.
 
 After Solve, the vaulted paths that `secrets.yml` references resolve:
 `data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/{username,password}`.
@@ -119,7 +120,7 @@ Once the rotation completes:
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
-You can also queue another rotation yourself from **Secrets Manager SaaS** (the
+You can also queue another rotation yourself from **Privilege Cloud** (the
 account → Change), or rotate on demand with **SRS**.
 
 Verify in **Secrets Manager SaaS → Audit**: filter for your safe
