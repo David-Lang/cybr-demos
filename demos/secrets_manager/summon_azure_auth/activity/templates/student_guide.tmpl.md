@@ -1,15 +1,27 @@
 # Activity Guide: Hardcoded Secret Remediation (__STUDENT__)
 
-You do this activity on your lab VM. Start by connecting to it — don't assume
-you're already on the box.
+You do this activity on your lab VM, performing each step yourself. For the
+hands-off version, use the **Summon — Automated** guide, where **Solve** does the
+setup steps for you.
 
-## Connect: SSH to your compute
+## 1. Review the problem
+
+A database password is **hardcoded** in a script on your VM — the anti-pattern.
+Hardcoded secrets leak (anyone who can read the file can read the database),
+rarely get rotated, and aren't attributable to a specific workload.
+
+**Goal:** take the secret out of the code and manage it centrally in Idira, so
+the app fetches the *current* credential at runtime using the VM's own **workload
+identity** (no secret on disk) — and the credential can be **rotated** without
+changing or breaking the app.
+
+In this manual path, **you perform each step yourself.**
+
+## 2. Connect: SSH to your compute
 
 You reach your VM over **SIA SSH** — brokered access, no inbound port or static
 key. From your workstation terminal, use the **SSH link on your compute card** in
-the app (the `Copy` button next to it).
-
-Once connected, open your workspace and look around:
+the app (the `Copy` button next to it). Then open your workspace:
 
 ```bash
 cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
@@ -18,45 +30,22 @@ ls
 
 You should see the query scripts, `secrets.yml`, and this guide.
 
-## Goal
+> **Already installed on this compute** (by the deployment enablement): **Summon**
+> and its **`summon-conjur`** provider, plus the local PostgreSQL and the
+> `authn-azure` configuration. New to Summon? See **Learning → What Is Summon?**
+> in the Guide panel (switch the kind selector to *Idira Lab*).
 
-Take a database password out of a script and manage it in Idira, without
-changing the query. You will:
+## 3. Expose: see the hardcoded anti-pattern
 
-1. **Expose** — run a script with a hardcoded password (the anti-pattern).
-2. **Create workload** — register this VM's Azure managed identity as an `authn-azure` workload in Idira.
-3. **Vault** — onboard that credential into Idira and authorize this VM's workload identity to read it.
-4. **Secure** — retrieve it at runtime with Summon + the VM's Azure managed identity (no secret in code).
-5. **Rotate** — rotate it with SRS and watch the secured script keep working while the hardcoded one breaks.
-6. **Validate** — confirm the whole flow in the Secrets Manager audit.
-
-The database is a local PostgreSQL already running on this VM. The query is the
-same in both scripts; only credential handling changes.
-
-> **Already installed on this compute** (by the deployment enablement, so you
-> don't set it up): **Summon** and its **`summon-conjur`** provider, plus the
-> local PostgreSQL and the `authn-azure` configuration. This is a mention, not a
-> step — nothing to install here; you use Summon in the **Secure** step below.
->
-> New to Summon? See the **What Is Summon?** guide under **Learning** (switch the
-> Guide panel's kind selector to *Idira Lab*).
-
-## 1. Expose: run the hardcoded script
-
-From your workspace directory (you're already there from the Connect step):
+Run the insecure baseline and look at the script:
 
 ```bash
 ./run_hardcoded_query.sh
-```
-
-It returns rows. Now see the problem:
-
-```bash
 cat query_db_hardcoded.sh
 ```
 
-The password is right there in the file (`PGPASSWORD`). Anyone who can read the
-script can read the database.
+It returns rows — but the password (`PGPASSWORD`) is right there in the file.
+Anyone who can read the script can read the database.
 
 Expected rows:
 
@@ -71,46 +60,31 @@ Expected rows:
 (5 rows)
 ```
 
-## 2. Create the workload (authn-azure)
+## 4. Create the workload
 
-Before you vault anything, register **this VM** as a workload in Idira so
-`authn-azure` has something to map the VM's managed-identity token to. Without
-this record `authn-azure` can validate the token but has no workload to
-authenticate as, and every secured fetch fails.
+Sign in to **Idira** ([open the portal](__IDIRA_PORTAL_URL__)) and open **Secrets
+Manager**. Create a **workload** that authenticates via **authn-azure** (service
+`azure-1`) and set its annotations to match this VM's Azure identity — the
+`subscription-id`, `resource-group`, and `user-assigned-identity` (the UAMI name
+shown on your compute card).
 
-In **Idira → Secrets Manager SaaS → Workloads**, add a workload that
-authenticates via **authn-azure** (service `azure-1`). Then set its annotations
-to match **this VM's** Azure identity, taken from the **Azure user-assigned
-managed identity (UAMI)** shown on your compute card:
+This is the record that maps the VM's managed-identity token to a workload;
+without it `authn-azure` can validate the token but has no workload to map it to.
 
-- `subscription-id` — the subscription the VM's identity lives in
-- `resource-group` — the resource group of the VM's identity
-- `user-assigned-identity` — the name of the VM's UAMI
+## 5. Vault the credential
 
-These three values are specific to **your** compute (read them off your compute
-card), so yours will differ from everyone else's. Together they are what maps the
-VM's managed-identity token to a Conjur workload: `authn-azure` authenticates the
-token, and this record is the workload it authenticates as.
+In **Privilege Cloud**, use these **exact** names so the pre-filled `secrets.yml`
+resolves without editing:
 
-## 3. Vault: onboard the credential in Idira
-
-Sign in to **Idira**, your lab's identity tenant ([open the portal](__IDIRA_PORTAL_URL__)), and open **Privilege Cloud**. Use these **exact** names so
-the pre-filled `secrets.yml` resolves without editing:
-
-1. Create a safe named exactly:
-
-   ```text
-   __SAFE_NAME__
-   ```
-
-   This safe name is specific to **your** VM — it matches your compute's name
-   (shown on its card), so yours will differ from everyone else's.
-
+1. Create a safe named exactly `__SAFE_NAME__` (it matches your compute's name, so
+   yours differs from everyone else's).
 2. Add **Conjur Sync** (found under **System Components**) as a safe member so
-   Secrets Manager syncs the safe. Grant it:
+   Secrets Manager syncs with the safe. Grant it:
    - **Access:** Use accounts, Retrieve accounts, List accounts
    - **Workflow:** Access Safe without confirmation
 
+   Syncing the safe automatically creates a **Consumers** delegation group for it,
+   which you use in step 6.
 3. Onboard the PostgreSQL account with these values:
 
    ```text
@@ -122,88 +96,59 @@ the pre-filled `secrets.yml` resolves without editing:
    password:  __DB_PASSWORD__
    ```
 
-   Note: `address` is what SRS/the Idira System connector uses to reach this VM's
+   `address` is what SRS/the Idira System connector uses to reach this VM's
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
 
-4. Grant the **workload** you created in step 2 read access to the credential.
-   In **Secrets Manager SaaS**, find your VM's `authn-azure` **workload** — the
-   one bound to your VM's UAMI (shown on your compute card) — and add it to the
-   safe's **delegation Consumers** group for `__SAFE_NAME__`.
+## 6. Grant the workload access to the safe
 
-   It's the **workload** (not the UAMI directly) that becomes a safe consumer:
-   the UAMI is what the workload *maps to* via `authn-azure`, and the workload is
-   what Conjur authorizes. Without this grant Summon can authenticate but cannot
-   read the secret.
+Add the **workload** you created in step 4 to the safe's **Consumers** group for
+`__SAFE_NAME__`.
 
-## 4. Secure: retrieve at runtime with Summon
+It's the **workload** (not the UAMI directly) that becomes a safe consumer: the
+UAMI is what the workload maps to via `authn-azure`, and the workload is what
+Conjur authorizes. Without this grant Summon can authenticate but cannot read the
+secret.
 
-Look at the secured script and the variable map:
+## 7. Secure: retrieve at runtime with Summon
+
+Look at the secured script and the variable map, then run it through Summon:
 
 ```bash
 cat query_db_secured.sh
 cat secrets.yml
-```
-
-`query_db_secured.sh` has no password; `secrets.yml` maps `PGUSER`/`PGPASSWORD`
-to your vaulted account. Run it through Summon:
-
-```bash
 ./run_secured_query.sh
 ```
 
-Same rows — with no secret in the script. Summon authenticated with the VM's
-managed identity and Idira returned the password at runtime.
+Same rows as step 3 — with no secret in the script. Summon authenticated with the
+VM's managed identity and Idira returned the password at runtime. If you see
+`CONJ00076E ... is empty or not found`, the account hasn't synced yet or the
+workload isn't granted — recheck steps 5–6 and retry.
 
-If you see `CONJ00076E ... is empty or not found`, the safe/account names do not
-match the values above, the account has not synced yet, or the workload has not
-been granted access to the safe.
+## 8. Rotate
 
-## 5. Rotate: prove the value
-
-Rotate the vaulted credential with **SRS** (Secrets Rotation Service). SRS reaches
-this VM's PostgreSQL through the Idira System connector and changes the password.
-
-After the rotation completes:
+Rotate the vaulted credential **on demand with SRS** (Secrets Rotation Service).
+SRS reaches this VM's Postgres through the Idira System connector (using the
+stored `address` `__ROTATION_ADDRESS__`) and changes the password — expect roughly
+a **~1 minute queue time** before it runs. Once it completes:
 
 ```bash
 ./run_hardcoded_query.sh    # FAILS — still has the old password
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
-## 6. Validate: confirm the flow in the Audit
+## 9. Validate
 
-Everything you just did is auditable. In **Secrets Manager SaaS → Audit**, filter
-for your safe (`__SAFE_NAME__`) or your VM's workload identity and confirm you can
-see:
+In **Secrets Manager → Audit**, filter for your safe (`__SAFE_NAME__`) or your
+VM's workload and confirm: the workload `authn-azure` **authentication** events,
+the **secret retrievals** for `__ACCOUNT_NAME__` (one per `run_secured_query.sh`),
+and the **rotation** event followed by a successful retrieval of the *new* value.
 
-- the workload **authentication** events (`authn-azure`) from this VM's UAMI,
-- the **secret retrieval** (get) events for `__ACCOUNT_NAME__` — one per
-  `run_secured_query.sh` run,
-- the **rotation** event from SRS, followed by a successful retrieval that
-  returns the *new* value.
+Each entry shows who (the VM's workload), what (authenticate / fetch / rotate),
+which secret, and when — the audit trail a hardcoded password can never give you.
 
-Each entry shows who (the VM's workload identity), what (authenticate / fetch),
-which secret, and when — the audit trail that a hardcoded password can never give
-you.
+---
 
-## Runtime flow
-
-```text
-run_secured_query.sh
-  -> source conjur_authn_azure.env
-  -> summon reads secrets.yml
-  -> summon-conjur authenticates with the Azure managed identity (authn-azure)
-  -> Idira returns the authorized, current PGUSER/PGPASSWORD
-  -> query_db_secured.sh runs psql with them
-```
-
-## Success criteria
-
-- You can point to the hardcoded password in `query_db_hardcoded.sh`.
-- You registered this VM's UAMI as an `authn-azure` workload in Secrets Manager SaaS (matching subscription, resource group, and user-assigned identity).
-- You vaulted the credential into safe `__SAFE_NAME__` as account `__ACCOUNT_NAME__` on the PostgreSQL platform.
-- You added your VM's **workload** (bound to its UAMI) to the safe's **delegation Consumers** group in Secrets Manager SaaS.
-- `./run_secured_query.sh` returns rows with no secret in the script.
-- After SRS rotation, the secured script still works and the hardcoded one fails.
-- The Secrets Manager audit shows your VM's workload identity authenticating and reading `__ACCOUNT_NAME__`, including after rotation.
+**Reset** (not a step): if you want to start over, the compute card's **Reset**
+action returns the activity to a clean student-start (deletes the account, safe,
+and workload record).
