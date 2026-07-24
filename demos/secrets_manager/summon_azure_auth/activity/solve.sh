@@ -135,7 +135,7 @@ student_dir="$LABS_ROOT/${STUDENT_PREFIX}1/$ACTIVITY_DIR_NAME"
 
 printf "\n----------------------------------------\n"
 printf "Verifying the secured query...\n"
-printf "----------------------------------------\n"
+printf '%s\n' "----------------------------------------"
 if [ -x "$student_dir/run_secured_query.sh" ]; then
   if (cd "$student_dir" && ./run_secured_query.sh); then
     printf "\nVERIFY PASS: run_secured_query.sh returned rows using the vaulted credential.\n"
