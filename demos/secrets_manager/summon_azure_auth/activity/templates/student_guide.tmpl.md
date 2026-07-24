@@ -1,15 +1,27 @@
-# Student Guide: Hardcoded Secret Remediation (__STUDENT__)
+# Activity Guide: Hardcoded Secret Remediation (__STUDENT__)
 
-You do this activity on your lab VM. Start by connecting to it — don't assume
-you're already on the box.
+You do this activity on your lab VM, performing each step yourself. For the
+hands-off version, use the **Summon — Automated** guide, where **Solve** does the
+setup steps for you.
 
-## Connect: SSH to your compute
+## 1. Review the problem
+
+A database password is **hardcoded** in a script on your VM — the anti-pattern.
+Hardcoded secrets leak (anyone who can read the file can read the database),
+rarely get rotated, and aren't attributable to a specific workload.
+
+**Goal:** take the secret out of the code and manage it centrally in Idira, so
+the app fetches the *current* credential at runtime using the VM's own **workload
+identity** (no secret on disk) — and the credential can be **rotated** without
+changing or breaking the app.
+
+In this manual path, **you perform each step yourself.**
+
+## 2. Connect: SSH to your compute
 
 You reach your VM over **SIA SSH** — brokered access, no inbound port or static
 key. From your workstation terminal, use the **SSH link on your compute card** in
-the app (the `Copy` button next to it).
-
-Once connected, open your workspace and look around:
+the app (the `Copy` button next to it). Then open your workspace:
 
 ```bash
 cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
@@ -18,64 +30,61 @@ ls
 
 You should see the query scripts, `secrets.yml`, and this guide.
 
-## Goal
+> **Already installed on this compute** (by the deployment enablement): **Summon**
+> and its **`summon-conjur`** provider, plus the local PostgreSQL and the
+> `authn-azure` configuration. New to Summon? See **Learning → What Is Summon?**
+> in the Guide panel (switch the kind selector to *Idira Lab*).
 
-Take a database password out of a script and manage it in CyberArk, without
-changing the query. You will:
+## 3. Expose: see the hardcoded anti-pattern
 
-1. **Expose** — run a script with a hardcoded password (the anti-pattern).
-2. **Vault** — onboard that credential into CyberArk, signed in with your idira user.
-3. **Secure** — retrieve it at runtime with Summon + the VM's Azure managed identity (no secret in code).
-4. **Rotate** — rotate it with SRS and watch the secured script keep working while the hardcoded one breaks.
-
-The database is a local PostgreSQL already running on this VM. The query is the
-same in both scripts; only credential handling changes.
-
-## 1. Expose: run the hardcoded script
-
-From your workspace directory:
+Run the insecure baseline and look at the script:
 
 ```bash
-cd /opt/labs/__STUDENT__/hardcoded-secret-remediation
-./query_db_hardcoded.sh
-```
-
-It returns rows. Now see the problem:
-
-```bash
+./run_hardcoded_query.sh
 cat query_db_hardcoded.sh
 ```
 
-The password is right there in the file (`PGPASSWORD`). Anyone who can read the
-script can read the database.
+It returns rows — but the password (`PGPASSWORD`) is right there in the file.
+Anyone who can read the script can read the database.
 
 Expected rows:
 
 ```text
- id |   series_title    |   primary_setting    | lead_character  |    story_hook
-----+-------------------+----------------------+-----------------+------------------
-  1 | Star Trek         | USS Enterprise       | Jean Luc        | First contact
-  2 | Voyager           | USS Voyager          | Kathryn Janeway | Return voyage
-  3 | Deep Space        | Station Nine         | Benjamin Sisko  | Wormhole defense
-  4 | Galactica         | Battlestar Galactica | William Adama   | Fleet survival
-  5 | The Expanse       | Rocinante            | James Holden    | Political crisis
+ id |          series_title          |   primary_setting    | lead_character  |    story_hook
+----+--------------------------------+----------------------+-----------------+------------------
+  1 | Star Trek: The Next Generation | USS Enterprise       | Jean Luc        | First contact
+  2 | Star Trek: Voyager             | USS Voyager          | Kathryn Janeway | Return voyage
+  3 | Star Trek: Deep Space Nine     | Station Nine         | Benjamin Sisko  | Wormhole defense
+  4 | Battlestar Galactica           | Battlestar Galactica | William Adama   | Fleet survival
+  5 | The Expanse                    | Rocinante            | James Holden    | Political crisis
 (5 rows)
 ```
 
-## 2. Vault: onboard the credential in CyberArk
+## 4. Create the workload
 
-Sign in to idira (CyberArk) and use Privilege Cloud. Use these **exact** names so
-the pre-filled `secrets.yml` resolves without editing:
+Sign in to **Idira** ([open the portal](__IDIRA_PORTAL_URL__)) and open **Secrets
+Manager**. Create a **workload** that authenticates via **authn-azure** (service
+`azure-1`) and set its annotations to match this VM's Azure identity — the
+`subscription-id`, `resource-group`, and `user-assigned-identity` (the UAMI name
+shown on your compute card).
 
-1. Create a safe named exactly:
+This is the record that maps the VM's managed-identity token to a workload;
+without it `authn-azure` can validate the token but has no workload to map it to.
 
-   ```text
-   __SAFE_NAME__
-   ```
+## 5. Vault the credential
 
-2. Add `Conjur Sync` as a safe member (so Secrets Manager syncs the safe), with
-   `View users` and `Access without confirmation`.
+In **Privilege Cloud**, use these **exact** names so the pre-filled `secrets.yml`
+resolves without editing:
 
+1. Create a safe named exactly `__SAFE_NAME__` (it matches your compute's name, so
+   yours differs from everyone else's).
+2. Add **Conjur Sync** (found under **System Components**) as a safe member so
+   Secrets Manager syncs with the safe. Grant it:
+   - **Access:** Use accounts, Retrieve accounts, List accounts
+   - **Workflow:** Access Safe without confirmation
+
+   Syncing the safe automatically creates a **Consumers** delegation group for it,
+   which you use in step 6.
 3. Onboard the PostgreSQL account with these values:
 
    ```text
@@ -87,63 +96,59 @@ the pre-filled `secrets.yml` resolves without editing:
    password:  __DB_PASSWORD__
    ```
 
-   Note: `address` is what SRS/the Idira System connector uses to reach this VM's
+   `address` is what SRS/the Idira System connector uses to reach this VM's
    Postgres for rotation — not `localhost`. The local scripts always connect to
    `__DB_HOST__`.
 
-After the safe syncs, the workload identity for this VM is granted read access to
-the safe (the `grant_consumers.sh` step, run by your instructor / the control
-plane). Without that grant, Summon can authenticate but cannot read the account.
+## 6. Grant the workload access to the safe
 
-## 3. Secure: retrieve at runtime with Summon
+Add the **workload** you created in step 4 to the safe's **Consumers** group for
+`__SAFE_NAME__`.
 
-Look at the secured script and the variable map:
+It's the **workload** (not the UAMI directly) that becomes a safe consumer: the
+UAMI is what the workload maps to via `authn-azure`, and the workload is what
+Conjur authorizes. Without this grant Summon can authenticate but cannot read the
+secret.
+
+## 7. Secure: retrieve at runtime with Summon
+
+Look at the secured script and the variable map, then run it through Summon:
 
 ```bash
 cat query_db_secured.sh
 cat secrets.yml
-```
-
-`query_db_secured.sh` has no password; `secrets.yml` maps `PGUSER`/`PGPASSWORD`
-to your vaulted account. Run it through Summon:
-
-```bash
 ./run_secured_query.sh
 ```
 
-Same rows — with no secret in the script. Summon authenticated with the VM's
-managed identity and CyberArk returned the password at runtime.
+Same rows as step 3 — with no secret in the script. Summon authenticated with the
+VM's managed identity and Idira returned the password at runtime. If you see
+`CONJ00076E ... is empty or not found`, the account hasn't synced yet or the
+workload isn't granted — recheck steps 5–6 and retry.
 
-If you see `CONJ00076E ... is empty or not found`, the safe/account names do not
-match the values above, the account has not synced yet, or the workload has not
-been granted access to the safe.
+## 8. Rotate
 
-## 4. Rotate: prove the value
-
-Rotate the vaulted credential with **SRS** (Secrets Rotation Service). SRS reaches
-this VM's PostgreSQL through the Idira System connector and changes the password.
-
-After the rotation completes:
+Rotate the vaulted credential **on demand with SRS** (Secrets Rotation Service).
+SRS reaches this VM's Postgres through the Idira System connector (using the
+stored `address` `__ROTATION_ADDRESS__`) and changes the password — expect roughly
+a **~1 minute queue time** before it runs. Once it completes:
 
 ```bash
-./query_db_hardcoded.sh    # FAILS — still has the old password
-./run_secured_query.sh     # WORKS — fetches the current password from CyberArk
+./run_hardcoded_query.sh    # FAILS — still has the old password
+./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
-## Runtime flow
+## 9. Validate
 
-```text
-run_secured_query.sh
-  -> source conjur_authn_azure.env
-  -> summon reads secrets.yml
-  -> summon-conjur authenticates with the Azure managed identity (authn-azure)
-  -> CyberArk returns the authorized, current PGUSER/PGPASSWORD
-  -> query_db_secured.sh runs psql with them
-```
+In **Secrets Manager → Audit**, filter for your safe (`__SAFE_NAME__`) or your
+VM's workload and confirm: the workload `authn-azure` **authentication** events,
+the **secret retrievals** for `__ACCOUNT_NAME__` (one per `run_secured_query.sh`),
+and the **rotation** event followed by a successful retrieval of the *new* value.
 
-## Success criteria
+Each entry shows who (the VM's workload), what (authenticate / fetch / rotate),
+which secret, and when — the audit trail a hardcoded password can never give you.
 
-- You can point to the hardcoded password in `query_db_hardcoded.sh`.
-- You vaulted the credential into safe `__SAFE_NAME__` as account `__ACCOUNT_NAME__` on the PostgreSQL platform.
-- `./run_secured_query.sh` returns rows with no secret in the script.
-- After SRS rotation, the secured script still works and the hardcoded one fails.
+---
+
+**Reset** (not a step): if you want to start over, the compute card's **Reset**
+action returns the activity to a clean student-start (deletes the account, safe,
+and workload record).

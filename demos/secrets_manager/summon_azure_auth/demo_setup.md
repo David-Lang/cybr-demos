@@ -98,6 +98,21 @@ the tenant (via `postgres_platform_available`). The student needs it to onboard
 the DB account and SRS needs it to rotate the credential, so setup fails early if
 it is missing. Override the match keyword with `POSTGRES_PLATFORM_ID`.
 
+> **Required platform config (rotation):** the PostgreSQL platform's **connection
+> command** must reference the ODBC driver name that is actually installed on the
+> connector (`PostgreSQL Unicode`). A mismatch here causes rotation to fail with
+> `IM002 ... Data source name not found and no default driver specified` even
+> though the driver is installed. When the `PostgreSQL` platform is set up, set
+> its connection command (Platform settings → the PostgreSQL connection
+> component) to:
+>
+> ```
+> Driver={PostgreSQL Unicode};Server=%ADDRESS%;[Database=%DATABASE%;]Uid=%USER%;Pwd=%LOGONPASSWORD%;[Port=%PORT%]
+> ```
+>
+> The connector host has the 64-bit psqlODBC driver installed automatically by
+> `setup/idira/system-connector.sh` (SRS runs 64-bit).
+
 The safe and the `postgres-appuser` account are **not** created here — the student creates
 the safe and vaults the credential in the activity. After the safe syncs into
 Conjur, run `setup/conjur/grant_consumers.sh` (control plane) to grant the

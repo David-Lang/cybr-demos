@@ -205,8 +205,6 @@ require_command "curl"
 require_command "jq"
 require_command "base64"
 ensure_file "authenticator_service.tmpl.yaml"
-ensure_file "workload.tmpl.yaml"
-ensure_file "authenticator_grant.tmpl.yaml"
 
 printf "\nAuthenticating to Identity...\n"
 identity_token="$(get_identity_token "$TENANT_ID" "$CLIENT_ID" "$CLIENT_SECRET")"
@@ -285,15 +283,7 @@ printf "\nEnabling authn-azure service: %s...\n" "$AUTHN_AZURE_SERVICE_ID"
 activate_conjur_service "$TENANT_SUBDOMAIN" "$conjur_token" "authn-azure/$AUTHN_AZURE_SERVICE_ID" >/dev/null
 printf "authn-azure service enabled\n"
 
-printf "\nCreating workload policy...\n"
-resolve_template "workload.tmpl.yaml" "workload.yaml"
-apply_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "$WORKLOAD_POLICY_BRANCH" "$(cat workload.yaml)" >/dev/null
-printf "Workload policy created\n"
-
-printf "\nGranting workload access to authn-azure apps...\n"
-resolve_template "authenticator_grant.tmpl.yaml" "authenticator_grant.yaml"
-patch_conjur_policy "$TENANT_SUBDOMAIN" "$conjur_token" "conjur/authn-azure" "$(cat authenticator_grant.yaml)" >/dev/null
-printf "authn-azure apps grant applied\n"
+# Workload record is created by activity/solve.sh (or manually per the guide) and removed by activity/reset.sh.
 
 creds_file="$demo_path/conjur_authn_azure.env"
 cat > "$creds_file" <<CREDS

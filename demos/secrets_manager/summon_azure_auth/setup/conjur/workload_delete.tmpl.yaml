@@ -1,0 +1,5 @@
+# metadata
+# mode: update-policy
+---
+- !delete
+  record: !host {{ .AZURE_WORKLOAD_HOST_NAME }}

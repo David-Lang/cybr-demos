@@ -21,7 +21,7 @@ main() {
   service_user_id=$(get_service_user_id "$isp_id" "$identity_token")
   printf "service_user_id: %s\n" "$service_user_id"
 
-  add_user_to_role "$isp_id" "$identity_token" "$CONJUR_ADMIN_ROLE" "$service_user_id"
+  add_user_to_role_by_name "$isp_id" "$identity_token" "$CONJUR_ADMIN_ROLE" "$service_user_id"
   printf "Added service user to %s\n" "$CONJUR_ADMIN_ROLE"
 
   # Conjur Cloud syncs ISP role membership on an interval. Wait until the service

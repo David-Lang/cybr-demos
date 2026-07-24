@@ -1,23 +1,57 @@
 #!/bin/bash
 set -euo pipefail
 
+# ensure_platform_active activates a Privilege Cloud target platform by its
+# string PlatformID (e.g. AzureApplicationKeys) if it isn't already active.
+# Built-in platforms ship deactivated; an account can't be onboarded under an
+# inactive platform. Idempotent. Requires admin rights on the token.
+ensure_platform_active() {
+  # $1 isp_subdomain, $2 identity_token, $3 platform_id (string)
+  if [ $# -ne 3 ]; then
+    echo "Usage: ensure_platform_active isp_subdomain identity_token platform_id" >&2
+    return 1
+  fi
+  local subdomain="$1" token="$2" pid="$3" resp numid active
+  # NOTE: the ?search= filter matches the display name, not the PlatformID, so
+  # list all target platforms and filter by PlatformID in jq.
+  resp=$(curl --silent --location \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets" \
+    --header "Authorization: Bearer $token" --header "Accept: application/json")
+  numid=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .ID) // empty' 2>/dev/null)
+  active=$(printf '%s' "$resp" | jq -r --arg pid "$pid" 'first(.Platforms[]? | select(.PlatformID==$pid) | .Active) // empty' 2>/dev/null)
+  if [ -z "$numid" ] || [ "$numid" = "null" ]; then
+    printf "\nWARN: platform '%s' not found; skipping activation.\n" "$pid" >&2
+    return 0
+  fi
+  if [ "$active" = "true" ]; then
+    printf "Platform '%s' already active.\n" "$pid" >&2
+    return 0
+  fi
+  printf "Activating platform '%s' (target id %s)...\n" "$pid" "$numid" >&2
+  curl --silent --show-error --location --request POST \
+    "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Platforms/Targets/$numid/activate" \
+    --header "Authorization: Bearer $token" >/dev/null
+  printf "Platform '%s' activated.\n" "$pid" >&2
+}
+
  create_safe() {
-   # $1 isp_subdomain, $2 identity_token, $3 safe_name,
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, [$4 description]
+   local description="${4:-poc safe}"
    printf "\nCreating Safe: $3\n"
 
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
    --header "Authorization: Bearer $2" \
    --header 'Content-Type: application/json' \
-   --data "{
-       \"numberOfDaysRetention\": 0,
-       \"numberOfVersionsRetention\": null,
-       \"oLACEnabled\": true,
-       \"autoPurgeEnabled\": true,
-       \"managingCPM\": \"\",
-       \"safeName\": \"$3\",
-       \"description\": \"poc safe\",
-       \"location\": \"\"
-   }"
+   --data "$(jq -n --arg name "$3" --arg desc "$description" '{
+       numberOfDaysRetention: 0,
+       numberOfVersionsRetention: null,
+       oLACEnabled: true,
+       autoPurgeEnabled: true,
+       managingCPM: "",
+       safeName: $name,
+       description: $desc,
+       location: ""
+   }')"
  }
 
   delete_safe() {
@@ -67,6 +101,47 @@ set -euo pipefail
         \"requestsAuthorizationLevel2\": false
       },
       \"MemberType\": \"Role\"
+    }"
+ }
+
+ add_safe_secretshub_member() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 member_name
+   # Grants the exact permissions Secrets Hub needs to sync a safe (per docs:
+   # "Create a secret in PAM"): Retrieve + List accounts, Add account, Update
+   # account properties, View Safe members, Access Safe without confirmation.
+   printf "\nAdding Secrets Hub Member: $4 to Safe: $3\n"
+   curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes/$3/Members/" \
+   --header "Authorization: Bearer $2" \
+   --header 'Content-Type: application/json' \
+   --data "{
+      \"memberName\":\"$4\",
+      \"searchIn\": \"Vault\",
+      \"membershipExpirationDate\":null,
+      \"permissions\": {
+        \"useAccounts\": false,
+        \"retrieveAccounts\": true,
+        \"listAccounts\": true,
+        \"addAccounts\": true,
+        \"updateAccountContent\": false,
+        \"updateAccountProperties\": true,
+        \"initiateCPMAccountManagementOperations\": false,
+        \"specifyNextAccountContent\": false,
+        \"renameAccounts\": false,
+        \"deleteAccounts\": false,
+        \"unlockAccounts\": false,
+        \"manageSafe\": false,
+        \"manageSafeMembers\": false,
+        \"backupSafe\": false,
+        \"viewAuditLog\": false,
+        \"viewSafeMembers\": true,
+        \"accessWithoutConfirmation\": true,
+        \"createFolders\": false,
+        \"deleteFolders\": false,
+        \"moveAccountsAndFolders\": false,
+        \"requestsAuthorizationLevel1\": false,
+        \"requestsAuthorizationLevel2\": false
+      },
+      \"MemberType\": \"User\"
     }"
  }
 
@@ -151,6 +226,118 @@ set -euo pipefail
    --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
    --header "Authorization: Bearer $2" \
 
+ }
+
+ account_id_by_name() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Echoes the account id whose .name matches account_name (fallback: first
+   # account in the safe). Empty output when the safe has no accounts. Used by
+   # both delete_account_by_name and the idempotent create path.
+   if [ $# -ne 4 ]; then
+     echo "Usage: account_id_by_name isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" safe_enc resp
+   # URL-encode the safe name for the OData filter (safe names can contain
+   # characters that are unsafe in a query string).
+   safe_enc=$(printf '%s' "$safe" | jq -sRr @uri)
+   resp=$(curl --silent --location \
+     "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts?filter=safeName%20eq%20$safe_enc" \
+     --header "Authorization: Bearer $token" --header "Accept: application/json")
+   printf '%s' "$resp" | jq -r --arg name "$name" \
+     'first(.value[]? | select(.name==$name) | .id) // (.value[0].id // empty)' 2>/dev/null
+ }
+
+ create_postgres_account() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name,
+   # $5 username, $6 password, $7 address, $8 platform_id, [$9 port], [${10} database]
+   #
+   # Onboards a password credential the read path (Summon -> Conjur) resolves via
+   # data/vault/<safe>/<account>/{username,password}. Automatic secrets
+   # management is ENABLED so the CPM/SRS can rotate the credential (the workshop
+   # queues a rotation). Port/Database are added to platformAccountProperties only
+   # when provided. The JSON is jq-built to avoid shell-quoting pitfalls.
+   if [ $# -lt 8 ]; then
+     echo "Usage: create_postgres_account isp_subdomain identity_token safe_name account_name username password address platform_id [port] [database]" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" username="$5" \
+     password="$6" address="$7" platform_id="$8" port="${9:-}" database="${10:-}" payload
+   payload=$(jq -n \
+     --arg name "$name" \
+     --arg address "$address" \
+     --arg userName "$username" \
+     --arg platformId "$platform_id" \
+     --arg secret "$password" \
+     --arg safeName "$safe" \
+     --arg port "$port" \
+     --arg database "$database" \
+     '{
+        name: $name,
+        address: $address,
+        userName: $userName,
+        platformId: $platformId,
+        secretType: "password",
+        secret: $secret,
+        safeName: $safeName,
+        secretManagement: {
+          automaticManagementEnabled: true
+        },
+        platformAccountProperties: (
+          {}
+          + (if ($port | length) > 0 then { Port: $port } else {} end)
+          + (if ($database | length) > 0 then { Database: $database } else {} end)
+        )
+      }')
+   printf "\nCreating Account: %s in Safe: %s\n" "$name" "$safe"
+   curl --silent --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/" \
+     --header "Authorization: Bearer $token" \
+     --header 'Content-Type: application/json' \
+     --data "$payload"
+ }
+
+ delete_account_by_name() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Deletes the account matching account_name in safe_name (fallback: first
+   # account). No-op (return 0) when the safe has no matching account.
+   if [ $# -ne 4 ]; then
+     echo "Usage: delete_account_by_name isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" id
+   id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
+   if [ -z "$id" ] || [ "$id" = "null" ]; then
+     printf "\nNo account named '%s' found in Safe '%s'; nothing to delete.\n" "$name" "$safe"
+     return 0
+   fi
+   printf "\nDeleting Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
+   curl --silent --request DELETE \
+     --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+     --header "Authorization: Bearer $token"
+ }
+
+ queue_account_rotation() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Queues an immediate CPM change (rotation) of the account's credential.
+   # Requires the account to have automatic secrets management enabled and a
+   # CPM/connector able to reach the target. Returns non-zero if the account
+   # can't be found; the change call itself is best-effort (CPM runs async).
+   if [ $# -ne 4 ]; then
+     echo "Usage: queue_account_rotation isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" id
+   id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
+   if [ -z "$id" ] || [ "$id" = "null" ]; then
+     printf "\nNo account named '%s' found in Safe '%s'; cannot queue rotation.\n" "$name" "$safe" >&2
+     return 1
+   fi
+   printf "\nQueuing CPM rotation for Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
+   curl --silent --request POST \
+     --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id/Change/" \
+     --header "Authorization: Bearer $token" \
+     --header 'Content-Type: application/json' \
+     --data '{"ChangeEntireGroup": false}'
  }
 
  create_app() {

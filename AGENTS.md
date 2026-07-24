@@ -7,6 +7,16 @@
 - **Shared demo bootstrap:** `demos/setup_env.sh` (requires `CYBR_DEMOS_PATH` and `demos/tenant_vars.sh`)
 - **Optional disposable lab tooling:** [`CYBR_LAB_TOOLING.md`](CYBR_LAB_TOOLING.md)
 
+## Cross-repo branching
+
+This repo participates in a multi-repo workspace alongside `idira-vegas-lab` and
+`idira-vegas-control`. Related changes are tracked with the **same branch name
+across all repos**, using alphabetical tree names
+(`cedar → dogwood → elm → fir → gardenia → hickory → ironwood → juniper → …`).
+When starting a new arc, cut the same-named branch in each repo from its default
+branch and do the related work on that branch everywhere, so cross-repo changes
+stay correlated.
+
 ## Demo Documentation
 
 When creating or updating demo documentation under `demos/`, follow the guidance in:
