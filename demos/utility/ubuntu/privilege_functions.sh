@@ -253,9 +253,9 @@ ensure_platform_active() {
    # $5 username, $6 password, $7 address, $8 platform_id, [$9 port], [${10} database]
    #
    # Onboards a password credential the read path (Summon -> Conjur) resolves via
-   # data/vault/<safe>/<account>/{username,password}. Management is manual
-   # (automaticManagementEnabled=false): the workshop read/grant path does not
-   # require SRS/CPM. Port/Database are added to platformAccountProperties only
+   # data/vault/<safe>/<account>/{username,password}. Automatic secrets
+   # management is ENABLED so the CPM/SRS can rotate the credential (the workshop
+   # queues a rotation). Port/Database are added to platformAccountProperties only
    # when provided. The JSON is jq-built to avoid shell-quoting pitfalls.
    if [ $# -lt 8 ]; then
      echo "Usage: create_postgres_account isp_subdomain identity_token safe_name account_name username password address platform_id [port] [database]" >&2
@@ -281,8 +281,7 @@ ensure_platform_active() {
         secret: $secret,
         safeName: $safeName,
         secretManagement: {
-          automaticManagementEnabled: false,
-          manualManagementReason: "Managed manually for the workshop read path"
+          automaticManagementEnabled: true
         },
         platformAccountProperties: (
           {}
@@ -315,6 +314,30 @@ ensure_platform_active() {
    curl --silent --request DELETE \
      --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
      --header "Authorization: Bearer $token"
+ }
+
+ queue_account_rotation() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
+   # Queues an immediate CPM change (rotation) of the account's credential.
+   # Requires the account to have automatic secrets management enabled and a
+   # CPM/connector able to reach the target. Returns non-zero if the account
+   # can't be found; the change call itself is best-effort (CPM runs async).
+   if [ $# -ne 4 ]; then
+     echo "Usage: queue_account_rotation isp_subdomain identity_token safe_name account_name" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4" id
+   id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
+   if [ -z "$id" ] || [ "$id" = "null" ]; then
+     printf "\nNo account named '%s' found in Safe '%s'; cannot queue rotation.\n" "$name" "$safe" >&2
+     return 1
+   fi
+   printf "\nQueuing CPM rotation for Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
+   curl --silent --request POST \
+     --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id/Change/" \
+     --header "Authorization: Bearer $token" \
+     --header 'Content-Type: application/json' \
+     --data '{"ChangeEntireGroup": false}'
  }
 
  create_app() {

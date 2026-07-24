@@ -4,8 +4,8 @@ This is the **answer key**. Clicking **Solve** runs `activity/solve.sh` on your
 lab VM, which performs the vault + grant steps for you — so you can inspect the
 finished state and run the secured query without doing the manual onboarding.
 
-Solve is idempotent (safe to click more than once) and it **does not rotate** the
-credential. Rotation stays a live, manual capstone (see below).
+Solve is idempotent (safe to click more than once). It also **queues a rotation**
+of the vaulted credential at the end (see below).
 
 ## Connect: SSH to your compute
 
@@ -77,24 +77,27 @@ who can read the script can read the database. The secured script has no secret.
 If `run_secured_query.sh` reports `CONJ00076E ... is empty or not found`, the
 account may still be syncing; wait a moment and re-run.
 
-## Rotation (NOT performed by automation)
+## Rotation (queued by automation)
 
-> **Callout:** Solve does **not** rotate the credential. Rotation is the
-> live/manual capstone you drive yourself.
+> **Callout:** Solve onboards the account with automatic secrets management
+> enabled and **queues a CPM rotation** as its last step. The CPM/Idira System
+> connector performs the change asynchronously (it reaches this VM's Postgres
+> using the stored `address` `__ROTATION_ADDRESS__`), so it may take a moment.
 
-Rotate the vaulted credential with **SRS** (Secrets Rotation Service). SRS
-reaches this VM's PostgreSQL through the Idira System connector (using the stored
-`address` `__ROTATION_ADDRESS__`) and changes the password. After it completes:
+Once the rotation completes:
 
 ```bash
 ./query_db_hardcoded.sh    # FAILS — still has the old password
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
+You can also queue another rotation yourself from **Secrets Manager SaaS** (the
+account → Change), or rotate on demand with **SRS**.
+
 Verify in **Secrets Manager SaaS → Audit**: filter for your safe
 (`__SAFE_NAME__`) or your VM's workload identity and confirm the workload
 `authn-azure` authentication events, the secret retrievals for `__ACCOUNT_NAME__`,
-and the SRS **rotation** event followed by a successful retrieval of the *new*
+and the **rotation** event followed by a successful retrieval of the *new*
 value.
 
 ## Reset
