@@ -35,22 +35,23 @@ ensure_platform_active() {
 }
 
  create_safe() {
-   # $1 isp_subdomain, $2 identity_token, $3 safe_name,
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, [$4 description]
+   local description="${4:-poc safe}"
    printf "\nCreating Safe: $3\n"
 
    curl --silent --location "https://$1.privilegecloud.cyberark.cloud/PasswordVault/API/Safes" \
    --header "Authorization: Bearer $2" \
    --header 'Content-Type: application/json' \
-   --data "{
-       \"numberOfDaysRetention\": 0,
-       \"numberOfVersionsRetention\": null,
-       \"oLACEnabled\": true,
-       \"autoPurgeEnabled\": true,
-       \"managingCPM\": \"\",
-       \"safeName\": \"$3\",
-       \"description\": \"poc safe\",
-       \"location\": \"\"
-   }"
+   --data "$(jq -n --arg name "$3" --arg desc "$description" '{
+       numberOfDaysRetention: 0,
+       numberOfVersionsRetention: null,
+       oLACEnabled: true,
+       autoPurgeEnabled: true,
+       managingCPM: "",
+       safeName: $name,
+       description: $desc,
+       location: ""
+   }')"
  }
 
   delete_safe() {

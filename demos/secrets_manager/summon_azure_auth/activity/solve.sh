@@ -67,6 +67,11 @@ if [ -z "$identity_token" ]; then
 fi
 printf "Authentication successful\n"
 
+# Resolve the Idira user the automation runs as (for the safe description).
+idira_user="$(get_service_user_name "$TENANT_ID" "$identity_token" 2>/dev/null || true)"
+[ -n "$idira_user" ] || idira_user="Idira automation"
+safe_description="Hardcoded Secret Remediation activity - solved by ${idira_user}"
+
 # --- 0. Workload record (authn-azure host) ----------------------------------
 # Create the per-VM workload BEFORE vaulting. Without it authn-azure can
 # authenticate the VM's managed-identity token but has no workload to map it to,
@@ -89,9 +94,16 @@ existing_safe="$(printf '%s' "$safe_lookup" | jq -r '.safeName // empty' 2>/dev/
 if [ -n "$existing_safe" ]; then
   printf "\nSafe '%s' already exists; skipping create.\n" "$SAFE_NAME"
 else
-  create_safe "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME"
-  printf "\nSafe '%s' created.\n" "$SAFE_NAME"
+  create_safe "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "$safe_description"
+  printf "\nSafe '%s' created (%s).\n" "$SAFE_NAME" "$safe_description"
 fi
+
+# --- 1b. Safe admin role (idempotent) ---------------------------------------
+# Add the "Privilege Cloud Administrators" role as a full admin member so Idira
+# administrators (who belong to that role) can manage the safe. Adding an
+# existing member returns an error body; harmless, so keep going.
+add_safe_admin_role "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "Privilege Cloud Administrators" || true
+printf "\n'Privilege Cloud Administrators' admin role ensured on safe '%s'.\n" "$SAFE_NAME"
 
 # --- 2. Conjur Sync member (idempotent) -------------------------------------
 # Adding an already-present member returns an error body; that is harmless, so
@@ -144,6 +156,7 @@ printf "\n========================================\n"
 printf "Solve complete. Created / ensured:\n"
 printf "  - Workload:        data/%s/azure-apps/%s (authn-azure)\n" "${LAB_ID:-<lab>}" "${AZURE_WORKLOAD_HOST_NAME:-<vm-identity>}"
 printf "  - Safe:            %s\n" "$SAFE_NAME"
+printf "  - Safe admin role: Privilege Cloud Administrators\n"
 printf "  - Safe member:     Conjur Sync\n"
 printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
   "$ACCOUNT_NAME" "$DB_USERNAME" "$POSTGRES_PLATFORM_ID" "$ROTATION_ADDRESS"

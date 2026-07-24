@@ -142,6 +142,25 @@ get_service_user_id() {
   printf '%s' "$user_id"
 }
 
+get_service_user_name() {
+  # $1 isp_id, $2 identity_token
+  # Returns the name (username / display name) of the user the token belongs to.
+  if [ $# -ne 2 ]; then
+    echo "Usage: get_service_user_name isp_id identity_token" >&2
+    return 1
+  fi
+
+  local response name
+  response=$(curl --silent --location --request POST \
+    "https://$1.id.cyberark.cloud/UserMgmt/GetUserInfo" \
+    --header "X-CENTRIFY-NATIVE-CLIENT: true" \
+    --header "Authorization: Bearer $2" \
+    --data '')
+
+  name=$(printf '%s' "$response" | jq -r '.Result.Name // .Result.DisplayName // .Result.SystemName // empty' 2>/dev/null)
+  printf '%s' "$name"
+}
+
 add_user_to_role_by_name() {
   # $1 isp_id, $2 identity_token, $3 role_name, $4 user_id
   # Adds a user to a CyberArk Identity role by role display name (idempotent).
