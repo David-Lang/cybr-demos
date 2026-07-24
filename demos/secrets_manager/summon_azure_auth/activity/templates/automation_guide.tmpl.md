@@ -72,7 +72,7 @@ at runtime with Summon + the VM's managed identity (no secret in code):
 It returns rows. Now look at the anti-pattern it replaces:
 
 ```bash
-./query_db_hardcoded.sh
+./run_hardcoded_query.sh
 cat query_db_hardcoded.sh
 ```
 
@@ -92,7 +92,7 @@ account may still be syncing; wait a moment and re-run.
 Once the rotation completes:
 
 ```bash
-./query_db_hardcoded.sh    # FAILS — still has the old password
+./run_hardcoded_query.sh    # FAILS — still has the old password
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 

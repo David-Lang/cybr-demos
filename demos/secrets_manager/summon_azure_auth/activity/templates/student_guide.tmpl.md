@@ -43,7 +43,7 @@ same in both scripts; only credential handling changes.
 From your workspace directory (you're already there from the Connect step):
 
 ```bash
-./query_db_hardcoded.sh
+./run_hardcoded_query.sh
 ```
 
 It returns rows. Now see the problem:
@@ -163,7 +163,7 @@ this VM's PostgreSQL through the Idira System connector and changes the password
 After the rotation completes:
 
 ```bash
-./query_db_hardcoded.sh    # FAILS — still has the old password
+./run_hardcoded_query.sh    # FAILS — still has the old password
 ./run_secured_query.sh     # WORKS — fetches the current password from Idira
 ```
 
