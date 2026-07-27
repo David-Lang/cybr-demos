@@ -145,20 +145,33 @@ printf "\n----------------------------------------\n"
 printf "Retrieving the credential with Summon (populates the audit log)...\n"
 printf '%s\n' "----------------------------------------"
 retrieval_status="unknown"
+retrieval_log="$student_dir/.solve-retrieval.log"
 if [ -x "$student_dir/run_secured_query.sh" ]; then
+  : > "$retrieval_log" 2>/dev/null || retrieval_log="/tmp/solve-retrieval.log"
+  {
+    printf 'solve run_secured_query diagnostics\n'
+    printf 'user=%s  path=%s\n' "$(id -un 2>/dev/null)" "$PATH"
+    printf 'summon=%s  provider=%s\n' \
+      "$(command -v summon 2>/dev/null || echo NOT-FOUND)" \
+      "$( { command -v summon-conjur || ls -1 /usr/local/lib/summon/summon-conjur; } 2>/dev/null || echo NOT-FOUND)"
+    printf 'workspace files:\n'; ls -la "$student_dir" 2>&1
+    printf '========================================\n'
+  } >> "$retrieval_log" 2>&1
   verified=false
   max_attempts=18
   attempt=1
   # Wait for the account's secret VALUES to finish syncing Privilege Cloud ->
   # Conjur (the safe/group sync completes earlier, in grant_consumers). Until
   # then the fetch returns CONJ00076E and logs no retrieval. Up to ~3 min,
-  # breaking on the first success so a real retrieval lands in Audit.
+  # breaking on the first success so a real retrieval lands in Audit. Each
+  # attempt's stdout+stderr is captured to $retrieval_log for diagnosis.
   while [ "$attempt" -le "$max_attempts" ]; do
-    if (cd "$student_dir" && ./run_secured_query.sh); then
+    printf '\n--- attempt %s/%s @ %s ---\n' "$attempt" "$max_attempts" "$(date -u +%FT%TZ)" >> "$retrieval_log"
+    if (cd "$student_dir" && ./run_secured_query.sh) >> "$retrieval_log" 2>&1; then
       verified=true
       break
     fi
-    printf "Attempt %s/%s: secret not readable yet (account still syncing into Conjur); retrying in 10s...\n" "$attempt" "$max_attempts" >&2
+    printf "Attempt %s/%s: fetch failed (see %s); retrying in 10s...\n" "$attempt" "$max_attempts" "$retrieval_log" >&2
     attempt=$((attempt + 1))
     sleep 10
   done
@@ -166,9 +179,10 @@ if [ -x "$student_dir/run_secured_query.sh" ]; then
     retrieval_status="succeeded (retrieval logged to Audit)"
     printf "\nVERIFY PASS: run_secured_query.sh returned rows using the vaulted credential (retrieval logged to Audit).\n"
   else
-    retrieval_status="pending (values still syncing; re-run run_secured_query.sh)"
+    retrieval_status="pending (see $retrieval_log)"
     printf "\nVERIFY WARN: run_secured_query.sh did not succeed within %s attempts.\n" "$max_attempts" >&2
-    printf "The account values may still be syncing; re-run: (cd %s && ./run_secured_query.sh)\n" "$student_dir" >&2
+    printf "Diagnostics captured at %s. Tail:\n" "$retrieval_log" >&2
+    tail -n 25 "$retrieval_log" 2>/dev/null >&2 || true
   fi
 else
   retrieval_status="skipped (student workspace not found)"
