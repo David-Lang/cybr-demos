@@ -156,12 +156,17 @@ a **~1 minute queue time** before it runs. Once it completes, validate both path
 
 ## 9. Validate
 
-In **Secrets Manager → Audit**, filter for your safe (`__SAFE_NAME__`) or your
-VM's workload and confirm: the workload `authn-azure` **authentication** events,
-the **secret retrievals** for `__ACCOUNT_NAME__` (one per `run_secured_query.sh`),
-and the **rotation** event followed by a successful retrieval of the *new* value.
+Open **Idira → Audit and Reports** (the top-level space in the Idira menu) and set
+the **Service Name** filter to **Secrets Manager**. Filter further by your safe
+`__SAFE_NAME__`, the account `__ACCOUNT_NAME__`, or your VM's workload, and confirm:
 
-Each entry shows who (the VM's workload), what (authenticate / fetch / rotate),
+- **Authentication** — the workload authenticating via **authn-azure**.
+- **Secret retrieval** — a fetch of `__ACCOUNT_NAME__` (one per
+  `./run_secured_query.sh`).
+- **Rotation** — the credential change from SRS, followed by a successful
+  retrieval of the *new* value.
+
+Each entry shows who (the VM's workload), what (authenticate / retrieve / rotate),
 which secret, and when — the audit trail a hardcoded password can never give you.
 
 ---

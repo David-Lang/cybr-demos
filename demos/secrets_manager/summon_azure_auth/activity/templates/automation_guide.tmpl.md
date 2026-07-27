@@ -147,10 +147,21 @@ You can queue another rotation on demand with **SRS**, or from **Privilege Cloud
 
 ## 9. Validate
 
-In **Secrets Manager → Audit**, filter for your safe (`__SAFE_NAME__`) or your
-VM's workload and confirm: the workload `authn-azure` **authentication** events,
-the **secret retrievals** for `__ACCOUNT_NAME__` (one per `run_secured_query.sh`),
-and the **rotation** event followed by a successful retrieval of the *new* value.
+Open **Idira → Audit and Reports** (the top-level space in the Idira menu) and set
+the **Service Name** filter to **Secrets Manager** to scope the log to workload
+activity. Filter further by your safe `__SAFE_NAME__`, the account
+`__ACCOUNT_NAME__`, or your VM's workload, and confirm:
+
+- **Authentication** — the workload authenticating via **authn-azure** (its Azure
+  managed-identity token, validated by Secrets Manager).
+- **Secret retrieval** — a fetch of `__ACCOUNT_NAME__`. Solve runs one secured
+  query automatically before it rotates, so a retrieval is already logged; each
+  `./run_secured_query.sh` you run adds another.
+- **Rotation** — the credential change queued by SRS, followed by a successful
+  retrieval of the *new* value.
+
+Each entry shows who (the VM's workload), what (authenticate / retrieve / rotate),
+which secret, and when — the audit trail a hardcoded password can never give you.
 
 ---
 
