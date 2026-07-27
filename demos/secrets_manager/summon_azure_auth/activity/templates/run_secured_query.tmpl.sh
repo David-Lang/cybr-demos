@@ -4,6 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# summon-conjur needs a home directory to locate its Conjur client config. The
+# Azure run-command context (root, non-login shell) has no $HOME, which makes
+# summon fail with "Failed to get user home directory: $HOME is not defined"
+# BEFORE it ever calls Conjur (so nothing is audited). Default it so any
+# non-login invocation works; a no-op for interactive SSH sessions.
+export HOME="${HOME:-/root}"
+
 if [ -f ./conjur_authn_azure.env ]; then
   # shellcheck disable=SC1091
   source ./conjur_authn_azure.env
