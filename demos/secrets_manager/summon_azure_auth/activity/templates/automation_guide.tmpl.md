@@ -147,21 +147,27 @@ You can queue another rotation on demand with **SRS**, or from **Privilege Cloud
 
 ## 9. Validate
 
-Open **Idira → Audit and Reports** (the top-level space in the Idira menu) and set
-the **Service Name** filter to **Secrets Manager** to scope the log to workload
-activity. Filter further by your safe `__SAFE_NAME__`, the account
-`__ACCOUNT_NAME__`, or your VM's workload, and confirm:
+Open **Idira → Audit and Reports** (top-level space) and set:
 
-- **Authentication** — the workload authenticating via **authn-azure** (its Azure
+- **Service Name:** Secrets Manager
+- **Filter by:** Username → `azure-apps/__SAFE_NAME__-id` (this VM's workload identity — its Azure managed identity)
+
+Two kinds of records show the workload retrieving its own credential — no
+password, every action attributed to this one machine identity:
+
+- **Authenticate** — the workload proving itself via **authn-azure** (its Azure
   managed-identity token, validated by Secrets Manager).
-- **Secret retrieval** — a fetch of `__ACCOUNT_NAME__`. Solve runs one secured
-  query automatically before it rotates, so a retrieval is already logged; each
-  `./run_secured_query.sh` you run adds another.
-- **Rotation** — the credential change queued by SRS, followed by a successful
-  retrieval of the *new* value.
+- **Fetch** — the workload reading the vaulted database credential
+  (`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username` and `/password`).
 
-Each entry shows who (the VM's workload), what (authenticate / retrieve / rotate),
-which secret, and when — the audit trail a hardcoded password can never give you.
+Use the **Actions** filter to separate Authenticate from Fetch. A single secured
+query authenticates and fetches **per credential field** (username + password),
+and the `summon-conjur` provider makes a short pair of calls for each — so expect
+several records clustered in the **same second** (the Audit timestamps to the
+second). That's normal Summon behavior.
+
+Every record is tied to this workload identity — the attributable audit trail a
+hardcoded, shared password can never give you.
 
 ---
 

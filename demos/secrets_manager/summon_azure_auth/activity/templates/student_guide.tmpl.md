@@ -156,18 +156,26 @@ a **~1 minute queue time** before it runs. Once it completes, validate both path
 
 ## 9. Validate
 
-Open **Idira → Audit and Reports** (the top-level space in the Idira menu) and set
-the **Service Name** filter to **Secrets Manager**. Filter further by your safe
-`__SAFE_NAME__`, the account `__ACCOUNT_NAME__`, or your VM's workload, and confirm:
+Open **Idira → Audit and Reports** (top-level space) and set:
 
-- **Authentication** — the workload authenticating via **authn-azure**.
-- **Secret retrieval** — a fetch of `__ACCOUNT_NAME__` (one per
-  `./run_secured_query.sh`).
-- **Rotation** — the credential change from SRS, followed by a successful
-  retrieval of the *new* value.
+- **Service Name:** Secrets Manager
+- **Filter by:** Username → `azure-apps/__SAFE_NAME__-id` (this VM's workload identity — its Azure managed identity)
 
-Each entry shows who (the VM's workload), what (authenticate / retrieve / rotate),
-which secret, and when — the audit trail a hardcoded password can never give you.
+Two kinds of records show the workload retrieving its own credential — no
+password, every action attributed to this one machine identity:
+
+- **Authenticate** — the workload proving itself via **authn-azure**.
+- **Fetch** — the workload reading the vaulted database credential
+  (`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username` and `/password`).
+
+Use the **Actions** filter to separate Authenticate from Fetch. A single
+`./run_secured_query.sh` authenticates and fetches **per credential field**
+(username + password), and the `summon-conjur` provider makes a short pair of
+calls for each — so expect several records clustered in the **same second** (the
+Audit timestamps to the second). That's normal Summon behavior.
+
+Every record is tied to this workload identity — the attributable audit trail a
+hardcoded, shared password can never give you.
 
 ---
 
