@@ -144,23 +144,34 @@ student_dir="$LABS_ROOT/${STUDENT_PREFIX}1/$ACTIVITY_DIR_NAME"
 printf "\n----------------------------------------\n"
 printf "Retrieving the credential with Summon (populates the audit log)...\n"
 printf '%s\n' "----------------------------------------"
+retrieval_status="unknown"
 if [ -x "$student_dir/run_secured_query.sh" ]; then
   verified=false
-  for attempt in 1 2 3 4 5; do
+  max_attempts=18
+  attempt=1
+  # Wait for the account's secret VALUES to finish syncing Privilege Cloud ->
+  # Conjur (the safe/group sync completes earlier, in grant_consumers). Until
+  # then the fetch returns CONJ00076E and logs no retrieval. Up to ~3 min,
+  # breaking on the first success so a real retrieval lands in Audit.
+  while [ "$attempt" -le "$max_attempts" ]; do
     if (cd "$student_dir" && ./run_secured_query.sh); then
       verified=true
       break
     fi
-    printf "Attempt %s: not ready yet (safe may still be syncing); retrying in 5s...\n" "$attempt" >&2
-    sleep 5
+    printf "Attempt %s/%s: secret not readable yet (account still syncing into Conjur); retrying in 10s...\n" "$attempt" "$max_attempts" >&2
+    attempt=$((attempt + 1))
+    sleep 10
   done
   if [ "$verified" = true ]; then
+    retrieval_status="succeeded (retrieval logged to Audit)"
     printf "\nVERIFY PASS: run_secured_query.sh returned rows using the vaulted credential (retrieval logged to Audit).\n"
   else
-    printf "\nVERIFY WARN: run_secured_query.sh did not succeed yet.\n" >&2
-    printf "The account may still be syncing; re-run: (cd %s && ./run_secured_query.sh)\n" "$student_dir" >&2
+    retrieval_status="pending (values still syncing; re-run run_secured_query.sh)"
+    printf "\nVERIFY WARN: run_secured_query.sh did not succeed within %s attempts.\n" "$max_attempts" >&2
+    printf "The account values may still be syncing; re-run: (cd %s && ./run_secured_query.sh)\n" "$student_dir" >&2
   fi
 else
+  retrieval_status="skipped (student workspace not found)"
   printf "\nStudent workspace not found at %s; skipping automated retrieval.\n" "$student_dir"
   if [ -f "$demo_path/conjur_authn_azure.env" ]; then
     # shellcheck disable=SC1091
@@ -190,6 +201,7 @@ printf "  - Safe member:     Conjur Sync\n"
 printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
   "$ACCOUNT_NAME" "$DB_USERNAME" "$POSTGRES_PLATFORM_ID" "$ROTATION_ADDRESS"
 printf "  - Consumers grant: workload -> vault/%s/delegation/consumers\n" "$SAFE_NAME"
+printf "  - Runtime retrieval: %s\n" "$retrieval_status"
 printf "  - Rotation:        queued via SRS (runs asynchronously)\n"
 printf "========================================\n"
 
