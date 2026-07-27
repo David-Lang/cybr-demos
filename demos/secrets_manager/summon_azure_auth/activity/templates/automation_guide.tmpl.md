@@ -55,16 +55,23 @@ Anyone who can read the script can read the database. The secured query does
 
 ## 4. Create the workload
 
+> **This step is automated by Solve.**
+
 > **Click Solve now.** On your compute card's **Summon — Automated** row, click
 > **Solve** and wait for the row to show **Solved**. Solve performs steps 4–6
 > automatically; those steps below explain what it did.
 
 Solve creates a **workload** in Secrets Manager that maps to this VM's Azure
-managed identity (its Azure ID). This is the record `authn-azure` maps the VM's
-managed-identity token to when it authenticates — without it, `authn-azure` can
-validate the token but has no workload to map it to.
+managed identity (its Azure ID). **authn-azure** is Idira Secrets Manager's Azure
+authenticator: it validates the VM's Azure managed-identity token and maps it to a
+registered workload, so the workload proves what it is with no stored secret. The
+workload is the record `authn-azure` maps the VM's managed-identity token to when
+it authenticates — without it, `authn-azure` can validate the token but has no
+workload to map it to.
 
 ## 5. Vault the credential
+
+> **This step is automated by Solve.**
 
 Solve creates a safe named exactly `__SAFE_NAME__` (it matches your compute's
 name, so yours differs from everyone else's), adds **Conjur Sync** so Secrets
@@ -79,23 +86,33 @@ username:  __DB_USERNAME__
 password:  __DB_PASSWORD__
 ```
 
-`address` is what SRS/the Idira System connector uses to reach this VM's Postgres
-for rotation — not `localhost`. Syncing a safe automatically creates a
-**Consumers** delegation group for it, used in the next step.
+`address` is the connector-reachable host SRS (the Idira System connector) uses to
+rotate this VM's Postgres. Syncing a safe automatically creates a **Consumers**
+delegation group for it, used in the next step.
 
 ## 6. Grant the workload access to the safe
 
-Solve adds this VM's **workload** to the safe's **Consumers** group, authorizing
-it to read the account. It's the workload — not the Azure identity directly —
-that becomes a safe consumer; the workload maps to the VM's Azure ID from step 4.
+> **This step is automated by Solve.**
 
-After Solve, the vaulted paths that `secrets.yml` references resolve:
-`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/{username,password}`.
+Solve adds this VM's **workload** to the safe's **Consumers** group, authorizing
+it to **read the vaulted database credential**. It's the workload — not the Azure
+identity directly — that becomes a safe consumer; the workload maps to the VM's
+Azure ID from step 4.
+
+After Solve, the vaulted secret identifiers that `secrets.yml` references resolve:
+
+```text
+data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username
+data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password
+```
 
 ## 7. Secure: retrieve at runtime with Summon
 
-Run the secured query again — Summon now fetches the password at runtime using
-the VM's managed identity (no secret in code):
+Run the secured query again — Summon authenticates with the VM's managed identity
+and **retrieves the PostgreSQL database credential** for `__DB_USERNAME__` from
+Idira at runtime — the vaulted secret
+`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password` (and its `/username`) — with
+no secret in code:
 
 ```bash
 ./run_secured_query.sh
@@ -111,11 +128,18 @@ wait a moment and re-run.
 Solve also **queues a rotation** with **SRS** (Secrets Rotation Service) as its
 last step. SRS, via the Idira System connector, changes the password on this VM's
 Postgres — expect roughly a **~1 minute queue time** before it runs. Once it
-completes:
+completes, validate both paths:
+
+**Hardcoded (now fails)** — the baked-in password is stale after rotation:
 
 ```bash
-./run_hardcoded_query.sh    # FAILS — still has the old password
-./run_secured_query.sh     # WORKS — fetches the current password from Idira
+./run_hardcoded_query.sh
+```
+
+**Secured (still works)** — Summon fetches the current credential from Idira:
+
+```bash
+./run_secured_query.sh
 ```
 
 You can queue another rotation on demand with **SRS**, or from **Privilege Cloud**

@@ -68,8 +68,11 @@ Manager**. Create a **workload** that authenticates via **authn-azure** (service
 `subscription-id`, `resource-group`, and `user-assigned-identity` (the UAMI name
 shown on your compute card).
 
-This is the record that maps the VM's managed-identity token to a workload;
-without it `authn-azure` can validate the token but has no workload to map it to.
+**authn-azure** is Idira Secrets Manager's Azure authenticator: it validates the
+VM's Azure managed-identity token and maps it to a registered workload, so the
+workload proves what it is with no stored secret. This workload is the record that
+maps the VM's managed-identity token to an identity; without it `authn-azure` can
+validate the token but has no workload to map it to.
 
 ## 5. Vault the credential
 
@@ -96,23 +99,30 @@ resolves without editing:
    password:  __DB_PASSWORD__
    ```
 
-   `address` is what SRS/the Idira System connector uses to reach this VM's
-   Postgres for rotation — not `localhost`. The local scripts always connect to
-   `__DB_HOST__`.
+   `address` is the connector-reachable host SRS (the Idira System connector) uses
+   to rotate this VM's Postgres. The local scripts always connect to `__DB_HOST__`.
 
 ## 6. Grant the workload access to the safe
 
 Add the **workload** you created in step 4 to the safe's **Consumers** group for
-`__SAFE_NAME__`.
+`__SAFE_NAME__`, authorizing it to **read the vaulted database credential**.
 
 It's the **workload** (not the UAMI directly) that becomes a safe consumer: the
 UAMI is what the workload maps to via `authn-azure`, and the workload is what
 Conjur authorizes. Without this grant Summon can authenticate but cannot read the
-secret.
+secret. The vaulted secret identifiers `secrets.yml` references are:
+
+```text
+data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/username
+data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password
+```
 
 ## 7. Secure: retrieve at runtime with Summon
 
-Look at the secured script and the variable map, then run it through Summon:
+Look at the secured script and the variable map, then run it through Summon — it
+**retrieves the PostgreSQL database credential** for `__DB_USERNAME__` from Idira
+at runtime (the vaulted secret `data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password`
+and its `/username`):
 
 ```bash
 cat query_db_secured.sh
@@ -121,7 +131,7 @@ cat secrets.yml
 ```
 
 Same rows as step 3 — with no secret in the script. Summon authenticated with the
-VM's managed identity and Idira returned the password at runtime. If you see
+VM's managed identity and Idira returned the credential at runtime. If you see
 `CONJ00076E ... is empty or not found`, the account hasn't synced yet or the
 workload isn't granted — recheck steps 5–6 and retry.
 
@@ -130,11 +140,18 @@ workload isn't granted — recheck steps 5–6 and retry.
 Rotate the vaulted credential **on demand with SRS** (Secrets Rotation Service).
 SRS reaches this VM's Postgres through the Idira System connector (using the
 stored `address` `__ROTATION_ADDRESS__`) and changes the password — expect roughly
-a **~1 minute queue time** before it runs. Once it completes:
+a **~1 minute queue time** before it runs. Once it completes, validate both paths:
+
+**Hardcoded (now fails)** — the baked-in password is stale after rotation:
 
 ```bash
-./run_hardcoded_query.sh    # FAILS — still has the old password
-./run_secured_query.sh     # WORKS — fetches the current password from Idira
+./run_hardcoded_query.sh
+```
+
+**Secured (still works)** — Summon fetches the current credential from Idira:
+
+```bash
+./run_secured_query.sh
 ```
 
 ## 9. Validate
