@@ -125,9 +125,7 @@ the PostgreSQL database credential** for `__DB_USERNAME__` from Idira at runtime
 ```
 
 It returns the **same rows** as the hardcoded query in step 3, but with no secret
-in the script. That's the point: same result, credential handled securely. If it
-reports `CONJ00076E ... is empty or not found`, the account may still be syncing —
-wait a moment and re-run.
+in the script. That's the point: same result, credential handled securely.
 
 ## 8. Rotate
 
