@@ -8,7 +8,7 @@
 #   2. add the "Conjur Sync" member so Secrets Manager syncs the safe,
 #   3. onboard the PostgreSQL account exposing username + password,
 #   4. grant this VM's workload identity read access (Consumers group),
-#   5. best-effort verify the secured query returns rows,
+#   5. retrieve the credential via run_secured_query.sh (logs an Audit event),
 #   6. queue an SRS rotation of the vaulted credential (runs asynchronously).
 #
 # The account is onboarded with automatic secrets management enabled so SRS
@@ -132,24 +132,45 @@ fi
 printf "\nGranting the workload read access to the safe consumers group...\n"
 bash "$demo_path/setup/conjur/grant_consumers.sh"
 
-# --- 5. Verify (best-effort, non-fatal) -------------------------------------
+# --- 5. Retrieve at runtime (populates the audit log) + verify --------------
+# Run the secured query through Summon BEFORE queuing rotation, so a secret-
+# retrieval event lands in the Idira audit log with no extra student action.
+# Best-effort, with a short retry while the safe finishes syncing into Conjur.
 LABS_ROOT="${LABS_ROOT:-/opt/labs}"
 STUDENT_PREFIX="${STUDENT_PREFIX:-student}"
 ACTIVITY_DIR_NAME="${ACTIVITY_DIR_NAME:-hardcoded-secret-remediation}"
 student_dir="$LABS_ROOT/${STUDENT_PREFIX}1/$ACTIVITY_DIR_NAME"
 
 printf "\n----------------------------------------\n"
-printf "Verifying the secured query...\n"
+printf "Retrieving the credential with Summon (populates the audit log)...\n"
 printf '%s\n' "----------------------------------------"
+retrieval_status="unknown"
 if [ -x "$student_dir/run_secured_query.sh" ]; then
-  if (cd "$student_dir" && ./run_secured_query.sh); then
-    printf "\nVERIFY PASS: run_secured_query.sh returned rows using the vaulted credential.\n"
+  verified=false
+  max_attempts=6
+  attempt=1
+  # Short retry in case the account's secret values are still syncing
+  # Privilege Cloud -> Conjur right after onboarding; break on first success.
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if (cd "$student_dir" && ./run_secured_query.sh); then
+      verified=true
+      break
+    fi
+    printf "Attempt %s/%s: not ready yet (account still syncing into Conjur); retrying in 5s...\n" "$attempt" "$max_attempts" >&2
+    attempt=$((attempt + 1))
+    sleep 5
+  done
+  if [ "$verified" = true ]; then
+    retrieval_status="succeeded (retrieval logged to Audit)"
+    printf "\nVERIFY PASS: run_secured_query.sh returned rows using the vaulted credential (retrieval logged to Audit).\n"
   else
-    printf "\nVERIFY WARN: run_secured_query.sh did not succeed yet.\n" >&2
+    retrieval_status="pending (re-run run_secured_query.sh)"
+    printf "\nVERIFY WARN: run_secured_query.sh did not succeed within %s attempts.\n" "$max_attempts" >&2
     printf "The account may still be syncing; re-run: (cd %s && ./run_secured_query.sh)\n" "$student_dir" >&2
   fi
 else
-  printf "\nStudent workspace not found at %s; skipping automated verify.\n" "$student_dir"
+  retrieval_status="skipped (student workspace not found)"
+  printf "\nStudent workspace not found at %s; skipping automated retrieval.\n" "$student_dir"
   if [ -f "$demo_path/conjur_authn_azure.env" ]; then
     # shellcheck disable=SC1091
     source "$demo_path/conjur_authn_azure.env"
@@ -178,6 +199,7 @@ printf "  - Safe member:     Conjur Sync\n"
 printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
   "$ACCOUNT_NAME" "$DB_USERNAME" "$POSTGRES_PLATFORM_ID" "$ROTATION_ADDRESS"
 printf "  - Consumers grant: workload -> vault/%s/delegation/consumers\n" "$SAFE_NAME"
+printf "  - Runtime retrieval: %s\n" "$retrieval_status"
 printf "  - Rotation:        queued via SRS (runs asynchronously)\n"
 printf "========================================\n"
 
