@@ -38,19 +38,18 @@ ls
 
 ## 3. Expose: see the hardcoded anti-pattern
 
-Run the insecure baseline and look at the script:
+Run the insecure baseline:
 
 ```bash
 ./run_hardcoded_query.sh
-cat query_db_hardcoded.sh
 ```
 
-It returns rows — but the password (`PGPASSWORD`) is right there in the file.
-Anyone who can read the script can read the database. The secured query does
-**not** work yet, because nothing has been vaulted:
+It returns rows. Now look at the scripts — the password (`PGPASSWORD`) is right
+there in the file, so anyone who can read the script can read the database:
 
 ```bash
-./run_secured_query.sh     # expected to FAIL until you Solve
+cat run_hardcoded_query.sh
+cat query_db_hardcoded.sh
 ```
 
 ## 4. Create the workload
@@ -108,11 +107,18 @@ data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password
 
 ## 7. Secure: retrieve at runtime with Summon
 
-Run the secured query again — Summon authenticates with the VM's managed identity
-and **retrieves the PostgreSQL database credential** for `__DB_USERNAME__` from
-Idira at runtime — the vaulted secret
-`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/password` (and its `/username`) — with
-no secret in code:
+First look at the secured scripts and the variable map — no credentials in the
+code; `secrets.yml` maps `PGUSER`/`PGPASSWORD` to the vaulted secret
+`data/vault/__SAFE_NAME__/__ACCOUNT_NAME__/{username,password}`:
+
+```bash
+cat run_secured_query.sh
+cat query_db_secured.sh
+cat secrets.yml
+```
+
+Now run it — Summon authenticates with the VM's managed identity and **retrieves
+the PostgreSQL database credential** for `__DB_USERNAME__` from Idira at runtime:
 
 ```bash
 ./run_secured_query.sh
