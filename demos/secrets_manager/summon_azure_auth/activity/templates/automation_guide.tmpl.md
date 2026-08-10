@@ -131,8 +131,12 @@ in the script. That's the point: same result, credential handled securely.
 
 Solve also **queues a rotation** with **SRS** (Secrets Rotation Service) as its
 last step. SRS, via the Idira System connector, changes the password on this VM's
-Postgres — expect roughly a **~1 minute queue time** before it runs. Once it
-completes, validate both paths:
+Postgres. Solve confirms the request was accepted and then waits for the change to
+land, so by the time it reports success the credential has normally already been
+rotated. If Solve reported `Rotation: queued but not yet observed complete`, give
+SRS another minute before validating.
+
+Once it completes, validate both paths:
 
 **Hardcoded (now fails)** — the baked-in password is stale after rotation:
 

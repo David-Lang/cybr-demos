@@ -9,7 +9,8 @@
 #   3. onboard the PostgreSQL account exposing username + password,
 #   4. grant this VM's workload identity read access (Consumers group),
 #   5. retrieve the credential via run_secured_query.sh (logs an Audit event),
-#   6. queue an SRS rotation of the vaulted credential (runs asynchronously).
+#   6. queue an SRS rotation of the vaulted credential, confirming it was
+#      accepted (with retries) and waiting for it to complete.
 #
 # The account is onboarded with automatic secrets management enabled so SRS
 # (the Secrets Rotation Service) can rotate it.
@@ -178,16 +179,42 @@ else
   fi
 fi
 
-# --- 6. Queue rotation (best-effort) ----------------------------------------
+# --- 6. Queue rotation (retried + verified) ---------------------------------
 # Queue an SRS rotation of the vaulted credential. The account has automatic
 # secrets management enabled; this asks SRS (via the Idira System connector) to
-# change the password now. It runs asynchronously and only succeeds if SRS/the
-# connector can reach the target, so it is best-effort here (log-and-continue).
+# change the password now.
+#
+# This used to be fire-and-forget: the Change POST's HTTP status was never
+# checked, so a hard failure (e.g. HTTP 403 "SRS action 'change-secret' ...
+# Forbidden") printed "Rotation queued" and the first rotation silently never
+# happened — which is why it looked intermittent.
+#
+# queue_account_rotation now waits until the account is manageable, checks the
+# POST status, retries transient failures, and fails fast with the tenant's own
+# message on 401/403/404. We then wait for the secret's lastModifiedTime to
+# advance, so the guide's "the hardcoded password now fails" step is true by the
+# time Solve reports success.
 printf "\nQueuing a rotation of the vaulted credential...\n"
+rotation_status="not queued"
 if queue_account_rotation "$TENANT_SUBDOMAIN" "$identity_token" "$SAFE_NAME" "$ACCOUNT_NAME"; then
-  printf "\nRotation queued. SRS will change the credential asynchronously; watch it in Secrets Manager / Audit.\n"
+  rotation_status="queued (SRS running asynchronously)"
+  printf "\nRotation request accepted.\n"
+  # Confirm it actually lands. A timeout here is a warning, not a failure: the
+  # rotation is queued and SRS may simply be slow, and failing Solve would
+  # discard the correct vault + grant state.
+  printf "\nWaiting for the rotation to complete...\n"
+  if wait_for_rotation_complete "$TENANT_SUBDOMAIN" "$identity_token" \
+      "${ROTATION_ACCOUNT_ID:-}" "${ROTATION_BASELINE:-}"; then
+    rotation_status="completed (credential changed)"
+    printf "\nVERIFY PASS: the vaulted credential was rotated; the hardcoded password is now stale.\n"
+  else
+    rotation_status="queued but not yet observed complete"
+    printf "\nVERIFY WARN: rotation was queued but has not completed yet; watch Secrets Manager / Audit.\n" >&2
+  fi
 else
-  printf "\nWARN: could not queue rotation (account not found or change not accepted); continuing.\n" >&2
+  rotation_status="FAILED to queue"
+  printf "\nWARN: could not queue a rotation after retries; the credential was NOT rotated.\n" >&2
+  printf "Re-run Solve, or queue a change from Privilege Cloud / Secrets Manager.\n" >&2
 fi
 
 printf "\n========================================\n"
@@ -200,7 +227,7 @@ printf "  - Account:         %s (user %s, platform %s, address %s)\n" \
   "$ACCOUNT_NAME" "$DB_USERNAME" "$POSTGRES_PLATFORM_ID" "$ROTATION_ADDRESS"
 printf "  - Consumers grant: workload -> vault/%s/delegation/consumers\n" "$SAFE_NAME"
 printf "  - Runtime retrieval: %s\n" "$retrieval_status"
-printf "  - Rotation:        queued via SRS (runs asynchronously)\n"
+printf "  - Rotation:        %s\n" "$rotation_status"
 printf "========================================\n"
 
 printf "__SOLVE_OK__\n"

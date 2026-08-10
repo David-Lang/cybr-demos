@@ -316,28 +316,179 @@ ensure_platform_active() {
      --header "Authorization: Bearer $token"
  }
 
+ account_secret_last_modified() {
+   # $1 isp_subdomain, $2 identity_token, $3 account_id
+   # Echoes the epoch seconds when the account's secret was last changed, or ""
+   # when unknown.
+   #
+   # Verified against a live Privilege Cloud tenant: an account's
+   # secretManagement block contains only automaticManagementEnabled and
+   # lastModifiedTime (there is no CPM "status" field to poll, and
+   # /Accounts/<id>/SecretVersions returns 404). So an advancing
+   # lastModifiedTime is the only reliable proof that a rotation actually
+   # happened.
+   if [ $# -ne 3 ]; then
+     echo "Usage: account_secret_last_modified isp_subdomain identity_token account_id" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" id="$3" resp
+   resp=$(curl --silent --location \
+     "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+     --header "Authorization: Bearer $token" --header "Accept: application/json")
+   printf '%s' "$resp" | jq -r '
+     (.secretManagement.lastModifiedTime // empty) | tostring
+   ' 2>/dev/null
+ }
+
+ wait_for_account_ready_to_rotate() {
+   # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name,
+   # [$5 max_attempts (default 12)], [$6 sleep_seconds (default 5)]
+   #
+   # Waits until the freshly-onboarded account is actually rotatable. Right after
+   # onboarding, the account exists in the API but automatic secrets management
+   # has not finished initializing, and a Change POST is silently ignored (HTTP
+   # 200 with no task queued) — the intermittent "first rotation never happened".
+   # Echoes the account id on success.
+   if [ $# -lt 4 ]; then
+     echo "Usage: wait_for_account_ready_to_rotate isp_subdomain identity_token safe_name account_name [max_attempts] [sleep_seconds]" >&2
+     return 1
+   fi
+   local subdomain="$1" token="$2" safe="$3" name="$4"
+   local max_attempts="${5:-12}" sleep_seconds="${6:-5}"
+   local attempt=1 id resp managed
+   while [ "$attempt" -le "$max_attempts" ]; do
+     id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
+     if [ -n "$id" ] && [ "$id" != "null" ]; then
+       resp=$(curl --silent --location \
+         "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id" \
+         --header "Authorization: Bearer $token" --header "Accept: application/json")
+       managed=$(printf '%s' "$resp" | jq -r '.secretManagement.automaticManagementEnabled // false' 2>/dev/null)
+       if [ "$managed" = "true" ]; then
+         printf '%s' "$id"
+         return 0
+       fi
+     fi
+     printf "Account '%s' not ready to rotate yet (attempt %s/%s); waiting %ss...\n" \
+       "$name" "$attempt" "$max_attempts" "$sleep_seconds" >&2
+     attempt=$((attempt + 1))
+     sleep "$sleep_seconds"
+   done
+   printf "ERROR: account '%s' in safe '%s' never became ready to rotate.\n" "$name" "$safe" >&2
+   return 1
+ }
+
  queue_account_rotation() {
    # $1 isp_subdomain, $2 identity_token, $3 safe_name, $4 account_name
-   # Queues an immediate CPM change (rotation) of the account's credential.
-   # Requires the account to have automatic secrets management enabled and a
-   # CPM/connector able to reach the target. Returns non-zero if the account
-   # can't be found; the change call itself is best-effort (CPM runs async).
+   # Queues an immediate SRS/CPM change (rotation) of the account's credential,
+   # checking the HTTP status and retrying transient failures.
+   #
+   # This was previously fire-and-forget: the POST's status was never checked, so
+   # a hard failure printed "Rotation queued" and the first rotation silently
+   # never happened. A real tenant returns, for example:
+   #   403 {"Message":"SRS action 'change-secret' for account '<id>' failed with
+   #        status code Forbidden. URI: .../change-secret"}
+   # which the old code swallowed entirely.
+   #
+   # Retries cover the genuinely transient cases (429/5xx, and the window right
+   # after onboarding before the account is manageable). A 403/404 is a
+   # configuration problem, not a race, so it fails fast with the tenant's own
+   # message rather than burning four attempts.
+   #
+   # Sets ROTATION_ACCOUNT_ID / ROTATION_BASELINE for wait_for_rotation_complete.
+   # Returns 0 when the change was accepted, non-zero otherwise.
    if [ $# -ne 4 ]; then
      echo "Usage: queue_account_rotation isp_subdomain identity_token safe_name account_name" >&2
      return 1
    fi
-   local subdomain="$1" token="$2" safe="$3" name="$4" id
-   id=$(account_id_by_name "$subdomain" "$token" "$safe" "$name")
-   if [ -z "$id" ] || [ "$id" = "null" ]; then
-     printf "\nNo account named '%s' found in Safe '%s'; cannot queue rotation.\n" "$name" "$safe" >&2
+   local subdomain="$1" token="$2" safe="$3" name="$4"
+   local id resp http_code body attempt max_attempts=4 baseline
+
+   id=$(wait_for_account_ready_to_rotate "$subdomain" "$token" "$safe" "$name") || return 1
+
+   baseline=$(account_secret_last_modified "$subdomain" "$token" "$id")
+   ROTATION_ACCOUNT_ID="$id"
+   ROTATION_BASELINE="$baseline"
+   printf "\nQueuing rotation for Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
+
+   attempt=1
+   while [ "$attempt" -le "$max_attempts" ]; do
+     resp=$(curl --silent --show-error --request POST \
+       --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id/Change/" \
+       --header "Authorization: Bearer $token" \
+       --header 'Content-Type: application/json' \
+       --data '{"ChangeEntireGroup": false}' \
+       --write-out '\n%{http_code}')
+     http_code=$(printf '%s' "$resp" | tail -n1)
+     body=$(printf '%s' "$resp" | sed '$d')
+     # Guard against a non-numeric code (e.g. curl transport failure) so the
+     # arithmetic comparison below cannot abort the script under set -e.
+     case "$http_code" in
+       ''|*[!0-9]*) http_code=0 ;;
+     esac
+
+     if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+       printf "Rotation request accepted (HTTP %s); SRS will change the credential.\n" "$http_code"
+       return 0
+     fi
+
+     # Permission/'not found' problems will not fix themselves — surface the
+     # tenant's message immediately instead of retrying.
+     if [ "$http_code" = "401" ] || [ "$http_code" = "403" ] || [ "$http_code" = "404" ]; then
+       printf "ERROR: rotation refused (HTTP %s): %s\n" "$http_code" "$body" >&2
+       printf "This is a configuration issue, not a timing one — check that SRS/CPM can manage\n" >&2
+       printf "safe '%s' (managing CPM + safe members) and that the platform is active.\n" "$safe" >&2
+       return 1
+     fi
+
+     printf "Change POST failed with HTTP %s (attempt %s/%s): %s\n" \
+       "$http_code" "$attempt" "$max_attempts" "$body" >&2
+     attempt=$((attempt + 1))
+     if [ "$attempt" -le "$max_attempts" ]; then
+       sleep 10
+     fi
+   done
+
+   printf "ERROR: could not queue a rotation for account '%s' after %s attempts.\n" \
+     "$name" "$max_attempts" >&2
+   return 1
+ }
+
+ wait_for_rotation_complete() {
+   # $1 isp_subdomain, $2 identity_token, $3 account_id, [$4 baseline_timestamp],
+   # [$5 max_attempts (default 24)], [$6 sleep_seconds (default 5)]
+   #
+   # Waits for SRS/CPM to finish the queued change by watching the account's
+   # secret lastModifiedTime advance past the baseline captured before the change
+   # was queued. That timestamp is the only rotation signal the Accounts API
+   # exposes (see account_secret_last_modified).
+   #
+   # Returns 0 when the rotation is observed complete, 1 on timeout. A timeout is
+   # not necessarily a failure — SRS is asynchronous — so callers should treat it
+   # as a warning.
+   if [ $# -lt 3 ]; then
+     echo "Usage: wait_for_rotation_complete isp_subdomain identity_token account_id [baseline] [max_attempts] [sleep_seconds]" >&2
      return 1
    fi
-   printf "\nQueuing CPM rotation for Account: %s (id %s) in Safe: %s\n" "$name" "$id" "$safe"
-   curl --silent --request POST \
-     --location "https://$subdomain.privilegecloud.cyberark.cloud/PasswordVault/API/Accounts/$id/Change/" \
-     --header "Authorization: Bearer $token" \
-     --header 'Content-Type: application/json' \
-     --data '{"ChangeEntireGroup": false}'
+   local subdomain="$1" token="$2" id="$3" baseline="${4:-}"
+   local max_attempts="${5:-24}" sleep_seconds="${6:-5}"
+   local attempt=1 current
+   if [ -z "$id" ]; then
+     printf "WARN: no account id supplied; cannot verify rotation.\n" >&2
+     return 1
+   fi
+   while [ "$attempt" -le "$max_attempts" ]; do
+     current=$(account_secret_last_modified "$subdomain" "$token" "$id")
+     if [ -n "$current" ] && [ "$current" != "$baseline" ]; then
+       printf "Rotation complete (secret last modified %s).\n" "$current"
+       return 0
+     fi
+     printf "Waiting for rotation to complete (attempt %s/%s)...\n" "$attempt" "$max_attempts" >&2
+     attempt=$((attempt + 1))
+     sleep "$sleep_seconds"
+   done
+   printf "WARN: rotation did not complete within %s attempts (baseline %s unchanged).\n" \
+     "$max_attempts" "${baseline:-unknown}" >&2
+   return 1
  }
 
  create_app() {
